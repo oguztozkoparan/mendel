@@ -6,6 +6,7 @@ import a from './App.module.css'
 import { CommitBox } from './CommitBox'
 import s from './Changes.module.css'
 import { DiffView } from './DiffView'
+import { useGerritCommitHint } from './providers/gerrit/commitHint'
 
 /** Letter shown in the list: index side first, untracked shows as added. */
 export const statusLetter = (f: FileChange) => (f.conflicted ? 'U' : (f.staged ?? (f.unstaged === '?' ? 'A' : f.unstaged)) ?? 'M')
@@ -39,6 +40,7 @@ export function ChangesView({ repo }: { repo: RepoEntry }) {
     [qc, repo.id]
   )
   const files = status.data ?? []
+  const hint = useGerritCommitHint(repo.id)
   const [picked, setPicked] = useState<string | null>(null)
   const selected = files.find((f) => f.path === picked) ?? files[0]
   const [error, setError] = useState<string | null>(null)
@@ -103,7 +105,7 @@ export function ChangesView({ repo }: { repo: RepoEntry }) {
             )}
           </GridList>
         </Virtualizer>
-        <CommitBox repo={repo.id} hasStaged={files.some((f) => f.staged)} />
+        <CommitBox repo={repo.id} hasStaged={files.some((f) => f.staged)} hint={hint} />
       </aside>
       <section className={a.main}>
         {error && (

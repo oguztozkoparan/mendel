@@ -4,8 +4,15 @@ import { Button, Checkbox, Input, TextArea, TextField } from 'react-aria-compone
 import s from './Changes.module.css'
 import { useSettings } from './Settings'
 
+/** A provider's commit-box message (PLAN.md §5.3 "commit-message checks / hints"). */
+export interface CommitHint {
+  note: string
+  /** One-click fix, e.g. "Add Change-Id to last commit". */
+  fix?: { label: string; run(): Promise<unknown> }
+}
+
 /** Commit box (PLAN.md 3.5): summary, description, amend (prefilled from HEAD), Mod+Enter commits. */
-export function CommitBox({ repo, hasStaged }: { repo: string; hasStaged: boolean }) {
+export function CommitBox({ repo, hasStaged, hint }: { repo: string; hasStaged: boolean; hint?: CommitHint | null }) {
   const qc = useQueryClient()
   const info = useQuery({ queryKey: ['commitInfo', repo], queryFn: () => window.gitdock['commit:info']({ repo }) })
   const settings = useSettings().data
@@ -67,6 +74,19 @@ export function CommitBox({ repo, hasStaged }: { repo: string; hasStaged: boolea
         </span>
         Amend last commit
       </Checkbox>
+      {hint && <small className={s.author}>{hint.note}</small>}
+      {hint?.fix && (
+        <Button
+          isDisabled={busy}
+          onPress={() => {
+            setBusy(true)
+            setError(null)
+            hint.fix!.run().catch((err: Error) => setError(err.message)).finally(() => setBusy(false))
+          }}
+        >
+          {hint.fix.label}
+        </Button>
+      )}
       {error && (
         <p role="alert" className={s.commitError}>
           {error}

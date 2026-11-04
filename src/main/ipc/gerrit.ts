@@ -3,7 +3,10 @@ import { GERRIT_AUTH_ERROR, GERRIT_REBASE_CONFLICT, type GerritDraft } from '../
 import log from '../log'
 import { gerritClient, GerritHttpError, normalizeBaseUrl, type Fetch } from '../providers/gerrit/client'
 import { getCredential, removeCredential, saveCredential } from '../providers/gerrit/credentials'
-import { activeState, allowLoopbackHttp, providerHandlers } from './provider'
+import { addChangeId, amendWithChangeId, hasCommitMsgHook, unpushedCommits } from '../providers/gerrit/git'
+import { setCommitMessageTransform } from '../git/commit'
+import { repoRoot } from '../repos'
+import { activeState, activeStates, allowLoopbackHttp, providerHandlers } from './provider'
 import type { Handlers } from '.'
 
 // net.fetch: Chromium network stack (OS cert store, system proxy); TLS errors are never overridden (TECH.md §6.6).
@@ -26,7 +29,34 @@ export async function gerritFor(repo: string) {
   return gerritClient(base, auth, fetchFn)
 }
 
-export const gerritHandlers: Handlers<'gerrit:connect' | 'gerrit:disconnect' | 'gerrit:open' | 'gerrit:changes' | 'gerrit:change' | 'gerrit:files' | 'gerrit:diff' | 'gerrit:comments' | 'gerrit:review' | 'gerrit:action'> = {
+/** Root of a repo whose active provider is Gerrit (git-side features need no base URL). */
+async function gerritRoot(repo: string): Promise<string> {
+  if ((await activeState(repo)).detection?.provider !== 'gerrit') throw new Error('Gerrit is not active for this repository')
+  return repoRoot(repo)
+}
+
+// PLAN.md §4.6: Change-Id trailer for commits in Gerrit repos (no-op when a commit-msg hook exists).
+setCommitMessageTransform(async (message, { cwd, amend }) => {
+  for (const [repo, s] of activeStates()) {
+    if (s.detection?.provider !== 'gerrit') continue
+    let root = null
+    try {
+      root = repoRoot(repo)
+    } catch {
+      /* repo removed */
+    }
+    if (root === cwd) return addChangeId(cwd, message, amend)
+  }
+  return message
+})
+
+export const gerritHandlers: Handlers<'gerrit:commitHint' | 'gerrit:addChangeId' | 'gerrit:connect' | 'gerrit:disconnect' | 'gerrit:open' | 'gerrit:changes' | 'gerrit:change' | 'gerrit:files' | 'gerrit:diff' | 'gerrit:comments' | 'gerrit:review' | 'gerrit:action'> = {
+  'gerrit:commitHint': async ({ repo }) => {
+    const root = await gerritRoot(repo)
+    const [hook, commits] = await Promise.all([hasCommitMsgHook(root), unpushedCommits(root)])
+    return { hook, headMissingChangeId: !!commits[0] && !commits[0].changeId }
+  },
+  'gerrit:addChangeId': async ({ repo }) => amendWithChangeId(await gerritRoot(repo)),
   'gerrit:change': async ({ repo, change }) => (await gerritFor(repo)).change(change),
   'gerrit:files': async ({ repo, change, revision, base }) => (await gerritFor(repo)).files(change, revision, base),
   'gerrit:comments': async ({ repo, change }) => (await gerritFor(repo)).comments(change),

@@ -186,6 +186,14 @@ export interface RepoOverride {
   baseUrl?: string
 }
 
+/** Gerrit hints for the commit box (PLAN.md §4.6). */
+export interface GerritCommitHint {
+  /** A commit-msg hook exists, so it adds the Change-Id (else gitdock does). */
+  hook: boolean
+  /** HEAD is unpushed and has no Change-Id: offer "Add Change-Id to last commit". */
+  headMissingChangeId: boolean
+}
+
 export interface ProviderState {
   /** null = no provider (none detected, or override 'none'). */
   detection: Detection | null
@@ -314,6 +322,9 @@ export const invoke = {
     z.object({ repo: repoId, baseUrl: z.string().min(1).max(2048), username: z.string().min(1).max(256), password: z.string().min(1).max(4096) }).strict()
   ),
   'gerrit:disconnect': res<void>()(inRepo),
+  'gerrit:commitHint': res<GerritCommitHint>()(inRepo),
+  /** Amend only HEAD's message to add a Change-Id (HEAD must be unpushed). */
+  'gerrit:addChangeId': res<void>()(inRepo),
   /** Open `<baseUrl>/<path>` (or an absolute URL on the same origin) in the browser; other origins are dropped. */
   'gerrit:open': res<void>()(z.object({ repo: repoId, path: z.string().min(1).max(4096) }).strict()),
   /** Reviews lists; `projectOnly` adds `project:"<p>"` to each query. */

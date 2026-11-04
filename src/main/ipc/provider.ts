@@ -54,6 +54,9 @@ export async function providerState(repo: string): Promise<ProviderState> {
   return state
 }
 
+/** Repo id → last detection, for main-side hooks that only know the repo root (commit message transform). */
+export const activeStates = () => active.entries()
+
 export async function activeState(repo: string): Promise<ProviderState> {
   return active.get(repo) ?? providerState(repo)
 }
