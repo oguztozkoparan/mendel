@@ -54,6 +54,15 @@ export interface FileChange {
   conflicted: boolean
 }
 
+export interface CommitInfo {
+  /** null when HEAD is detached. */
+  branch: string | null
+  /** "Name <email>" git will commit as; null if user.name/email are not set. */
+  author: string | null
+  /** Full message of HEAD (amend prefill); null before the first commit. */
+  head: string | null
+}
+
 const repoId = z.string().min(1).max(64)
 const byId = z.object({ id: repoId }).strict()
 /** Repo-relative path; main additionally checks it with resolveUnder (TECH.md §6.4). */
@@ -101,7 +110,14 @@ export const invoke = {
       .strict()
   ),
   /** Discard all changes to these files after a native confirm; false = user cancelled. */
-  'changes:discard': res<boolean>()(paths)
+  'changes:discard': res<boolean>()(paths),
+  'commit:info': res<CommitInfo>()(inRepo),
+  /** Message = `summary\n\ndescription\n`, sent to `git commit -F -`; hook failures reject with git's stderr. */
+  'commit:create': res<void>()(
+    z
+      .object({ repo: repoId, summary: z.string().trim().min(1).max(1000), description: z.string().max(100_000), amend: z.boolean() })
+      .strict()
+  )
 } as const
 
 export const events = {

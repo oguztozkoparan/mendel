@@ -175,3 +175,76 @@
   font-family: system-ui, sans-serif;
   font-size: 11px;
 }
+
+.commitBox {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.summaryField {
+  position: relative;
+  display: flex;
+}
+
+.summary {
+  flex: 1;
+  padding-right: 32px;
+}
+
+.counter,
+.over {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.over {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.description {
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+.amend {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.amend[data-selected] .box {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+
+.amend[data-disabled] {
+  opacity: 0.5;
+}
+
+.commitError {
+  margin: 0;
+  color: var(--danger);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 120px;
+  overflow: auto;
+}
+
+.author {
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

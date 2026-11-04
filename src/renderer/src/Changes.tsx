@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { Button, Checkbox, GridList, GridListItem, ListLayout, Virtualizer } from 'react-aria-components'
 import type { FileChange, RepoEntry } from '../../shared/ipc'
 import a from './App.module.css'
+import { CommitBox } from './CommitBox'
 import s from './Changes.module.css'
 import { DiffView } from './DiffView'
 
@@ -33,6 +34,7 @@ export function ChangesView({ repo }: { repo: RepoEntry }) {
         if (e.repo !== repo.id) return
         void qc.invalidateQueries({ queryKey: ['status', repo.id] })
         void qc.invalidateQueries({ queryKey: ['diff', repo.id] })
+        void qc.invalidateQueries({ queryKey: ['commitInfo', repo.id] })
       }),
     [qc, repo.id]
   )
@@ -92,6 +94,7 @@ export function ChangesView({ repo }: { repo: RepoEntry }) {
             )}
           </GridList>
         </Virtualizer>
+        <CommitBox repo={repo.id} hasStaged={files.some((f) => f.staged)} />
       </aside>
       <section className={a.main}>
         {error && (
