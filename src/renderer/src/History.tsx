@@ -1,12 +1,12 @@
 import { keepPreviousData, useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { useMemo, useState, type ReactNode } from 'react'
 import { Button, Collection, GridList, GridListItem, GridListLoadMoreItem, ListBox, ListBoxItem, ListLayout, Virtualizer } from 'react-aria-components'
-import { Diff, Hunk, parseDiff } from 'react-diff-view'
+import { Diff, Hunk } from 'react-diff-view'
 import type { CommitDetail, CommitSummary } from '../../shared/ipc'
 import a from './App.module.css'
 import { useBranches } from './Branches'
 import c from './Changes.module.css'
-import { visible } from './DiffView'
+import { useParsedDiff, visible } from './DiffView'
 import s from './History.module.css'
 import { ago } from './time'
 
@@ -117,24 +117,26 @@ function CommitView(p: { repo: string; sha: string }) {
           </>
         )}
       </dl>
-      <ListBox
-        aria-label="Changed files"
-        items={d.files}
-        selectionMode="single"
-        disallowEmptySelection
-        selectedKeys={f ? [f.path] : []}
-        onSelectionChange={(keys) => keys !== 'all' && keys.size && setFile(String([...keys][0]))}
-        className={s.files}
-      >
-        {(x) => (
-          <ListBoxItem id={x.path} textValue={x.path} className={c.row}>
-            <span className={c.letter} data-status={x.status}>
-              {x.status}
-            </span>
-            <span className={c.path}>{x.origPath ? `${x.origPath} → ${x.path}` : x.path}</span>
-          </ListBoxItem>
-        )}
-      </ListBox>
+      <Virtualizer layout={ListLayout} layoutOptions={{ rowHeight: 26 }}>
+        <ListBox
+          aria-label="Changed files"
+          items={d.files}
+          selectionMode="single"
+          disallowEmptySelection
+          selectedKeys={f ? [f.path] : []}
+          onSelectionChange={(keys) => keys !== 'all' && keys.size && setFile(String([...keys][0]))}
+          className={s.files}
+        >
+          {(x) => (
+            <ListBoxItem id={x.path} textValue={x.path} className={c.row}>
+              <span className={c.letter} data-status={x.status}>
+                {x.status}
+              </span>
+              <span className={c.path}>{x.origPath ? `${x.origPath} → ${x.path}` : x.path}</span>
+            </ListBoxItem>
+          )}
+        </ListBox>
+      </Virtualizer>
       {f && <CommitFileDiff repo={p.repo} sha={d.sha} file={f} />}
     </div>
   )
@@ -145,10 +147,11 @@ function CommitFileDiff(p: { repo: string; sha: string; file: CommitDetail['file
     queryKey: ['commitDiff', p.repo, p.sha, p.file.path],
     queryFn: () => window.gitdock['history:diff']({ repo: p.repo, sha: p.sha, path: p.file.path, origPath: p.file.origPath })
   })
-  const parsed = useMemo(() => (q.data ? parseDiff(q.data)[0] : undefined), [q.data])
+  const { parsed, gate } = useParsedDiff(q.data)
   if (q.error) return <p role="alert" className={c.empty}>{q.error.message}</p>
   if (!q.data) return null
   if (parsed?.isBinary || /^Binary files /m.test(q.data)) return <p className={c.empty}>Binary file changed</p>
+  if (gate) return gate
   if (!parsed?.hunks.length) return <p className={c.empty}>No content changes</p>
   return (
     <section className={c.diffPane} aria-label="Commit diff">
