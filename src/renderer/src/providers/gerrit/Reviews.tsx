@@ -60,7 +60,7 @@ export function Reviews({ repo, state }: { repo: RepoEntry; state: ProviderState
         <Button onPress={() => void lists.refetch()}>Retry</Button>
       </div>
     )
-  else main = selected ? <ChangeDetail key={selected} repo={repo.id} number={selected} onBack={() => setSelected(null)} /> : <p className={s.empty}>Select a change</p>
+  else main = selected ? <ChangeDetail key={selected} repo={repo.id} number={selected} me={state.credentialUser} onBack={() => setSelected(null)} /> : <p className={s.empty}>Select a change</p>
 
   const sections: [string, GerritChange[]][] = lists.data
     ? [

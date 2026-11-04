@@ -101,3 +101,32 @@ export const diffSchema = z.object({
   content: z.array(z.object({ ab: z.array(z.string()).optional(), a: z.array(z.string()).optional(), b: z.array(z.string()).optional(), skip: z.number().optional() }))
 })
 export type GerritDiff = z.infer<typeof diffSchema>
+
+export const commentSchema = z.object({
+  id: z.string(),
+  patch_set: z.number().optional(),
+  /** PARENT = left side (base); absent = REVISION. */
+  side: z.enum(['PARENT', 'REVISION']).optional(),
+  /** Absent = file-level comment. */
+  line: z.number().optional(),
+  in_reply_to: z.string().optional(),
+  message: z.string().optional(),
+  updated: ts,
+  author: accountSchema.optional(),
+  unresolved: z.boolean().optional()
+})
+export type GerritComment = z.infer<typeof commentSchema> & { path: string }
+
+/** An inline comment not yet sent (kept locally until the reply is posted). */
+export const draftSchema = z
+  .object({
+    path: z.string().min(1).max(4096),
+    patch_set: z.number().int().positive(),
+    line: z.number().int().positive().optional(),
+    side: z.enum(['PARENT', 'REVISION']).optional(),
+    in_reply_to: z.string().max(200).optional(),
+    message: z.string().trim().min(1).max(100_000),
+    unresolved: z.boolean()
+  })
+  .strict()
+export type GerritDraft = z.infer<typeof draftSchema>

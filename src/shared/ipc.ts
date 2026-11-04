@@ -5,7 +5,7 @@
 // Main must implement every `invoke` channel (see src/main/ipc/index.ts); preload exposes each one as
 // `window.gitdock['<channel>'](req)` and `window.gitdock.on('<event>', cb)`.
 import { z } from 'zod'
-import type { GerritChange, GerritChangeLists, GerritConnected, GerritDiff, GerritFiles } from './gerrit'
+import { draftSchema, type GerritChange, type GerritChangeLists, type GerritComment, type GerritConnected, type GerritDiff, type GerritFiles } from './gerrit'
 
 const res = <Res>() => <Req extends z.ZodType>(req: Req) => ({ req, res: null as unknown as Res })
 
@@ -180,6 +180,20 @@ export const invoke = {
   /** Files of a patch set (`revision` = sha or number), optionally against patch set `base`. */
   'gerrit:files': res<GerritFiles>()(z.object({ repo: repoId, change: changeNum, revision, base: changeNum.optional() }).strict()),
   'gerrit:diff': res<GerritDiff>()(z.object({ repo: repoId, change: changeNum, revision, path: z.string().min(1).max(4096), base: changeNum.optional() }).strict()),
+  'gerrit:comments': res<GerritComment[]>()(z.object({ repo: repoId, change: changeNum }).strict()),
+  /** Reply: one review POST on `patchSet` with message, votes and its inline comments (drafts on older patch sets go to those). */
+  'gerrit:review': res<void>()(
+    z
+      .object({
+        repo: repoId,
+        change: changeNum,
+        patchSet: changeNum,
+        message: z.string().max(100_000),
+        labels: z.record(z.string().min(1).max(200), z.number().int().min(-99).max(99)),
+        comments: z.array(draftSchema).max(1000)
+      })
+      .strict()
+  ),
   'update:state': res<UpdateState>()(z.undefined()),
   /** Manual "Check for updates"; resolves with the state after the check. */
   'update:check': res<UpdateState>()(z.undefined()),

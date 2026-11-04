@@ -160,14 +160,15 @@ export interface GerritMockOptions {
   changes?: MockChange[]
 }
 
-type Handler = (req: MockRequest, m: RegExpExecArray) => MockResponse | Promise<MockResponse>
+/** Return undefined to fall through to the next intercept / built-in route. */
+type Handler = (req: MockRequest, m: RegExpExecArray) => MockResponse | undefined | Promise<MockResponse | undefined>
 
 export interface GerritMock extends MockServer {
   username: string
   password: string
   /** Mutable server state; tests may edit it between requests. */
   changes: MockChange[]
-  /** Answer requests matching `METHOD` + pathname regex with `handler` before the built-in routes (latest first). */
+  /** Answer requests matching `METHOD` + pathname regex with `handler` before the built-in routes (latest first; undefined = fall through). */
   intercept(method: string, path: RegExp, handler: Handler): void
   /** Recorded requests whose method matches and whose url contains `part`. */
   find(method: string, part: string): MockRequest[]
@@ -210,11 +211,12 @@ export async function startGerritMock(opts: GerritMockOptions = {}): Promise<Ger
     })
   }
 
-  function route(req: MockRequest): MockResponse | Promise<MockResponse> {
+  async function route(req: MockRequest): Promise<MockResponse> {
     const u = new URL(req.url, 'http://x')
     for (const i of intercepts) {
       const m = i.method === req.method ? i.path.exec(u.pathname) : null
-      if (m) return i.handler(req, m)
+      const out = m && (await i.handler(req, m))
+      if (out) return out
     }
     if (req.method === 'GET' && u.pathname === '/config/server/version') return json(opts.version ?? '3.1.3')
     if (!u.pathname.startsWith('/a/')) return text(404, 'Not found')

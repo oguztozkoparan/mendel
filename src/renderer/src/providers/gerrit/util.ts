@@ -53,3 +53,15 @@ export function diffText(d: GerritDiff): string {
 }
 
 export const fileLabel = (path: string): string => ({ '/COMMIT_MSG': 'Commit Message', '/MERGE_LIST': 'Merge List' })[path] ?? path
+
+/** Group comments into threads by following `in_reply_to` to the root; oldest first in each thread. */
+export function threadsOf<C extends { id: string; in_reply_to?: string; updated: string }>(comments: C[]): C[][] {
+  const byId = new Map(comments.map((c) => [c.id, c]))
+  const groups = new Map<string, C[]>()
+  for (const c of comments) {
+    let root = c
+    for (let i = 0; root.in_reply_to && byId.has(root.in_reply_to) && i < comments.length; i++) root = byId.get(root.in_reply_to)!
+    groups.set(root.id, [...(groups.get(root.id) ?? []), c])
+  }
+  return [...groups.values()].map((t) => t.sort((x, y) => x.updated.localeCompare(y.updated))).sort((x, y) => x[0].updated.localeCompare(y[0].updated))
+}

@@ -1,13 +1,25 @@
 import { useQuery } from '@tanstack/react-query'
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { Button, ListBox, ListBoxItem } from 'react-aria-components'
-import { Diff, Hunk, parseDiff } from 'react-diff-view'
+import {
+  computeNewLineNumber,
+  computeOldLineNumber,
+  Diff,
+  findChangeByNewLineNumber,
+  findChangeByOldLineNumber,
+  getChangeKey,
+  Hunk,
+  parseDiff,
+  type HunkData
+} from 'react-diff-view'
 import 'react-diff-view/style/index.css'
-import type { GerritChange } from '../../../../shared/gerrit'
+import type { GerritChange, GerritComment } from '../../../../shared/gerrit'
 import c from '../../Changes.module.css'
 import { visible } from '../../DiffView'
+import { Composer, DraftView, Thread, usePending, type Pending, type PendingStore } from './Comments'
 import s from './Gerrit.module.css'
-import { diffText, fileLabel, fmtVote, shortDate, who } from './util'
+import { ReplyDialog } from './ReplyDialog'
+import { diffText, fileLabel, fmtVote, shortDate, threadsOf, who } from './util'
 
 const LARGE_DIFF_LINES = 5000
 
@@ -19,8 +31,8 @@ export const revisionsOf = (ch: GerritChange): Revision[] =>
 
 const statusText = (st: string) => (st === 'NEW' ? 'Open' : st.charAt(0) + st.slice(1).toLowerCase())
 
-/** Change detail (PLAN.md §3.8): header, labels, reviewers, files, side-by-side diff. */
-export function ChangeDetail({ repo, number, onBack }: { repo: string; number: number; onBack(): void }) {
+/** Change detail (PLAN.md §3.8): header, labels, reviewers, files, side-by-side diff with comment threads. */
+export function ChangeDetail({ repo, number, me, onBack }: { repo: string; number: number; me: string | null; onBack(): void }) {
   const q = useQuery({ queryKey: ['gerrit', repo, 'change', number], queryFn: () => window.gitdock['gerrit:change']({ repo, change: number }) })
   const [psSel, setPs] = useState<number | null>(null)
   const [base, setBase] = useState<number | undefined>(undefined)
@@ -34,6 +46,9 @@ export function ChangeDetail({ repo, number, onBack }: { repo: string; number: n
     queryFn: () => window.gitdock['gerrit:files']({ repo, change: number, revision: ps!.sha, base }),
     enabled: !!ps
   })
+  const comments = useQuery({ queryKey: ['gerrit', repo, 'comments', number], queryFn: () => window.gitdock['gerrit:comments']({ repo, change: number }) })
+  const pending = usePending(repo, number)
+  const [replying, setReplying] = useState(false)
 
   if (q.error)
     return (
@@ -47,6 +62,11 @@ export function ChangeDetail({ repo, number, onBack }: { repo: string; number: n
   const paths = Object.keys(files.data ?? {}).sort((x, y) => Number(!x.startsWith('/')) - Number(!y.startsWith('/')) || x.localeCompare(y))
   const file = paths.includes(picked ?? '') ? picked! : paths[0]
   const projectPath = ch.project.split('/').map(encodeURIComponent).join('/')
+  // Shown: this patch set's comments (+ its PARENT side when comparing against Base), or the base patch set's on the left.
+  const shown = (comments.data ?? []).filter(
+    (cm) => (cm.patch_set === ps._number && (cm.side !== 'PARENT' || !base)) || (!!base && cm.patch_set === base && cm.side !== 'PARENT')
+  )
+  const isCurrent = ps.sha === ch.current_revision
 
   return (
     <div className={s.detail}>
@@ -92,6 +112,11 @@ export function ChangeDetail({ repo, number, onBack }: { repo: string; number: n
             ))}
           </select>
         </div>
+        <div className={s.toolbarRow}>
+          <Button className="primary" onPress={() => setReplying(true)}>
+            Reply…{pending.list.length ? ` (${pending.list.length} pending)` : ''}
+          </Button>
+        </div>
       </header>
 
       <section aria-label="Labels" className={s.block}>
@@ -126,17 +151,48 @@ export function ChangeDetail({ repo, number, onBack }: { repo: string; number: n
               <span className={c.path}>{fileLabel(p)}</span>
               <span className={s.added}>+{f.lines_inserted ?? 0}</span>
               <span className={s.deleted}>−{f.lines_deleted ?? 0}</span>
+              {shown.some((cm) => cm.path === p) && <span className={s.meta}>{`${shown.filter((cm) => cm.path === p).length} comments`}</span>}
             </ListBoxItem>
           )
         })}
       </ListBox>
 
-      {file && <FileDiff key={`${ps.sha}-${base}-${file}`} repo={repo} number={number} rev={ps.sha} base={base} path={file} binary={!!files.data?.[file]?.binary} />}
+      {file && (
+        <FileDiff
+          key={`${ps.sha}-${base}-${file}`}
+          repo={repo}
+          number={number}
+          rev={ps.sha}
+          ps={ps._number}
+          base={base}
+          path={file}
+          binary={!!files.data?.[file]?.binary}
+          comments={shown.filter((cm) => cm.path === file)}
+          pending={pending}
+          canComment={{ old: isCurrent && !base, new: isCurrent }}
+        />
+      )}
+      {replying && current && <ReplyDialog repo={repo} change={ch} patchSet={current._number} me={me} pending={pending} onClose={() => setReplying(false)} />}
     </div>
   )
 }
 
-function FileDiff(p: { repo: string; number: number; rev: string; base?: number; path: string; binary: boolean }) {
+type Side = 'old' | 'new'
+type FileDiffProps = {
+  repo: string
+  number: number
+  rev: string
+  ps: number
+  base?: number
+  path: string
+  binary: boolean
+  comments: GerritComment[]
+  pending: PendingStore
+  /** New comments only on the current patch set (the reply posts there); left side only against Base (PARENT). */
+  canComment: Record<Side, boolean>
+}
+
+function FileDiff(p: FileDiffProps) {
   const q = useQuery({
     queryKey: ['gerrit', p.repo, 'diff', p.number, p.rev, p.base, p.path],
     queryFn: () => window.gitdock['gerrit:diff']({ repo: p.repo, change: p.number, revision: p.rev, path: p.path, base: p.base }),
@@ -145,6 +201,43 @@ function FileDiff(p: { repo: string; number: number; rev: string; base?: number;
   const parsed = useMemo(() => (q.data && !q.data.binary ? parseDiff(diffText(q.data))[0] : undefined), [q.data])
   const [showLarge, setShowLarge] = useState(false)
   const lines = parsed?.hunks.reduce((n, h) => n + h.changes.length, 0) ?? 0
+  const [composing, setComposing] = useState<{ side: Side; line: number } | null>(null)
+
+  // Anchor threads, new drafts and the open composer to diff rows; anything unanchored is shown above the diff.
+  const hunks = useMemo(() => (parsed ? visible(parsed.hunks) : []), [parsed])
+  const sideOf = (x: { side?: string; patch_set?: number }): Side => (x.side === 'PARENT' || (!!p.base && x.patch_set === p.base) ? 'old' : 'new')
+  const keyOf = (side: Side, line?: number) => {
+    const ch = line ? (side === 'old' ? findChangeByOldLineNumber(hunks, line) : findChangeByNewLineNumber(hunks, line)) : undefined
+    return ch ? getChangeKey(ch) : ''
+  }
+  const drafts = p.pending.list.filter((d) => !d.in_reply_to && d.path === p.path && d.patch_set === p.ps && (d.side !== 'PARENT' || !p.base))
+  const items = new Map<string, ReactNode[]>()
+  const put = (key: string, node: ReactNode) => items.set(key, [...(items.get(key) ?? []), node])
+  for (const t of threadsOf(p.comments)) put(keyOf(sideOf(t[0]), t[0].line), <Thread key={t[0].id} repo={p.repo} thread={t} fallbackPs={p.ps} pending={p.pending} />)
+  for (const d of drafts) put(keyOf(d.side === 'PARENT' ? 'old' : 'new', d.line), <DraftView key={d.key} draft={d} onRemove={() => p.pending.remove(d.key)} />)
+  if (composing) {
+    const { side, line } = composing
+    put(
+      keyOf(side, line),
+      <Composer
+        key="composer"
+        label={`Comment on line ${line}`}
+        onCancel={() => setComposing(null)}
+        onSave={(message) => {
+          p.pending.add({ path: p.path, patch_set: p.ps, line, side: side === 'old' ? 'PARENT' : undefined, message, unresolved: true } satisfies Omit<Pending, 'key'>)
+          setComposing(null)
+        }}
+      />
+    )
+  }
+  const widgets = Object.fromEntries([...items].filter(([k]) => k).map(([k, nodes]) => [k, <div className={s.widgets}>{nodes}</div>]))
+  const gutterEvents = {
+    onClick: ({ side, change }: { side?: Side; change: HunkData['changes'][number] | null }) => {
+      if (!side || !change || !p.canComment[side]) return
+      const line = side === 'old' ? computeOldLineNumber(change) : computeNewLineNumber(change)
+      if (line > 0) setComposing({ side, line })
+    }
+  }
 
   let body
   if (p.binary || q.data?.binary) body = <p className={c.empty}>Binary file changed</p>
@@ -159,7 +252,7 @@ function FileDiff(p: { repo: string; number: number; rev: string; base?: number;
     )
   else
     body = (
-      <Diff viewType="split" diffType={parsed.type} hunks={visible(parsed.hunks)} className={c.diff}>
+      <Diff viewType="split" diffType={parsed.type} hunks={hunks} widgets={widgets} gutterEvents={gutterEvents} className={c.diff}>
         {(hunks) => hunks.map((h) => <Hunk key={h.content} hunk={h} />)}
       </Diff>
     )
@@ -169,6 +262,7 @@ function FileDiff(p: { repo: string; number: number; rev: string; base?: number;
       <div className={c.fileHeader}>
         <h2>{fileLabel(p.path)}</h2>
       </div>
+      {!!items.get('')?.length && <div className={s.widgets}>{items.get('')}</div>}
       {body}
     </section>
   )

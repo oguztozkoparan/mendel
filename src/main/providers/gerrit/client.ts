@@ -1,7 +1,7 @@
 // Gerrit REST client (PLAN.md §5.5, TECH.md §6.6). Pure: the caller injects fetch (main passes electron's
 // net.fetch for the OS cert store + proxy; tests pass node's fetch against the mock server).
 import { z } from 'zod'
-import { accountSchema, changeSchema, diffSchema, fileSchema, GERRIT_AUTH_ERROR, type GerritChangeLists } from '../../../shared/gerrit'
+import { accountSchema, changeSchema, commentSchema, diffSchema, fileSchema, GERRIT_AUTH_ERROR, type GerritChangeLists, type GerritComment, type GerritDraft } from '../../../shared/gerrit'
 import { urlAllowed } from '../../update/feed'
 import { XSSI } from './detect'
 
@@ -93,6 +93,16 @@ export function gerritClient(baseUrl: string, auth: GerritAuth, fetchFn: Fetch) 
     /** Files of `rev` (sha, patch set number or "current"), against patch set `base` or the parent. */
     files: (n: number, rev: string, base?: number) =>
       call(z.record(z.string(), fileSchema), 'GET', `changes/${enc(n)}/revisions/${enc(rev)}/files${base ? `?base=${enc(base)}` : ''}`),
+
+    /** All published comments, flattened with their path. */
+    async comments(n: number): Promise<GerritComment[]> {
+      const map = await call(z.record(z.string(), z.array(commentSchema)), 'GET', `changes/${enc(n)}/comments`)
+      return Object.entries(map).flatMap(([path, list]) => list.map((c) => ({ ...c, path })))
+    },
+
+    /** `POST …/revisions/<rev>/review` with message, votes and inline comments in one call. */
+    review: (n: number, rev: string | number, input: { message?: string; labels?: Record<string, number>; comments?: Record<string, Omit<GerritDraft, 'path' | 'patch_set'>[]> }) =>
+      call(z.object({ labels: z.record(z.string(), z.number()).optional() }), 'POST', `changes/${enc(n)}/revisions/${enc(rev)}/review`, input),
 
     diff: (n: number, rev: string, path: string, base?: number) =>
       call(diffSchema, 'GET', `changes/${enc(n)}/revisions/${enc(rev)}/files/${enc(path)}/diff?intraline=false${base ? `&base=${enc(base)}` : ''}`)
