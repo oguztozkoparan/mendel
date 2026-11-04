@@ -16,18 +16,18 @@ export interface Provider {
 }
 
 const registry: Provider[] = []
+/** Hosts that answered every probe and are no provider (R4): not probed again until `forgetNegatives`. */
+const negative = new Set<string>()
+export const forgetNegatives = (): void => negative.clear()
 
 export function registerProvider(p: Provider): void {
   if (!registry.some((x) => x.id === p.id)) registry.push(p)
+  forgetNegatives() // a new provider may claim hosts the others rejected
 }
 
 export function getProvider(id: ProviderId): Provider | undefined {
   return registry.find((p) => p.id === id)
 }
-
-/** Hosts that answered every probe and are no provider (R4): not probed again until `forgetNegatives`. */
-const negative = new Set<string>()
-export const forgetNegatives = (): void => negative.clear()
 
 /** At most one active provider per repo: the first registered provider that detects one. */
 export async function detectProvider(remotes: Remote[], probe: Probe): Promise<Detection | null> {
