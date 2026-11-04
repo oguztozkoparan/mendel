@@ -13,7 +13,9 @@ import { createMainWindow } from './window'
 import { hardenSession, registerAppScheme, testSeams } from './security'
 
 // P2: no debugger/CDP attach to a release build (fuses already block Node's --inspect; this covers Chromium's switches).
-if (!testSeams && process.argv.some((a) => /^--(remote-debugging-|inspect)/.test(a))) process.exit(1)
+// Chromium also takes `-x` and (Windows) `/x`, case-insensitively: ask its own parser, plus a broad argv match.
+const debugSwitches = ['remote-debugging-port', 'remote-debugging-pipe', 'remote-debugging-address', 'inspect', 'inspect-brk', 'inspect-port']
+if (!testSeams && (debugSwitches.some((s) => app.commandLine.hasSwitch(s)) || process.argv.some((a) => /^(--?|\/)(remote-debugging-|inspect)/i.test(a)))) process.exit(1)
 if (process.env[ASKPASS_TOKEN_ENV]) void runAskpass()
 else startApp()
 

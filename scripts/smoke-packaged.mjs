@@ -16,7 +16,7 @@ const userData = mkdtempSync(path.join(tmpdir(), 'gitdock-pkg-')) // never the u
 
 if (refuses) {
   let ok = true
-  for (const sw of ['--remote-debugging-port=9222', '--remote-debugging-pipe', '--inspect=9229']) {
+  for (const sw of ['--remote-debugging-port=9222', '-remote-debugging-port=9222', '--remote-debugging-pipe', '--inspect=9229']) {
     const p = spawn(bin, [sw, `--user-data-dir=${userData}`], { stdio: 'ignore' })
     const code = await Promise.race([new Promise((r) => p.on('exit', (c) => r(c))), new Promise((r) => setTimeout(() => r('running'), 10_000))])
     if (code === 'running') p.kill()
