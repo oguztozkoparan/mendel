@@ -200,7 +200,7 @@ export async function startGerritMock(opts: GerritMockOptions = {}): Promise<Ger
     return rest
   }
   const query = (q: string) => {
-    const project = /project:(\S+)/.exec(q)?.[1]
+    const project = /project:"?([^"\s]+)"?/.exec(q)?.[1]
     return changes.filter((c) => {
       if (project && c.project !== project) return false
       if (q.includes('-is:open')) return c.owner._account_id === SELF._account_id && c.status !== 'NEW'

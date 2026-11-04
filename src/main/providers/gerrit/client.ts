@@ -1,7 +1,7 @@
 // Gerrit REST client (PLAN.md §5.5, TECH.md §6.6). Pure: the caller injects fetch (main passes electron's
 // net.fetch for the OS cert store + proxy; tests pass node's fetch against the mock server).
-import type { z } from 'zod'
-import { accountSchema, GERRIT_AUTH_ERROR } from '../../../shared/gerrit'
+import { z } from 'zod'
+import { accountSchema, changeSchema, GERRIT_AUTH_ERROR, type GerritChangeLists } from '../../../shared/gerrit'
 import { urlAllowed } from '../../update/feed'
 import { XSSI } from './detect'
 
@@ -76,7 +76,16 @@ export function gerritClient(baseUrl: string, auth: GerritAuth, fetchFn: Fetch) 
   }
 
   return {
-    self: () => call(accountSchema, 'GET', 'accounts/self')
+    self: () => call(accountSchema, 'GET', 'accounts/self'),
+
+    /** Outgoing / Incoming / Recently closed (last 10) in one request (PLAN.md §3.7, §5.5). */
+    async listChanges(project: string | null): Promise<GerritChangeLists> {
+      const p = project ? ` project:"${project}"` : ''
+      const qs = [`status:open owner:self${p}`, `status:open reviewer:self -owner:self${p}`, `owner:self -is:open limit:10${p}`]
+      const q = qs.map((x) => 'q=' + encodeURIComponent(x)).join('&')
+      const [outgoing, incoming, closed] = await call(z.array(z.array(changeSchema)).length(3), 'GET', `changes/?${q}&o=DETAILED_LABELS&o=DETAILED_ACCOUNTS`)
+      return { outgoing, incoming, closed }
+    }
   }
 }
 

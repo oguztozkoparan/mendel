@@ -26,7 +26,11 @@ export async function gerritFor(repo: string) {
   return gerritClient(base, auth, fetchFn)
 }
 
-export const gerritHandlers: Handlers<'gerrit:connect' | 'gerrit:disconnect' | 'gerrit:open'> = {
+export const gerritHandlers: Handlers<'gerrit:connect' | 'gerrit:disconnect' | 'gerrit:open' | 'gerrit:changes'> = {
+  'gerrit:changes': async ({ repo, projectOnly }) => {
+    const client = await gerritFor(repo)
+    return client.listChanges(projectOnly ? (await activeState(repo)).detection?.project || null : null)
+  },
   'gerrit:connect': async ({ repo, baseUrl, username, password }, e) => {
     const d = (await activeState(repo)).detection
     if (d?.provider !== 'gerrit') throw new Error('Gerrit is not active for this repository')
