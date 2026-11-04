@@ -110,11 +110,11 @@ export const gerritHandlers: Handlers<'gerrit:checkout' | 'gerrit:badges' | 'ger
       for (const { path, patch_set: _ps, ...c } of ds) (out[path] ??= []).push(c)
       return out
     }
-    // One review call on the current patch set; replies to threads on older patch sets must be posted there.
-    // shortcut: if a later per-patch-set call fails the first one already went through; retry may duplicate those comments.
-    await client.review(change, patchSet, { message: message || undefined, labels, comments: toInput(comments.filter((c) => c.patch_set === patchSet)) })
+    // Replies to threads on older patch sets must be posted there (comments only, first); message + votes on the
+    // current patch set last. The reply dialog sends one patch set per call so it can drop drafts per success.
     for (const ps of new Set(comments.map((c) => c.patch_set).filter((p) => p !== patchSet)))
       await client.review(change, ps, { comments: toInput(comments.filter((c) => c.patch_set === ps)) })
+    await client.review(change, patchSet, { message: message || undefined, labels, comments: toInput(comments.filter((c) => c.patch_set === patchSet)) })
   },
   'gerrit:action': async ({ repo, change, action, message }) => {
     try {

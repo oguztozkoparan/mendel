@@ -26,10 +26,20 @@ export function ReplyDialog(p: { repo: string; change: GerritChange; patchSet: n
     setBusy(true)
     setError(null)
     const labels = Object.fromEntries(Object.entries(votes).filter(([l, v]) => v !== mine(l)))
-    const comments = p.pending.list.map(({ key: _k, ...d }) => d)
-    window.gitdock['gerrit:review']({ repo: p.repo, change: ch._number, patchSet: p.patchSet, message: message.trim(), labels, comments }).then(
+    // One call per patch set: replies on older ones first (comments only), message + votes on the current one last.
+    // Drafts are dropped after each successful call, so a retry after a partial failure never posts them twice.
+    const sets = [...new Set(p.pending.list.map((d) => d.patch_set).filter((ps) => ps !== p.patchSet)), p.patchSet]
+    const post = async () => {
+      for (const ps of sets) {
+        const drafts = p.pending.list.filter((d) => d.patch_set === ps)
+        const last = ps === p.patchSet
+        const comments = drafts.map(({ key: _k, ...d }) => d)
+        await window.gitdock['gerrit:review']({ repo: p.repo, change: ch._number, patchSet: ps, message: last ? message.trim() : '', labels: last ? labels : {}, comments })
+        drafts.forEach((d) => p.pending.remove(d.key))
+      }
+    }
+    post().then(
       () => {
-        p.pending.clear()
         void qc.invalidateQueries({ queryKey: ['gerrit', p.repo] })
         p.onClose()
       },

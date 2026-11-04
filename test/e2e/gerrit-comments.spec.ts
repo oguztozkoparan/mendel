@@ -119,3 +119,38 @@ test('reply sends one review POST with message, labels and pending comments; fai
   await expect(win.getByRole('region', { name: 'Labels' })).toContainText('Test User +1') // detail reloaded
   await expect(diff.getByRole('group').filter({ hasText: 'Typo here' })).toContainText('Test User')
 })
+
+test('reply across patch sets: older ones first, current last; drafts dropped per successful call', async () => {
+  g = await launchGerrit(mock)
+  const { win } = g
+  await connectGerrit(win, mock)
+  const repo = await win.evaluate(() => window.gitdock['repo:list']().then((r) => r.current!))
+  const drafts = [
+    { key: 'k1', path: 'src/a.ts', patch_set: 1, line: 1, in_reply_to: 'old1', message: 'Fixed in PS2', unresolved: false },
+    { key: 'k2', path: 'src/a.ts', patch_set: 2, line: 2, message: 'New note', unresolved: true }
+  ]
+  await win.evaluate(([k, v]) => localStorage.setItem(k, v), [`gitdock.gerrit.pending.${repo}.101`, JSON.stringify(drafts)])
+  await openFile(win)
+
+  let fail = true
+  mock.intercept('POST', /\/revisions\/2\/review$/, () => (fail ? { status: 500, body: 'Internal server error' } : undefined))
+  const before = mock.find('POST', '/review').length
+  await win.getByRole('button', { name: 'Reply… (2 pending)' }).click()
+  const dialog = win.getByRole('dialog', { name: 'Reply to #101' })
+  await dialog.getByLabel('Message').fill('Updated')
+  await dialog.getByRole('button', { name: 'Send' }).click()
+  await expect(dialog.getByRole('alert')).toContainText('Gerrit error 500')
+  const pending = dialog.getByRole('list', { name: 'Pending comments' }).getByRole('listitem')
+  await expect(pending).toHaveCount(1) // the PS 1 reply went through and is not kept for a retry
+  await expect(pending).toContainText('New note')
+  const first = mock.find('POST', '/review').slice(before)
+  expect(first.map((r) => r.url)).toEqual(['/a/changes/101/revisions/1/review', '/a/changes/101/revisions/2/review'])
+  expect(JSON.parse(first[0].body)).toEqual({ labels: {}, comments: { 'src/a.ts': [{ line: 1, in_reply_to: 'old1', message: 'Fixed in PS2', unresolved: false }] } })
+
+  fail = false
+  await dialog.getByRole('button', { name: 'Send' }).click()
+  await expect(dialog).toBeHidden()
+  const retry = mock.find('POST', '/review').slice(before + 2)
+  expect(retry.map((r) => r.url)).toEqual(['/a/changes/101/revisions/2/review'])
+  expect(JSON.parse(retry[0].body)).toMatchObject({ message: 'Updated', comments: { 'src/a.ts': [{ line: 2, message: 'New note' }] } })
+})
