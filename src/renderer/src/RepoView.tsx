@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { Tab, TabList, TabPanel, Tabs, type Key } from 'react-aria-components'
 import type { RepoEntry } from '../../shared/ipc'
 import s from './App.module.css'
+import { useBranches } from './Branches'
 import { ChangesView } from './Changes'
 import { HistoryView } from './History'
 import h from './History.module.css'
@@ -14,7 +15,8 @@ export function RepoView({ repo, focus }: { repo: RepoEntry; focus?: { change: n
   useEffect(() => void (focus && setTab('reviews')), [focus])
   const provider = useQuery({ queryKey: ['provider', repo.id], queryFn: () => window.gitdock['provider:get']({ repo: repo.id }) })
   const gerrit = provider.data?.detection?.provider === 'gerrit' ? provider.data : null
-  const badges = useQuery({ queryKey: ['gerritBadges', repo.id], queryFn: () => window.gitdock['gerrit:badges']({ repo: repo.id }), enabled: !!gerrit })
+  const head = useBranches(repo.id).data?.head
+  const badges = useQuery({ queryKey: ['gerritBadges', repo.id, head], queryFn: () => window.gitdock['gerrit:badges']({ repo: repo.id }), enabled: !!gerrit })
   useMenuCommand((c) => {
     if (c === 'tab:changes' || c === 'tab:history') setTab(c.slice(4))
     else if (c === 'tab:provider' && gerrit) setTab('reviews')

@@ -13,6 +13,14 @@ export const refreshRepo = (qc: QueryClient, repo: string) => {
   return qc.invalidateQueries({ predicate: (q) => q.queryKey[1] === repo })
 }
 
+const LOCAL = new Set(['status', 'diff', 'commitInfo', 'sync', 'branches', 'conflict'])
+/**
+ * Files, index or refs changed on disk: refetch local git state only. Provider/Gerrit queries (incl. the commit hint)
+ * refresh on interval, focus, HEAD change or explicit ops instead of every save.
+ */
+export const refreshLocal = (qc: QueryClient, repo: string) =>
+  qc.invalidateQueries({ predicate: (q) => q.queryKey[1] === repo && LOCAL.has(q.queryKey[0] as string) && q.queryKey[2] !== 'gerrit' })
+
 export const useBranches = (repo: string) => useQuery({ queryKey: ['branches', repo], queryFn: () => window.gitdock['branch:list']({ repo }) })
 
 /** Run a branch write; refresh the repo afterwards and report errors. */

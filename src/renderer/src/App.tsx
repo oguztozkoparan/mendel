@@ -6,7 +6,7 @@ import type { GerritSent } from '../../shared/gerrit'
 import type { GitInfo } from '../../shared/ipc'
 import s from './App.module.css'
 import { AuthPromptDialog } from './AuthPromptDialog'
-import { BranchSelector, refreshRepo, StashBanner } from './Branches'
+import { BranchSelector, refreshLocal, refreshRepo, StashBanner } from './Branches'
 import { CloneDialog } from './CloneDialog'
 import { ConflictBanner } from './Conflicts'
 import { RepoList, RepoSelector, type RepoActions } from './Repos'
@@ -33,8 +33,7 @@ export function App() {
   const [sending, setSending] = useState(false)
   /** "Open change #N" from the send toast: RepoView switches to Reviews and selects it. */
   const [focus, setFocus] = useState<{ change: number } | null>(null)
-  // Files, index or refs changed on disk: everything shown for that repo may be stale.
-  useEffect(() => window.gitdock.on('repo:changed', (e) => void refreshRepo(qc, e.repo)), [qc])
+  useEffect(() => window.gitdock.on('repo:changed', (e) => void refreshLocal(qc, e.repo)), [qc])
   const check = (recheck = false) => void window.gitdock['git:info']({ recheck }).then(setGit)
   useEffect(() => check(), [])
   const usable = git?.found === true && git.supported

@@ -91,10 +91,10 @@ test('gerrit daily loop: connect → commit → send with topic → amend → ne
     await win.getByRole('button', { name: 'Send for review ↑1' }).click()
     await sendDialog.getByLabel('Topic').fill('feature-x')
     await expect(sendDialog.getByLabel('Push ref')).toHaveText('HEAD:refs/for/main%topic=feature-x')
+    mock.changes[0].change_id = changeId // the server knows the change once the push lands (before gitdock refreshes)
     await sendDialog.getByRole('button', { name: 'Send' }).click()
     await expect(win.getByRole('alert').filter({ hasText: 'Created change #101' })).toBeVisible()
     expect(pushedRefs()).toBe('refs/for/main%topic=feature-x')
-    mock.changes[0].change_id = changeId // the server now knows the change
 
     // Reviewer asks for changes: edit, stage; amend is pre-ticked as a new patchset of #101.
     writeFileSync(path.join(fx.work, 'x.txt'), 'x v2\n')
