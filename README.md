@@ -14,7 +14,7 @@ Git work goes through your installed `git`, so SSH keys, `~/.ssh/config`, creden
 - Native menus and shortcuts, light/dark theme, in-app update checker
 
 ## Requirements
-Node 22+, git ≥ 2.30 (2.50.1+ recommended).
+Node 24+, git ≥ 2.30 (2.50.1+ recommended).
 
 ## Run locally
 ```sh
