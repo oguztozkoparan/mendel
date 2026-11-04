@@ -1,6 +1,6 @@
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { redact } from '../../src/main/redact'
+import { redact, redactDeep } from '../../src/main/redact'
 import { resolveUnder } from '../../src/main/safe-path'
 
 describe('redact', () => {
@@ -11,6 +11,15 @@ describe('redact', () => {
     expect(redact('authorization: abc123')).toBe('authorization: ***')
     expect(redact('GET /a?access_token=xyz&n=1')).toBe('GET /a?access_token=***&n=1')
     expect(redact('git@github.com:o/r.git')).toBe('git@github.com:o/r.git')
+  })
+  it('handles @ inside the password and nested log objects (S11)', () => {
+    expect(redact('https://bob:p@ss@w0rd@host/x.git and ssh://a@b/c')).toBe('https://***@host/x.git and ssh://***@b/c')
+    expect(redactDeep({ url: 'https://u:p@h/x', n: 1, list: ['Authorization: Bearer t'], err: new Error('https://u:p@h') })).toMatchObject({
+      url: 'https://***@h/x',
+      n: 1,
+      list: ['Authorization: Bearer ***'],
+      err: expect.stringContaining('https://***@h')
+    })
   })
 })
 
