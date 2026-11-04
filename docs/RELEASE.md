@@ -1,7 +1,7 @@
 # Releasing mendel
 
-Before the first release replace `REPLACE_OWNER` / `REPLACE_REPO` under `publish:` in `electron-builder.yml`
-(public GitHub repo), or switch to the `generic` HTTPS feed shown there.
+Releases and the in-app update feed use GitHub `oguztozkoparan/mendel` (`publish:` in `electron-builder.yml`);
+switch to the `generic` HTTPS feed shown there to host elsewhere.
 
 ## Cut a release
 1. On an up-to-date, clean `main`: `npm run release -- <major|minor|patch>`.
