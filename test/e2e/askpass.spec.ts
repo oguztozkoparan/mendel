@@ -16,11 +16,15 @@ const runGit = (app: Awaited<ReturnType<typeof launchApp>>['app'], args: string[
     [args, cwd] as const
   )
 
+/** Prompts are pushed to the renderer as events; one sent before it has subscribed is lost, so wait for the UI first. */
+const uiReady = (win: Awaited<ReturnType<typeof launchApp>>['win']) => win.getByRole('button', { name: 'Open local repository…' }).waitFor()
+
 test('git credential prompts show as modal and reach git', async () => {
   const fx = createRepoFixture()
   const remote = await startAuthRemote()
   const { app, win, close } = await launchApp(fx.env)
   try {
+    await uiReady(win)
     const result = runGit(app, ['ls-remote', `${remote.url}/repo.git`], fx.work)
     const dialog = win.getByRole('dialog', { name: 'Authentication required' })
     await expect(dialog).toContainText(`Username for '${remote.url}'`)
@@ -44,6 +48,7 @@ test('cancelling the prompt aborts git quickly', async () => {
   const remote = await startAuthRemote()
   const { app, win, close } = await launchApp(fx.env)
   try {
+    await uiReady(win)
     const result = runGit(app, ['ls-remote', `${remote.url}/repo.git`], fx.work)
     await win.getByRole('dialog').getByRole('button', { name: 'Cancel' }).click()
     const t = Date.now()
