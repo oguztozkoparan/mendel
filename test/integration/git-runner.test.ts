@@ -41,6 +41,15 @@ describe('git runner against real git', () => {
     expect(`${err.message} ${err.stderr} ${err.args.join(' ')}`).not.toContain('hunter2')
   })
 
+  it('decodes multibyte output split across pipe chunks', async () => {
+    fx = createRepoFixture()
+    const text = 'şğü🙂'.repeat(40_000) // ~440 KB of 2- and 4-byte UTF-8, many 64 KB chunk boundaries
+    fx.commitFile('big.txt', text + '\n')
+    const { stdout } = await git(['show', 'HEAD:big.txt'], { cwd: fx.work, env: fx.env })
+    expect(stdout).not.toContain('\ufffd')
+    expect(stdout).toBe(text + '\n')
+  })
+
   it('kills git on abort', async () => {
     fx = createRepoFixture()
     const ac = new AbortController()

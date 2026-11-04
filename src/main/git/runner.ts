@@ -142,13 +142,16 @@ export function git(args: string[], opts: GitOptions): Promise<GitResult> {
     let stdout = ''
     let stderr = ''
     let tooLarge = false
-    const collect = (append: (s: string) => void) => (chunk: Buffer) => {
-      append(chunk.toString('utf8'))
+    const collect = (append: (s: string) => void) => (chunk: string) => {
+      append(chunk)
       if (stdout.length + stderr.length > MAX_OUTPUT && !tooLarge) {
         tooLarge = true
         child.kill()
       }
     }
+    // Stream decoding keeps multibyte chars split across 64 KB pipe chunks intact.
+    child.stdout.setEncoding('utf8')
+    child.stderr.setEncoding('utf8')
     child.stdout.on('data', collect((s) => (stdout += s)))
     child.stderr.on('data', collect((s) => ((stderr += s), opts.onStderr?.(redact(s)))))
     child.stdin.on('error', () => {}) // git may exit before reading stdin (EPIPE); the exit code tells the story
