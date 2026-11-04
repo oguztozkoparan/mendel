@@ -1,0 +1,10 @@
+node_modules/
+out/
+dist/
+release/
+test-results/
+playwright-report/
+graphify-out/
+.env*
+*.log
+.DS_Store

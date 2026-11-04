@@ -1,0 +1,8 @@
+#!/bin/sh
+# Enforce: feat(<scope>): <desc> | bug(<scope>): <desc>. Merge/revert/fixup messages pass.
+first=$(head -n1 "$1")
+case "$first" in Merge\ *|Revert\ *|fixup!*|squash!*) exit 0 ;; esac
+echo "$first" | grep -Eq '^(feat|bug)\([a-z0-9][a-z0-9._/-]*\): .+' && exit 0
+echo "commit-msg: first line must be 'feat(<scope>): <desc>' or 'bug(<scope>): <desc>'" >&2
+echo "  got: $first" >&2
+exit 1
