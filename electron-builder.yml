@@ -16,6 +16,8 @@ electronFuses:
   onlyLoadAppFromAsar: true
   loadBrowserProcessSpecificV8Snapshot: false
   grantFileProtocolExtraPrivileges: false
+  # Flipping fuses breaks the binary's ad-hoc signature; arm64 macOS then SIGKILLs unsigned builds at launch.
+  resetAdHocDarwinSignature: true
 mac:
   category: public.app-category.developer-tools
   target:
