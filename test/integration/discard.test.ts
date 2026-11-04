@@ -11,6 +11,19 @@ describe('discard', () => {
   afterEach(() => fx?.cleanup())
   const read = (f: string) => readFileSync(path.join(fx.work, f), 'utf8')
 
+  it('works on an unborn branch (no commits yet): staged and untracked files are removed', async () => {
+    fx = createRepoFixture()
+    const repo = path.join(fx.dir, 'fresh')
+    fx.git(['init', '-q', repo])
+    writeFileSync(path.join(repo, 'staged.txt'), 's\n')
+    writeFileSync(path.join(repo, 'loose.txt'), 'l\n')
+    fx.git(['add', 'staged.txt'], repo)
+    await discardPaths(repo, ['staged.txt', 'loose.txt'], fx.env)
+    expect(existsSync(path.join(repo, 'staged.txt'))).toBe(false)
+    expect(existsSync(path.join(repo, 'loose.txt'))).toBe(false)
+    expect(fx.git(['status', '--porcelain'], repo)).toBe('')
+  })
+
   it('restores modified/deleted/renamed files and removes untracked and added ones', async () => {
     fx = createRepoFixture()
     fx.commitFile('gone.txt', 'g\n')
