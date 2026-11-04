@@ -1,0 +1,76 @@
+.row {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  height: 44px;
+  padding: 0 10px;
+  box-sizing: border-box;
+  border-bottom: 1px solid var(--border);
+}
+
+.row[data-selected] {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+.summary,
+.meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.meta {
+  color: var(--muted);
+}
+
+.badge {
+  margin-left: 6px;
+  color: var(--accent);
+}
+
+.detail {
+  display: flex;
+  flex-direction: column;
+}
+
+.title {
+  margin: 0;
+  padding: 12px 12px 4px;
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+
+.message {
+  margin: 0;
+  padding: 0 12px 8px;
+  font-family: var(--mono);
+  font-size: 12px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.fields {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+  margin: 0;
+  padding: 8px 12px;
+  border-top: 1px solid var(--border);
+}
+
+.fields dt {
+  color: var(--muted);
+}
+
+.fields dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.files {
+  max-height: 200px;
+  overflow: auto;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  outline: none;
+}

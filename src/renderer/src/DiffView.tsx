@@ -10,7 +10,7 @@ const LARGE_DIFF_LINES = 5000
 // Control and bidi characters (Trojan Source) are shown as visible markers (TECH.md §6.7). Tab and CR stay.
 const INVISIBLE = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f\u200b-\u200f\u2028-\u202e\u2066-\u2069\ufeff]/g
 const mark = (ch: string) => `⟨U+${ch.codePointAt(0)!.toString(16).toUpperCase().padStart(4, '0')}⟩`
-const visible = (hunks: HunkData[]): HunkData[] =>
+export const visible = (hunks: HunkData[]): HunkData[] =>
   hunks.map((h) => ({ ...h, changes: h.changes.map((c) => ({ ...c, content: c.content.replace(INVISIBLE, mark) })) }))
 
 /** Diff of one file: unstaged and/or staged section, depending on where its changes are. */

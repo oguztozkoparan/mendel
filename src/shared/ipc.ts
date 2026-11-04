@@ -100,6 +100,30 @@ export interface SyncState {
 /** rejected = push refused as non-fast-forward (pull first); conflict = merge/rebase stopped on conflicts. */
 export type SyncResult = 'ok' | 'rejected' | 'conflict'
 
+export interface CommitSummary {
+  sha: string
+  short: string
+  summary: string
+  author: string
+  /** ms epoch (author date). */
+  date: number
+  /** Not on any remote-tracking branch yet. */
+  unpushed: boolean
+}
+
+export interface CommitDetail {
+  sha: string
+  parents: string[]
+  /** "Name <email>" */
+  author: string
+  authorDate: number
+  committer: string
+  committerDate: number
+  message: string
+  /** Changes against the first parent. status: git's letter (A/M/D/R/C/T). */
+  files: { path: string; origPath?: string; status: string }[]
+}
+
 const repoId = z.string().min(1).max(64)
 const byId = z.object({ id: repoId }).strict()
 /** Repo-relative path; main additionally checks it with resolveUnder (TECH.md §6.4). */
@@ -107,6 +131,7 @@ const relPath = z.string().min(1).max(4096)
 const inRepo = z.object({ repo: repoId }).strict()
 /** Main validates further (known branch, `git check-ref-format --branch`, no leading `-`). */
 const branchName = z.string().min(1).max(255)
+const sha = z.string().regex(/^[0-9a-f]{7,64}$/)
 const paths = z.object({ repo: repoId, paths: z.array(relPath).min(1).max(100_000) }).strict()
 /** Update checker state (PLAN.md §3.12). `canInstall: false` = "Download" opens the download page instead. */
 export type UpdateState =
@@ -120,6 +145,8 @@ export type UpdateState =
 
 export const invoke = {
   'app:info': res<AppInfo>()(z.undefined()),
+  /** Write text to the OS clipboard (the renderer's clipboard permission is denied, TECH.md §6.1). */
+  'app:copy': res<void>()(z.object({ text: z.string().max(100_000) }).strict()),
   'git:info': res<GitInfo>()(z.object({ recheck: z.boolean() }).strict().optional()),
   /** value null = cancel (git/ssh then fails with AuthFailed). For `confirm` prompts send 'yes'. */
   'auth:respond': res<void>()(z.object({ id: z.string().max(64), value: z.string().max(4096).nullable() }).strict()),
@@ -182,6 +209,11 @@ export const invoke = {
   /** Push to upstream, or publish (`push -u`) when the branch has none. */
   'sync:push': res<SyncResult>()(inRepo),
   'sync:cancel': res<void>()(z.undefined()),
+  /** Current branch history, newest first, pages of 100. */
+  'history:log': res<CommitSummary[]>()(z.object({ repo: repoId, skip: z.number().int().min(0).max(10_000_000) }).strict()),
+  'history:commit': res<CommitDetail>()(z.object({ repo: repoId, sha }).strict()),
+  /** Read-only diff of one file of a commit (against its first parent). */
+  'history:diff': res<string>()(z.object({ repo: repoId, sha, path: relPath, origPath: relPath.optional() }).strict()),
   'update:state': res<UpdateState>()(z.undefined()),
   /** Manual "Check for updates"; resolves with the state after the check. */
   'update:check': res<UpdateState>()(z.undefined()),
