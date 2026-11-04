@@ -9,7 +9,7 @@
 - install: `npm ci` (Electron binary downloads on first run; force with `npx install-electron`)
 - dev: `npm run dev` · build: `npm run build` · typecheck: `npm run typecheck` (`tsc -b`)
 - test: `npm test` (vitest unit + git integration) · single file: `npx vitest run test/unit/<file>.test.ts`
-- e2e: `npm run e2e` (builds, then Playwright `_electron` against `out/main/index.js`) · single: `npx playwright test test/e2e/<file>.spec.ts`
+- e2e: `npm run e2e` (builds with `--mode e2e`, then Playwright `_electron` against `out/main/index.js`) · single: `npx playwright test test/e2e/<file>.spec.ts` after an e2e-mode build (`npx electron-vite build --mode e2e`; a plain `npm run build` compiles the test seams out)
 - package: `npm run dist` (electron-builder, `electron-builder.yml`) · release: `npm run release -- <major|minor|patch>`
 
 ## Commits

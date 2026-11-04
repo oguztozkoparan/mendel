@@ -1,4 +1,4 @@
-import { app, net } from 'electron'
+import { net } from 'electron'
 import type { ProviderState, RepoOverride } from '../../shared/ipc'
 import { detectProvider, forgetNegatives, registerProvider, type Probe } from '../providers'
 import { credentialUser } from '../providers/gerrit/credentials'
@@ -7,12 +7,13 @@ import { gerritDetection, gerritProvider, probeGerrit } from '../providers/gerri
 import { usedRemotes } from '../providers/remotes'
 import { providerStore, saveProviderStore } from '../providers/store'
 import { repoRoot } from '../repos'
+import { testSeams } from '../security'
 import type { Handlers } from '.'
 
 registerProvider(gerritProvider)
 
-/** Loopback http base URLs only in unpackaged builds (dev, tests); TECH.md §6.6. */
-export const allowLoopbackHttp = !app.isPackaged
+/** Loopback http base URLs only in dev/e2e builds (S13); TECH.md §6.6. */
+export const allowLoopbackHttp = testSeams
 
 /** Unauthenticated GET with a 3 s timeout (PLAN.md §5.2); net.fetch = OS cert store + system proxy. */
 const probe: Probe = async (url) => {

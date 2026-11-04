@@ -5,6 +5,7 @@ import path from 'node:path'
 import type { UpdateState } from '../../shared/ipc'
 import log from '../log'
 import { redact } from '../redact'
+import { testSeams } from '../security'
 import { getSettings } from '../settings'
 import { canSelfInstall, downloadUrl, externalAllowed, parseFeed, urlAllowed, type Feed } from '../update/feed'
 import { emit, type Handlers } from '.'
@@ -12,8 +13,8 @@ import { emit, type Handlers } from '.'
 const FIRST_CHECK_MS = 10_000
 const CHECK_EVERY_MS = 6 * 60 * 60_000
 
-// Test-only feed, honored only in unpackaged e2e runs (like GITDOCK_E2E_USERDATA); loopback http allowed there.
-const e2e = !app.isPackaged && !!process.env.GITDOCK_E2E_USERDATA
+// Test-only feed, honored only in e2e builds (S13, like GITDOCK_E2E_USERDATA); loopback http allowed there.
+const e2e = testSeams && !!process.env.GITDOCK_E2E_USERDATA
 let state: UpdateState = { status: 'idle' }
 let feed: Feed | null = null
 let info: UpdateInfo | null = null

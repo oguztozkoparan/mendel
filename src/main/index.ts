@@ -9,8 +9,10 @@ import { clearCurrent } from './repos'
 import { getSettings, onSettingsChanged } from './settings'
 import { buildMenu } from './menu'
 import { createMainWindow } from './window'
-import { hardenSession, registerAppScheme } from './security'
+import { hardenSession, registerAppScheme, testSeams } from './security'
 
+// P2: no debugger/CDP attach to a release build (fuses already block Node's --inspect; this covers Chromium's switches).
+if (!testSeams && process.argv.some((a) => /^--(remote-debugging-|inspect)/.test(a))) process.exit(1)
 if (process.env[ASKPASS_TOKEN_ENV]) void runAskpass()
 else startApp()
 
@@ -25,8 +27,8 @@ async function runAskpass(): Promise<void> {
 }
 
 function startApp(): void {
-  const e2e = !app.isPackaged && process.env.GITDOCK_E2E_USERDATA
-  // Test-only userData dir, never honored in packaged builds (TECH.md §5).
+  const e2e = testSeams && process.env.GITDOCK_E2E_USERDATA
+  // Test-only userData dir, compiled out of release builds (S13, TECH.md §5).
   if (e2e) app.setPath('userData', e2e)
   // e2e: safeStorage must not touch (or prompt for) the developer's real macOS keychain.
   if (e2e) app.commandLine.appendSwitch('use-mock-keychain')

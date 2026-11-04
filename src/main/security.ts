@@ -5,7 +5,9 @@ import { resolveUnder } from './safe-path'
 
 export const APP_SCHEME = 'app'
 const PROD_ORIGIN = 'app://gitdock'
-const devUrl = !app.isPackaged ? process.env.ELECTRON_RENDERER_URL : undefined
+/** S13: build-time flag (electron.vite.config.ts), true only in dev and e2e builds; never read from the runtime env. */
+export const testSeams = process.env.GITDOCK_TEST_SEAMS === 'true'
+const devUrl = testSeams ? process.env.ELECTRON_RENDERER_URL : undefined
 
 /** Origin the renderer is served from; IPC and navigation are only trusted from it. */
 export const appOrigin = devUrl ? new URL(devUrl).origin : PROD_ORIGIN

@@ -102,7 +102,8 @@ Status: 49 bullets, 48 covered by automation, 1 partly manual (OS theme switch),
 | Feed unreachable → error with retry | e2e/update.spec.ts: unreachable feed… |
 
 ## Packaged build
-`npm run dist`, then `node scripts/smoke-packaged.mjs release/mac-arm64/gitdock.app/Contents/MacOS/gitdock` (launches over CDP, asserts the hardened welcome screen) and `npx @electron/fuses read --app release/mac-arm64/gitdock.app`.
+`npm run dist`, then `node scripts/smoke-packaged.mjs --refuses release/mac-arm64/gitdock.app/Contents/MacOS/gitdock` (the release build quits on `--remote-debugging-*` / `--inspect`, P2) and `npx @electron/fuses read --app release/mac-arm64/gitdock.app`.
+`npm run dist:smoke` (same packaging, e2e-mode main so CDP is allowed, S13), then `node scripts/smoke-packaged.mjs release-smoke/mac-arm64/gitdock.app/Contents/MacOS/gitdock` (launches over CDP, asserts the hardened welcome screen).
 
 ## Manual checklist
 Automation can't cover these; run before a release.
