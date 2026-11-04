@@ -58,3 +58,36 @@ test('create, switch, stash & switch with restore, delete', async () => {
     fx.cleanup()
   }
 })
+
+test('New branch from a selected local or remote branch starts there, not at HEAD', async () => {
+  const fx = createRepoFixture()
+  const pushed = fx.git(['rev-parse', 'HEAD'])
+  fx.git(['branch', 'other'])
+  fx.commitFile('a.txt', 'a\n') // main is now ahead of origin/main and other
+  const app = await launchApp(fx.env)
+  const { win } = app
+  const toolbar = win.getByLabel('Toolbar')
+  const menu = win.getByRole('dialog', { name: 'Branches' })
+  const dialog = win.getByRole('dialog', { name: 'New branch' })
+  try {
+    await openRepo(app, fx.work)
+    await toolbar.getByRole('button', { name: /^Current branch/ }).click()
+    await menu.getByRole('button', { name: 'Remote branches (1)' }).click()
+    await menu.getByRole('grid', { name: 'Remote branches' }).getByRole('button', { name: 'New branch from origin/main' }).click()
+    await expect(dialog).toContainText('From origin/main')
+    await dialog.getByLabel('Name').fill('from-remote')
+    await dialog.getByRole('button', { name: 'Create branch' }).click()
+    await expect(toolbar.getByRole('button', { name: 'Current branch from-remote' })).toBeVisible()
+    expect(fx.git(['rev-parse', 'HEAD'])).toBe(pushed)
+
+    await toolbar.getByRole('button', { name: /^Current branch/ }).click()
+    await menu.getByRole('button', { name: 'New branch from main' }).click()
+    await dialog.getByLabel('Name').fill('from-main')
+    await dialog.getByRole('button', { name: 'Create branch' }).click()
+    await expect(toolbar.getByRole('button', { name: 'Current branch from-main' })).toBeVisible()
+    expect(fx.git(['rev-parse', 'HEAD'])).toBe(fx.git(['rev-parse', 'main']))
+  } finally {
+    await app.close()
+    fx.cleanup()
+  }
+})

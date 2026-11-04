@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient, type InfiniteData, type QueryClient } from '@tanstack/react-query'
-import { ChevronDown, GitBranch, X } from 'lucide-react'
+import { ChevronDown, GitBranch, GitBranchPlus, X } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { Button, Dialog, DialogTrigger, GridList, GridListItem, Heading, Input, Label, Modal, ModalOverlay, Popover, SearchField, TextField } from 'react-aria-components'
 import type { BranchInfo } from '../../shared/ipc'
@@ -38,9 +38,10 @@ export function BranchSelector(p: { repo: string; onError(msg: string): void }) 
   const q = useBranches(p.repo)
   const [filter, setFilter] = useState('')
   const [showRemote, setShowRemote] = useState(false)
-  const [creating, setCreating] = useState<string | null>(null)
+  /** New-branch dialog: initial name and, for "New branch from <selected>", its start point. */
+  const [creating, setCreating] = useState<{ name: string; from?: string } | null>(null)
   const [open, setOpen] = useState(false)
-  useMenuCommand((c) => (c === 'branch:selector' ? setOpen(true) : c === 'branch:new' && setCreating('')))
+  useMenuCommand((c) => (c === 'branch:selector' ? setOpen(true) : c === 'branch:new' && setCreating({ name: '' })))
   const b = q.data
   const f = filter.toLowerCase()
   const local = (b?.local ?? []).filter((x) => x.name.toLowerCase().includes(f))
@@ -74,7 +75,7 @@ export function BranchSelector(p: { repo: string; onError(msg: string): void }) 
                     onAction={(name) => act(() => window.gitdock['branch:switch']({ repo: p.repo, name: String(name) }))}
                     renderEmptyState={() =>
                       filter.trim() ? (
-                        <Button className={s.empty} onPress={() => (close(), setCreating(filter.trim()))}>
+                        <Button className={s.empty} onPress={() => (close(), setCreating({ name: filter.trim() }))}>
                           Create branch '{filter.trim()}'
                         </Button>
                       ) : (
@@ -91,6 +92,9 @@ export function BranchSelector(p: { repo: string; onError(msg: string): void }) 
                           </span>
                         </div>
                         {aheadBehind(x) && <small aria-label="ahead/behind">{aheadBehind(x)}</small>}
+                        <Button className="icon" aria-label={`New branch from ${x.name}`} onPress={() => (close(), setCreating({ name: '', from: x.name }))}>
+                          <GitBranchPlus size={14} />
+                        </Button>
                         {x.name !== b?.current && (
                           <Button className="icon" aria-label={`Delete ${x.name}`} onPress={() => act(() => window.gitdock['branch:delete']({ repo: p.repo, name: x.name }))}>
                             <X size={14} />
@@ -113,13 +117,16 @@ export function BranchSelector(p: { repo: string; onError(msg: string): void }) 
                     >
                       {(x) => (
                         <GridListItem id={x.name} textValue={x.name} className={s.item}>
-                          {x.name}
+                          <div className={s.info}>{x.name}</div>
+                          <Button className="icon" aria-label={`New branch from ${x.name}`} onPress={() => (close(), setCreating({ name: '', from: x.name }))}>
+                            <GitBranchPlus size={14} />
+                          </Button>
                         </GridListItem>
                       )}
                     </GridList>
                   )}
                   <div className={s.menuActions}>
-                    <Button onPress={() => (close(), setCreating(filter.trim()))}>{b?.current ? 'New branch…' : 'Create branch here…'}</Button>
+                    <Button onPress={() => (close(), setCreating({ name: filter.trim() }))}>{b?.current ? 'New branch…' : 'Create branch here…'}</Button>
                   </div>
                 </>
               )
@@ -129,10 +136,10 @@ export function BranchSelector(p: { repo: string; onError(msg: string): void }) 
       </DialogTrigger>
       {creating !== null && (
         <NewBranchDialog
-          initial={creating}
-          from={label}
+          initial={creating.name}
+          from={creating.from ?? label}
           onClose={() => setCreating(null)}
-          create={(name) => window.gitdock['branch:create']({ repo: p.repo, name }).then(() => refreshRepo(qc, p.repo))}
+          create={(name) => window.gitdock['branch:create']({ repo: p.repo, name, from: creating.from }).then(() => refreshRepo(qc, p.repo))}
         />
       )}
     </>
