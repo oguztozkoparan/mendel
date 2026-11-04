@@ -5,6 +5,7 @@
 // Main must implement every `invoke` channel (see src/main/ipc/index.ts); preload exposes each one as
 // `window.gitdock['<channel>'](req)` and `window.gitdock.on('<event>', cb)`.
 import { z } from 'zod'
+import { draftSchema, type GerritChange, type GerritChangeLists, type GerritComment, type GerritConnected, type GerritDiff, type GerritFiles } from './gerrit'
 
 const res = <Res>() => <Req extends z.ZodType>(req: Req) => ({ req, res: null as unknown as Res })
 
@@ -163,6 +164,36 @@ export type MenuCommand =
   | 'status:refresh'
   | 'settings'
 
+/** Hosting provider of a repo (PLAN.md §5). Only 'gerrit' is implemented; others are reserved ids. */
+export type ProviderId = 'gerrit' | 'github' | 'bitbucket'
+
+/** Result of provider detection for a repo. `baseUrl` null = REST unknown (UI asks for "Set Gerrit URL"). */
+export interface Detection {
+  provider: ProviderId
+  /** Remote name the provider matched, e.g. `origin`. */
+  remote: string
+  host: string
+  baseUrl: string | null
+  project: string
+  serverVersion?: string
+  /** User from an SSH remote (prefills the credentials dialog). */
+  user?: string
+}
+
+/** Per-repo provider override (PLAN.md §4.3 step 5). */
+export interface RepoOverride {
+  provider: 'auto' | 'gerrit' | 'none'
+  baseUrl?: string
+}
+
+export interface ProviderState {
+  /** null = no provider (none detected, or override 'none'). */
+  detection: Detection | null
+  override: RepoOverride
+  /** Username of the stored Gerrit credential for the base URL's host; null = not connected. */
+  credentialUser: string | null
+}
+
 const repoId = z.string().min(1).max(64)
 const byId = z.object({ id: repoId }).strict()
 /** Repo-relative path; main additionally checks it with resolveUnder (TECH.md §6.4). */
@@ -172,6 +203,8 @@ const inRepo = z.object({ repo: repoId }).strict()
 const branchName = z.string().min(1).max(255)
 const sha = z.string().regex(/^[0-9a-f]{7,64}$/)
 const paths = z.object({ repo: repoId, paths: z.array(relPath).min(1).max(100_000) }).strict()
+const changeNum = z.number().int().positive().max(2 ** 31)
+const revision = z.string().regex(/^(?:[0-9a-f]{40}|\d{1,9}|current)$/)
 /** Update checker state (PLAN.md §3.12). `canInstall: false` = "Download" opens the download page instead. */
 export type UpdateState =
   | { status: 'idle' }
@@ -270,6 +303,44 @@ export const invoke = {
     z.object({ name: z.string().trim().min(1).max(200).regex(/^[^\0-\x1f]*$/), email: z.string().trim().min(1).max(200).regex(/^[^\0-\x1f\s<>]*$/) }).strict()
   ),
   'settings:openLogs': res<void>()(z.undefined()),
+  /** Detect the repo's provider (cached per host; probes unknown hosts, 3 s timeout). */
+  'provider:get': res<ProviderState>()(inRepo),
+  /** Save the repo override; a base URL is probed first and rejected if it is not Gerrit. */
+  'provider:setOverride': res<ProviderState>()(
+    z.object({ repo: repoId, provider: z.enum(['auto', 'gerrit', 'none']), baseUrl: z.string().max(2048).nullable() }).strict()
+  ),
+  /** Test `GET /a/accounts/self` with Basic auth, then store the secret in the OS keychain (401: nothing stored). */
+  'gerrit:connect': res<GerritConnected>()(
+    z.object({ repo: repoId, baseUrl: z.string().min(1).max(2048), username: z.string().min(1).max(256), password: z.string().min(1).max(4096) }).strict()
+  ),
+  'gerrit:disconnect': res<void>()(inRepo),
+  /** Open `<baseUrl>/<path>` (or an absolute URL on the same origin) in the browser; other origins are dropped. */
+  'gerrit:open': res<void>()(z.object({ repo: repoId, path: z.string().min(1).max(4096) }).strict()),
+  /** Reviews lists; `projectOnly` adds `project:"<p>"` to each query. */
+  'gerrit:changes': res<GerritChangeLists>()(z.object({ repo: repoId, projectOnly: z.boolean() }).strict()),
+  /** Change detail: all revisions, detailed labels, permitted_labels, actions, messages. */
+  'gerrit:change': res<GerritChange>()(z.object({ repo: repoId, change: changeNum }).strict()),
+  /** Files of a patch set (`revision` = sha or number), optionally against patch set `base`. */
+  'gerrit:files': res<GerritFiles>()(z.object({ repo: repoId, change: changeNum, revision, base: changeNum.optional() }).strict()),
+  'gerrit:diff': res<GerritDiff>()(z.object({ repo: repoId, change: changeNum, revision, path: z.string().min(1).max(4096), base: changeNum.optional() }).strict()),
+  'gerrit:comments': res<GerritComment[]>()(z.object({ repo: repoId, change: changeNum }).strict()),
+  /** Reply: one review POST on `patchSet` with message, votes and its inline comments (drafts on older patch sets go to those). */
+  'gerrit:review': res<void>()(
+    z
+      .object({
+        repo: repoId,
+        change: changeNum,
+        patchSet: changeNum,
+        message: z.string().max(100_000),
+        labels: z.record(z.string().min(1).max(200), z.number().int().min(-99).max(99)),
+        comments: z.array(draftSchema).max(1000)
+      })
+      .strict()
+  ),
+  /** Submit / abandon (optional message) / server rebase; the UI offers only actions the server listed. */
+  'gerrit:action': res<void>()(
+    z.object({ repo: repoId, change: changeNum, action: z.enum(['submit', 'abandon', 'rebase']), message: z.string().max(100_000).optional() }).strict()
+  ),
   'update:state': res<UpdateState>()(z.undefined()),
   /** Manual "Check for updates"; resolves with the state after the check. */
   'update:check': res<UpdateState>()(z.undefined()),
