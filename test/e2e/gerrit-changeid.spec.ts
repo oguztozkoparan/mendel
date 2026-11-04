@@ -34,4 +34,5 @@ test('no hook: commit gets a Change-Id from gitdock; unpushed HEAD without one g
   await expect(fix).toHaveCount(0)
   expect(fx.git(['log', '-1', '--format=%B'])).toMatch(/^Add b\n\nChange-Id: I[0-9a-f]{40}$/)
   expect(readdirSync(path.join(fx.work, '.git/hooks'))).toEqual(hooks)
+  expect(mock.requests.filter((r) => r.url.includes('/tools/hooks'))).toHaveLength(0) // hook never downloaded
 })

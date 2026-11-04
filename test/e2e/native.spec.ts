@@ -98,6 +98,11 @@ test('theme follows the OS by default', async () => {
     const [source, osDark] = await app.evaluate(({ nativeTheme }) => [nativeTheme.themeSource, nativeTheme.shouldUseDarkColors] as const)
     expect(source).toBe('system')
     expect(await win.evaluate(() => matchMedia('(prefers-color-scheme: dark)').matches)).toBe(osDark)
+    // An OS appearance change reaches the renderer as a prefers-color-scheme change; the UI restyles live.
+    for (const [colorScheme, bg] of [['dark', 'rgb(30, 30, 30)'], ['light', 'rgb(255, 255, 255)']] as const) {
+      await win.emulateMedia({ colorScheme })
+      await expect(win.locator('html')).toHaveCSS('background-color', bg)
+    }
   } finally {
     await close()
   }
