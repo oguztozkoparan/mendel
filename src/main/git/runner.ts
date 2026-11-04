@@ -148,9 +148,11 @@ export function git(args: string[], opts: GitOptions): Promise<GitResult> {
     child.stdin.on('error', () => {}) // git may exit before reading stdin (EPIPE); the exit code tells the story
     child.stdin.end(opts.stdin ?? '')
     child.on('error', (err) => {
-      if (err.name === 'AbortError') reject(new GitError('Cancelled', 'Git operation was cancelled', args))
-      else reject(new GitError('Unknown', `Failed to start git: ${err.message}`, args))
+      // On abort, settle only once git has exited ('exit' below) so callers can clean up after it (e.g. clone dir).
+      if (err.name !== 'AbortError') reject(new GitError('Unknown', `Failed to start git: ${err.message}`, args))
     })
+    // 'exit', not 'close': grandchildren (hooks, ssh) may keep stdio open after git itself died.
+    child.on('exit', () => opts.signal?.aborted && reject(new GitError('Cancelled', 'Git operation was cancelled', args)))
     child.on('close', (code, signal) => {
       if (opts.signal?.aborted) return reject(new GitError('Cancelled', 'Git operation was cancelled', args))
       if (tooLarge) return reject(new GitError('OutputTooLarge', 'Git output exceeded the size limit', args))
