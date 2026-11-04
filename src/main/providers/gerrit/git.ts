@@ -5,7 +5,7 @@ import { constants } from 'node:fs'
 import { access } from 'node:fs/promises'
 import path from 'node:path'
 import { reviewRef, type GerritCommit, type GerritSent } from '../../../shared/gerrit'
-import { isDirtyError, STASH_MSG, validateBranchName } from '../../git/branch'
+import { isDirtyError, stashPush, validateBranchName } from '../../git/branch'
 import { endOfOptions, git, GitError } from '../../git/runner'
 
 /** `Change-Id: I<40 hex>` in the message's last paragraph (where Gerrit reads it), or null. */
@@ -130,7 +130,7 @@ export async function checkoutChange(
   } catch (err) {
     if (!isDirtyError(err)) throw err
     if (!(await ask('stash'))) return null
-    await git(['stash', 'push', '--include-untracked', '-m', STASH_MSG], { cwd, env, signal })
+    await stashPush(cwd, env, signal)
     await sw()
   }
   if (upstream && (await has(`refs/remotes/${upstream}`))) await git(['branch', `--set-upstream-to=${upstream}`], { cwd, env, signal })

@@ -28,14 +28,15 @@ export async function syncState(cwd: string, env?: NodeJS.ProcessEnv): Promise<S
   return { branch: b.current, upstream: cur?.upstream ?? null, ahead, behind: cur?.behind ?? 0, unpushed, remote, lastFetched }
 }
 
-async function remoteOf(cwd: string, env?: NodeJS.ProcessEnv): Promise<string> {
-  const s = await syncState(cwd, env)
+async function remoteOf(cwd: string, env?: NodeJS.ProcessEnv, state?: SyncState): Promise<string> {
+  const s = state ?? (await syncState(cwd, env))
   if (!s.remote) throw new Error('This repository has no remote')
   return s.remote
 }
 
-export async function fetch(cwd: string, o: Opts = {}): Promise<void> {
-  await git([...NO_EXT, 'fetch', '--prune', ...endOfOptions(await remoteOf(cwd, o.env))], { cwd, ...o })
+/** `state`: an already-read syncState, so callers don't read it twice. */
+export async function fetch(cwd: string, o: Opts = {}, state?: SyncState): Promise<void> {
+  await git([...NO_EXT, 'fetch', '--prune', ...endOfOptions(await remoteOf(cwd, o.env, state))], { cwd, ...o })
 }
 
 /**
@@ -90,6 +91,6 @@ export const hasLocalChanges = (cwd: string, env?: NodeJS.ProcessEnv) =>
 export async function rebaseOntoUpstream(cwd: string, autostash: boolean, o: Opts = {}): Promise<SyncResult> {
   const s = await syncState(cwd, o.env)
   if (!s.upstream) throw new Error('The current branch has no upstream to rebase onto')
-  await fetch(cwd, o)
+  await fetch(cwd, o, s)
   return conflictAware(cwd, git(['rebase', ...(autostash ? ['--autostash'] : []), '@{upstream}'], { cwd, ...o }), o.env)
 }
