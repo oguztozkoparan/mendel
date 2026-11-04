@@ -1,0 +1,129 @@
+.listHeader {
+  padding: 6px 10px;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.list {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  outline: none;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 10px;
+  box-sizing: border-box;
+}
+
+.row[data-selected] {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+.path {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.letter {
+  width: 14px;
+  text-align: center;
+  font-family: var(--mono);
+  font-weight: 700;
+  border-radius: 3px;
+  font-size: 11px;
+}
+
+.letter[data-status='A'] {
+  color: #2da44e;
+}
+
+.letter[data-status='D'],
+.letter[data-status='U'] {
+  color: var(--danger);
+}
+
+.letter[data-status='M'] {
+  color: #bf8700;
+}
+
+.letter[data-status='R'],
+.letter[data-status='C'] {
+  color: #0969da;
+}
+
+.empty {
+  color: var(--muted);
+  padding: 24px;
+  margin: 0;
+  text-align: center;
+}
+
+.diffPane {
+  --diff-font-family: var(--mono);
+  --diff-background-color: var(--bg);
+  --diff-text-color: var(--fg);
+  font-size: 12px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .diffPane {
+    --diff-gutter-insert-background-color: #1d4428;
+    --diff-code-insert-background-color: #12261e;
+    --diff-gutter-delete-background-color: #542426;
+    --diff-code-delete-background-color: #25171c;
+    --diff-selection-background-color: #264f78;
+  }
+}
+
+.fileHeader {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  margin: 0;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  overflow-wrap: anywhere;
+}
+
+.sectionTitle {
+  margin: 0;
+  padding: 6px 12px;
+  font-size: 12px;
+  color: var(--muted);
+  background: var(--bg-side);
+  border-bottom: 1px solid var(--border);
+}
+
+.diff {
+  width: 100%;
+}
+
+.hunkHeader {
+  background: var(--bg-side);
+  color: var(--muted);
+}
+
+.hunkHeader td {
+  padding: 2px 8px;
+}
+
+.hunkHeader span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}

@@ -45,3 +45,10 @@ export function stubMessageBox(app: ElectronApplication, response: number): Prom
     dialog.showMessageBox = (async () => ({ response: r, checkboxChecked: false })) as never
   }, response)
 }
+
+/** Open `dir` through the welcome screen's "Open local repository…" (native dialog stubbed). */
+export async function openRepo({ app, win }: Pick<LaunchedApp, 'app' | 'win'>, dir: string): Promise<void> {
+  await stubOpenDialog(app, dir)
+  await win.getByRole('button', { name: 'Open local repository…' }).click()
+  await win.getByRole('tab', { name: 'Changes' }).waitFor()
+}

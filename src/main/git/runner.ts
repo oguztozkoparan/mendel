@@ -104,6 +104,8 @@ export interface GitOptions {
   background?: boolean
   /** Base env instead of process.env (tests pass an isolated env). */
   env?: NodeJS.ProcessEnv
+  /** Exit codes besides 0 that count as success (e.g. 1 for `diff --no-index`, which exits 1 when files differ). */
+  okExitCodes?: number[]
   /** Live stderr chunks (redacted), e.g. `--progress` output. */
   onStderr?: (chunk: string) => void
 }
@@ -158,7 +160,7 @@ export function git(args: string[], opts: GitOptions): Promise<GitResult> {
     child.on('close', (code, signal) => {
       if (opts.signal?.aborted) return reject(new GitError('Cancelled', 'Git operation was cancelled', args))
       if (tooLarge) return reject(new GitError('OutputTooLarge', 'Git output exceeded the size limit', args))
-      if (code === 0) return resolve({ stdout, stderr })
+      if (code === 0 || (code !== null && opts.okExitCodes?.includes(code))) return resolve({ stdout, stderr })
       if (code === null && signal === 'SIGTERM' && opts.timeoutMs)
         return reject(new GitError('Timeout', `Git timed out after ${opts.timeoutMs} ms`, args))
       const msg = stderr.trim() || `git ${args[0] ?? ''} exited with code ${code ?? signal}`

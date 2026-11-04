@@ -41,8 +41,24 @@ export interface CloneProgress {
   percent: number
 }
 
+/** porcelain v2 XY letter; '?' = untracked, 'U' = unmerged. */
+export type StatusCode = 'M' | 'A' | 'D' | 'R' | 'C' | 'T' | 'U' | '?'
+
+/** One changed path. A path can have both staged and unstaged changes (e.g. after staging one hunk). */
+export interface FileChange {
+  path: string
+  /** Source path of a staged rename/copy. */
+  origPath?: string
+  staged: StatusCode | null
+  unstaged: StatusCode | null
+  conflicted: boolean
+}
+
 const repoId = z.string().min(1).max(64)
 const byId = z.object({ id: repoId }).strict()
+/** Repo-relative path; main additionally checks it with resolveUnder (TECH.md §6.4). */
+const relPath = z.string().min(1).max(4096)
+const inRepo = z.object({ repo: repoId }).strict()
 
 export const invoke = {
   'app:info': res<AppInfo>()(z.undefined()),
@@ -60,12 +76,20 @@ export const invoke = {
   'repo:cloneParent': res<string>()(z.object({ pick: z.boolean() }).strict()),
   /** Clone into `<cloneParent>/<name>`, then open it. Progress via `repo:cloneProgress`. */
   'repo:clone': res<RepoEntry>()(z.object({ url: z.string().min(1).max(2048), name: z.string().min(1).max(255) }).strict()),
-  'repo:cloneCancel': res<void>()(z.undefined())
+  'repo:cloneCancel': res<void>()(z.undefined()),
+  /** Working tree status; also (re)starts the file watcher for this repo (`repo:changed`). */
+  'changes:status': res<FileChange[]>()(inRepo),
+  /** Unified diff text: staged = HEAD..index, else index..worktree (untracked: whole file as added). */
+  'changes:diff': res<string>()(
+    z.object({ repo: repoId, path: relPath, origPath: relPath.optional(), staged: z.boolean(), untracked: z.boolean() }).strict()
+  )
 } as const
 
 export const events = {
   'auth:prompt': null as unknown as AuthPrompt,
-  'repo:cloneProgress': null as unknown as CloneProgress
+  'repo:cloneProgress': null as unknown as CloneProgress,
+  /** Files or index of the watched repo changed (debounced); refetch status/diffs. */
+  'repo:changed': null as unknown as { repo: string }
 } as const
 
 export type InvokeChannel = keyof typeof invoke
