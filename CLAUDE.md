@@ -6,7 +6,11 @@
 - Plan: `docs/PLAN.md` · tech/security decisions: `docs/TECH.md`.
 
 ## Commands
-- Filled in by the scaffold (see `package.json` scripts): dev, build, test, e2e, release.
+- install: `npm ci` (Electron binary downloads on first run; force with `npx install-electron`)
+- dev: `npm run dev` · build: `npm run build` · typecheck: `npm run typecheck` (`tsc -b`)
+- test: `npm test` (vitest unit + git integration) · single file: `npx vitest run test/unit/<file>.test.ts`
+- e2e: `npm run e2e` (builds, then Playwright `_electron` against `out/main/index.js`) · single: `npx playwright test test/e2e/<file>.spec.ts`
+- package: `npm run dist` (electron-builder, `electron-builder.yml`) · release: `npm run release -- <major|minor|patch>`
 
 ## Commits
 - Feature: `feat(<scope>): <description>` · bug fix: `bug(<scope>): <description>`. No other prefixes. Enforced by `scripts/commit-msg` (installed to `.git/hooks/commit-msg`).

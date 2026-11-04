@@ -1,0 +1,36 @@
+{
+  "name": "gitdock",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Cross-platform desktop git client",
+  "author": "gitdock",
+  "main": "out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "typecheck": "tsc -b",
+    "test": "vitest run",
+    "e2e": "npm run build && playwright test",
+    "dist": "npm run build && electron-builder --publish never",
+    "release": "npm version -m \"feat(release): v%s\""
+  },
+  "dependencies": {
+    "electron-log": "5.4.4",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1",
+    "@types/node": "24.19.2",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.2.1",
+    "electron": "45.2.2",
+    "electron-builder": "26.18.0",
+    "electron-vite": "6.0.0",
+    "typescript": "6.0.3",
+    "vite": "8.3.5",
+    "vitest": "5.1.0"
+  }
+}
