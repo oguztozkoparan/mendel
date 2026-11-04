@@ -13,6 +13,8 @@ export const PUSH_OPTION_VALUE = /^[A-Za-z0-9._@+-]+$/
 /** `refs/for/<target>%topic=t,r=a@b.c,wip|ready` (PLAN.md §3.9, §5.5); throws on a value outside PUSH_OPTION_VALUE. */
 export function reviewRef(target: string, o: { topic?: string; reviewers: string[]; wip: boolean; ready?: boolean }): string {
   const opts = [...(o.topic ? [`topic=${o.topic}`] : []), ...o.reviewers.map((r) => `r=${r}`), ...(o.wip ? ['wip'] : []), ...(o.ready ? ['ready'] : [])]
+  // `%` starts push options and `,`/`=` separate them: a target containing them could inject options (S4).
+  if (/[%,=]/.test(target)) throw new Error(`Invalid target branch: ${JSON.stringify(target)}`)
   for (const v of [...(o.topic !== undefined ? [o.topic] : []), ...o.reviewers]) if (!PUSH_OPTION_VALUE.test(v)) throw new Error(`Invalid topic or reviewer: ${JSON.stringify(v)}`)
   return `refs/for/${target}${opts.length ? '%' + opts.join(',') : ''}`
 }

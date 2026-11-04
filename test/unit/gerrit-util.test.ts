@@ -1,4 +1,5 @@
 import { expect, it } from 'vitest'
+import { reviewRef } from '../../src/shared/gerrit'
 import { abbrev, gerritDate, labelSummary } from '../../src/renderer/src/providers/gerrit/util'
 
 it('summarizes labels as highest/lowest vote', () => {
@@ -20,4 +21,9 @@ it('groups comments into threads by in_reply_to', async () => {
   const c = (id: string, updated: string, in_reply_to?: string) => ({ id, updated, in_reply_to })
   const t = threadsOf([c('r2', '2'), c('a3', '5', 'a2'), c('a1', '1'), c('a2', '3', 'a1'), c('x', '4', 'missing')])
   expect(t.map((th) => th.map((x) => x.id))).toEqual([['a1', 'a2', 'a3'], ['r2'], ['x']])
+})
+
+it('reviewRef rejects push-option separators in the target branch (S4)', () => {
+  expect(reviewRef('main', { reviewers: ['a@b.c'], wip: true })).toBe('refs/for/main%r=a@b.c,wip')
+  for (const t of ['main%r=x', 'a,b', 'a=b']) expect(() => reviewRef(t, { reviewers: [], wip: false })).toThrow(/Invalid target branch/)
 })
