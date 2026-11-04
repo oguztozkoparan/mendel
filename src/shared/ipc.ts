@@ -26,11 +26,30 @@ export interface AuthPrompt {
   prompt: string
 }
 
+/** A repo the user added via the native dialog (TECH.md §6.2: the renderer only ever sends its `id`). */
+export interface RepoEntry {
+  id: string
+  path: string
+  name: string
+  /** false when the folder was deleted/moved: shown greyed with Locate / Remove. */
+  exists: boolean
+}
+
+const repoId = z.string().min(1).max(64)
+const byId = z.object({ id: repoId }).strict()
+
 export const invoke = {
   'app:info': res<AppInfo>()(z.undefined()),
   'git:info': res<GitInfo>()(z.object({ recheck: z.boolean() }).strict().optional()),
   /** value null = cancel (git/ssh then fails with AuthFailed). For `confirm` prompts send 'yes'. */
-  'auth:respond': res<void>()(z.object({ id: z.string().max(64), value: z.string().max(4096).nullable() }).strict())
+  'auth:respond': res<void>()(z.object({ id: z.string().max(64), value: z.string().max(4096).nullable() }).strict()),
+  /** Recent repos, most recent first; `current` = last opened repo if it still exists (reopened on launch). */
+  'repo:list': res<{ repos: RepoEntry[]; current: string | null }>()(z.undefined()),
+  /** Native folder dialog -> open that repo (subfolder opens its top level). `locate` re-points a missing entry. null = cancelled. */
+  'repo:add': res<RepoEntry | null>()(z.object({ locate: repoId.optional() }).strict().optional()),
+  'repo:open': res<RepoEntry>()(byId),
+  'repo:remove': res<void>()(byId),
+  'repo:reveal': res<void>()(byId)
 } as const
 
 export const events = {
