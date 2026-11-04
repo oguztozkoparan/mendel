@@ -7,6 +7,7 @@ import { startUpdater } from './ipc/update'
 import log from './log'
 import { clearCurrent } from './repos'
 import { getSettings, onSettingsChanged } from './settings'
+import { applyLoginShellPath } from './shell-path'
 import { buildMenu } from './menu'
 import { createMainWindow } from './window'
 import { hardenSession, registerAppScheme } from './security'
@@ -42,8 +43,11 @@ function startApp(): void {
 
   app.enableSandbox()
   registerAppScheme()
+  // Dev/e2e inherit the terminal's PATH; only packaged launches (Finder, desktop) need the login shell's.
+  const shellPath = app.isPackaged ? applyLoginShellPath().catch((err: unknown) => log.warn('[path] login shell PATH unavailable', err)) : null
 
   void app.whenReady().then(async () => {
+    await shellPath // before git is first resolved
     hardenSession()
     registerIpc()
     if (!getSettings().reopenLastRepo) clearCurrent()
