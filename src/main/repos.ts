@@ -76,3 +76,11 @@ export function cloneParent(set?: string): string {
   }
   return s.cloneParent ?? app.getPath('documents')
 }
+
+/** "Reopen last repo on start" off: start on the welcome screen. */
+export function clearCurrent(): void {
+  const s = load()
+  if (s.current === null) return
+  s.current = null
+  save()
+}

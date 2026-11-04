@@ -1,6 +1,7 @@
 import { BrowserWindow, dialog, type IpcMainInvokeEvent } from 'electron'
 import { applyHunk, discardPaths, getDiff, getStatus, stagePaths, unstagePaths } from '../git/changes'
 import { repoRoot } from '../repos'
+import { getSettings } from '../settings'
 import { resolveUnder } from '../safe-path'
 import { watchRepo } from '../watch'
 import { emit, type Handlers } from '.'
@@ -13,6 +14,7 @@ export function checkPath(root: string, rel: string): string {
 
 /** Native confirm for destructive ops (PLAN.md §7), shown by main so the renderer cannot skip it. */
 async function confirmDiscard(e: IpcMainInvokeEvent, message: string): Promise<boolean> {
+  if (!getSettings().confirmDiscard) return true
   const win = BrowserWindow.fromWebContents(e.sender)!
   const r = await dialog.showMessageBox(win, { type: 'warning', buttons: ['Discard', 'Cancel'], defaultId: 1, cancelId: 1, message, detail: 'This cannot be undone.' })
   return r.response === 0

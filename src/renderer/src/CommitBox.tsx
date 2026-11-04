@@ -2,13 +2,14 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState, type FormEvent, type KeyboardEvent } from 'react'
 import { Button, Checkbox, Input, TextArea, TextField } from 'react-aria-components'
 import s from './Changes.module.css'
-
-const SUMMARY_SOFT_LIMIT = 72
+import { useSettings } from './Settings'
 
 /** Commit box (PLAN.md 3.5): summary, description, amend (prefilled from HEAD), Mod+Enter commits. */
 export function CommitBox({ repo, hasStaged }: { repo: string; hasStaged: boolean }) {
   const qc = useQueryClient()
   const info = useQuery({ queryKey: ['commitInfo', repo], queryFn: () => window.gitdock['commit:info']({ repo }) })
+  const settings = useSettings().data
+  const limit = settings?.summaryLimit ?? 72
   const [summary, setSummary] = useState('')
   const [description, setDescription] = useState('')
   const [amend, setAmend] = useState(false)
@@ -52,13 +53,13 @@ export function CommitBox({ repo, hasStaged }: { repo: string; hasStaged: boolea
   return (
     <form className={s.commitBox} onSubmit={submit} onKeyDown={onKeyDown} aria-label="Commit">
       <TextField aria-label="Summary" value={summary} onChange={setSummary} className={s.summaryField}>
-        <Input placeholder="Summary (required)" className={s.summary} />
-        <span className={summary.length > SUMMARY_SOFT_LIMIT ? s.over : s.counter} title="Keep summaries under 72 characters">
-          {SUMMARY_SOFT_LIMIT - summary.length}
+        <Input placeholder="Summary (required)" className={s.summary} spellCheck={settings?.spellcheck} />
+        <span className={summary.length > limit ? s.over : s.counter} title={`Keep summaries under ${limit} characters`}>
+          {limit - summary.length}
         </span>
       </TextField>
       <TextField aria-label="Description" value={description} onChange={setDescription}>
-        <TextArea placeholder="Description" rows={5} className={s.description} />
+        <TextArea placeholder="Description" rows={5} className={s.description} spellCheck={settings?.spellcheck} />
       </TextField>
       <Checkbox isSelected={amend} onChange={toggleAmend} isDisabled={head === null} className={s.amend}>
         <span className={s.box} aria-hidden>

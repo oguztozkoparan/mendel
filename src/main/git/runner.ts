@@ -108,6 +108,8 @@ export interface GitOptions {
   okExitCodes?: number[]
   /** Live stderr chunks (redacted), e.g. `--progress` output. */
   onStderr?: (chunk: string) => void
+  /** Unattended runs (auto-fetch): no askpass bridge, so auth fails instead of prompting. */
+  noPrompt?: boolean
 }
 
 export interface GitResult {
@@ -121,7 +123,7 @@ export function git(args: string[], opts: GitOptions): Promise<GitResult> {
   if (!bin) return Promise.reject(new GitError('GitNotFound', 'Git was not found on PATH', args))
   const env = {
     ...(opts.env ?? process.env),
-    ...extraEnv,
+    ...(opts.noPrompt ? {} : extraEnv),
     GIT_TERMINAL_PROMPT: '0',
     LC_ALL: 'C',
     LANG: 'C',

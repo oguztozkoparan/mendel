@@ -1,10 +1,12 @@
-import { app, BrowserWindow } from 'electron'
+import { app, BrowserWindow, nativeTheme } from 'electron'
 import { ASKPASS_SOCKET_ENV, ASKPASS_TOKEN_ENV, requestAnswer, startAskpassServer } from './auth/askpass'
 import { git, setGitEnv } from './git/runner'
 import { registerIpc } from './ipc'
 import { askUser } from './ipc/auth'
 import { startUpdater } from './ipc/update'
 import log from './log'
+import { clearCurrent } from './repos'
+import { getSettings, onSettingsChanged } from './settings'
 import { createMainWindow } from './window'
 import { hardenSession, registerAppScheme } from './security'
 
@@ -32,6 +34,9 @@ function startApp(): void {
   void app.whenReady().then(async () => {
     hardenSession()
     registerIpc()
+    if (!getSettings().reopenLastRepo) clearCurrent()
+    nativeTheme.themeSource = getSettings().theme
+    onSettingsChanged((s) => (nativeTheme.themeSource = s.theme))
     const askpass = await startAskpassServer({
       // Outside packaged builds the executable is plain Electron and needs our main script.
       command: app.isPackaged ? [process.execPath] : [process.execPath, __filename],

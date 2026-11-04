@@ -191,3 +191,13 @@
   margin: 4px 0 0;
   padding-left: 16px;
 }
+
+.settings {
+  margin-left: auto;
+  align-self: center;
+  -webkit-app-region: no-drag;
+}
+
+:global(html:not([data-platform='darwin'])) .settings {
+  margin-right: 140px; /* window controls overlay */
+}

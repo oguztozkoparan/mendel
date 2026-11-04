@@ -5,6 +5,7 @@ import path from 'node:path'
 import type { UpdateState } from '../../shared/ipc'
 import log from '../log'
 import { redact } from '../redact'
+import { getSettings } from '../settings'
 import { canSelfInstall, downloadUrl, externalAllowed, parseFeed, urlAllowed, type Feed } from '../update/feed'
 import { emit, type Handlers } from '.'
 
@@ -96,8 +97,9 @@ export function startUpdater(): void {
   // e2e-only seam: lets Playwright stub download/install on the real updater.
   if (e2e) Object.assign(globalThis, { __gitdockUpdater: autoUpdater })
   if (app.isPackaged) {
-    setTimeout(() => void check(false), FIRST_CHECK_MS)
-    setInterval(() => void check(false), CHECK_EVERY_MS)
+    const auto = () => getSettings().autoUpdateCheck && void check(false)
+    setTimeout(auto, FIRST_CHECK_MS)
+    setInterval(auto, CHECK_EVERY_MS)
   }
 }
 

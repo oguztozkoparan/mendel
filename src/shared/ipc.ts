@@ -127,6 +127,24 @@ export interface CommitDetail {
 /** A merge or rebase stopped on conflicts (or otherwise waiting to be continued). */
 export type OpInProgress = 'merge' | 'rebase' | null
 
+/** User preferences (PLAN.md §6), persisted in userData/settings.json. Each field is validated on load and on change. */
+const prefs = z
+  .object({
+    theme: z.enum(['system', 'light', 'dark']),
+    reopenLastRepo: z.boolean(),
+    confirmDiscard: z.boolean(),
+    /** 0 = off. */
+    autoFetchMinutes: z.union([z.literal(0), z.literal(5), z.literal(15), z.literal(30)]),
+    /** Pull strategy for repos without a provider. */
+    pullStrategy: z.enum(['merge', 'rebase']),
+    summaryLimit: z.number().int().min(20).max(200),
+    spellcheck: z.boolean(),
+    autoUpdateCheck: z.boolean()
+  })
+  .strict()
+export type Settings = z.output<typeof prefs>
+export const settingsFields = prefs.shape
+
 const repoId = z.string().min(1).max(64)
 const byId = z.object({ id: repoId }).strict()
 /** Repo-relative path; main additionally checks it with resolveUnder (TECH.md §6.4). */
@@ -207,7 +225,8 @@ export const invoke = {
   'branch:stash': res<boolean>()(z.object({ repo: repoId, action: z.enum(['restore', 'discard']) }).strict()),
   'sync:state': res<SyncState>()(inRepo),
   /** Long ops below are cancellable with `sync:cancel`; git auth prompts arrive via `auth:prompt`. */
-  'sync:fetch': res<void>()(inRepo),
+  /** `auto`: background auto-fetch; never prompts for credentials and is skipped while another op runs. */
+  'sync:fetch': res<void>()(z.object({ repo: repoId, auto: z.boolean().optional() }).strict()),
   'sync:pull': res<SyncResult>()(inRepo),
   /** Push to upstream, or publish (`push -u`) when the branch has none. */
   'sync:push': res<SyncResult>()(inRepo),
@@ -224,6 +243,15 @@ export const invoke = {
   'conflict:continue': res<SyncResult>()(inRepo),
   /** Abort after a native confirm; false = cancelled. */
   'conflict:abort': res<boolean>()(inRepo),
+  'settings:get': res<Settings>()(z.undefined()),
+  /** Change some preferences; resolves with all of them. */
+  'settings:set': res<Settings>()(prefs.partial()),
+  /** Global git identity used for commits (`git config --global user.name/email`). */
+  'settings:gitIdentity': res<{ name: string; email: string }>()(z.undefined()),
+  'settings:setGitIdentity': res<void>()(
+    z.object({ name: z.string().trim().min(1).max(200).regex(/^[^\0-\x1f]*$/), email: z.string().trim().min(1).max(200).regex(/^[^\0-\x1f\s<>]*$/) }).strict()
+  ),
+  'settings:openLogs': res<void>()(z.undefined()),
   'update:state': res<UpdateState>()(z.undefined()),
   /** Manual "Check for updates"; resolves with the state after the check. */
   'update:check': res<UpdateState>()(z.undefined()),

@@ -1,0 +1,70 @@
+.dialog {
+  width: 620px;
+}
+
+.tabs {
+  display: flex;
+  gap: 16px;
+  min-height: 300px;
+}
+
+.sections {
+  display: flex;
+  flex-direction: column;
+  width: 120px;
+  border-right: 1px solid var(--border);
+}
+
+.sections [role='tab'] {
+  padding: 6px 8px;
+  border-radius: var(--radius);
+}
+
+.sections [role='tab'][data-selected] {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  font-weight: 600;
+}
+
+.panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  outline: none;
+}
+
+.radios {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+
+.radios [slot],
+.radios > span:first-child,
+.radios label:first-child {
+  width: 100%;
+}
+
+.radio {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.radio::before {
+  content: '';
+  width: 12px;
+  height: 12px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+}
+
+.radio[data-selected]::before {
+  border: 4px solid var(--accent);
+  width: 6px;
+  height: 6px;
+}
+
+.number {
+  width: 80px;
+}

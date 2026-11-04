@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
+import { Settings as Gear } from 'lucide-react'
 import { Button } from 'react-aria-components'
 import type { GitInfo } from '../../shared/ipc'
 import s from './App.module.css'
@@ -9,6 +10,7 @@ import { CloneDialog } from './CloneDialog'
 import { ConflictBanner } from './Conflicts'
 import { RepoList, RepoSelector, type RepoActions } from './Repos'
 import { RepoView } from './RepoView'
+import { SettingsDialog } from './Settings'
 import { SyncButton, type Notice } from './SyncButton'
 import { UpdatePill } from './UpdatePill'
 
@@ -24,6 +26,7 @@ export function App() {
   const [error, setError] = useState<string | null>(null)
   const [cloning, setCloning] = useState(false)
   const [notice, setNotice] = useState<Notice | null>(null)
+  const [settings, setSettings] = useState(false)
   // Files, index or refs changed on disk: everything shown for that repo may be stale.
   useEffect(() => window.gitdock.on('repo:changed', (e) => void refreshRepo(qc, e.repo)), [qc])
   const check = (recheck = false) => void window.gitdock['git:info']({ recheck }).then(setGit)
@@ -55,6 +58,9 @@ export function App() {
         {current && <BranchSelector key={current.id} repo={current.id} onError={setError} />}
         {current && <SyncButton key={current.id} repo={current.id} onError={setError} onNotice={setNotice} />}
         <UpdatePill />
+        <Button className={`icon ${s.settings}`} aria-label="Settings" onPress={() => setSettings(true)}>
+          <Gear size={16} />
+        </Button>
       </header>
       {error && (
         <div role="alert" className={s.banner}>
@@ -111,6 +117,7 @@ export function App() {
           onCloned={() => (setCloning(false), void qc.invalidateQueries({ queryKey: ['repos'] }))}
         />
       )}
+      {settings && <SettingsDialog onClose={() => setSettings(false)} />}
       <AuthPromptDialog />
     </div>
   )

@@ -4,7 +4,7 @@ import type { SyncResult, SyncState } from '../../shared/ipc'
 import { listBranches } from './branch'
 import { endOfOptions, git, GitError, type GitOptions } from './runner'
 
-type Opts = Pick<GitOptions, 'env' | 'signal'>
+type Opts = Pick<GitOptions, 'env' | 'signal' | 'noPrompt'>
 const NO_EXT = ['-c', 'protocol.ext.allow=never']
 
 const config = (cwd: string, key: string, env?: NodeJS.ProcessEnv) =>

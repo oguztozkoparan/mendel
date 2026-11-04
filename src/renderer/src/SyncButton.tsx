@@ -1,10 +1,11 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ChevronDown } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Button, Menu, MenuItem, MenuTrigger, Popover } from 'react-aria-components'
 import type { SyncResult } from '../../shared/ipc'
 import { refreshRepo } from './Branches'
 import s from './Repos.module.css'
+import { useSettings } from './Settings'
 import { ago } from './time'
 
 export interface Notice {
@@ -27,6 +28,16 @@ export function SyncButton(p: { repo: string; onError(msg: string): void; onNoti
   const q = useQuery({ queryKey: ['sync', p.repo], queryFn: () => window.gitdock['sync:state']({ repo: p.repo }) })
   const [busy, setBusy] = useState<Op | null>(null)
   const st = q.data
+  const every = useSettings().data?.autoFetchMinutes ?? 0
+  const hasRemote = !!st?.remote
+  useEffect(() => {
+    if (!every || !hasRemote) return
+    const t = setInterval(
+      () => void window.gitdock['sync:fetch']({ repo: p.repo, auto: true }).then(() => refreshRepo(qc, p.repo), () => undefined),
+      every * 60_000
+    )
+    return () => clearInterval(t)
+  }, [every, hasRemote, p.repo, qc])
 
   const run = (op: Op) => {
     if (busy) return
