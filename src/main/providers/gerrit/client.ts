@@ -49,6 +49,9 @@ export function parseGerritJson(body: string): unknown {
 }
 
 /** REST calls under `<baseUrl>/a/` with Basic auth. `path` segments must already be URL-encoded (see `enc`). */
+/** ` project:"<p>"` query term; `"` and `\` escaped so a project name can't end the quote and add operators (S10). */
+const projectTerm = (p: string | null) => (p ? ` project:"${p.replace(/[\\"]/g, '\\$&')}"` : '')
+
 export function gerritClient(baseUrl: string, auth: GerritAuth, fetchFn: Fetch) {
   const authHeader = 'Basic ' + Buffer.from(`${auth.username}:${auth.password}`).toString('base64')
 
@@ -80,7 +83,7 @@ export function gerritClient(baseUrl: string, auth: GerritAuth, fetchFn: Fetch) 
 
     /** Outgoing / Incoming / Recently closed (last 10) in one request (PLAN.md §3.7, §5.5). */
     async listChanges(project: string | null): Promise<GerritChangeLists> {
-      const p = project ? ` project:"${project}"` : ''
+      const p = projectTerm(project)
       const qs = [`status:open owner:self${p}`, `status:open reviewer:self -owner:self${p}`, `owner:self -is:open limit:10${p}`]
       const q = qs.map((x) => 'q=' + encodeURIComponent(x)).join('&')
       const [outgoing, incoming, closed] = await call(z.array(z.array(changeSchema)).length(3), 'GET', `changes/?${q}&o=DETAILED_LABELS&o=DETAILED_ACCOUNTS`)
@@ -89,7 +92,7 @@ export function gerritClient(baseUrl: string, auth: GerritAuth, fetchFn: Fetch) 
 
     /** Open changes whose Change-Id is one of `ids` (History badges, new-patchset hint), optionally in `project`. */
     openChanges: (ids: string[], project: string | null) =>
-      call(z.array(changeSchema), 'GET', `changes/?q=${encodeURIComponent(`status:open (${ids.map((i) => `change:${i}`).join(' OR ')})${project ? ` project:"${project}"` : ''}`)}`),
+      call(z.array(changeSchema), 'GET', `changes/?q=${encodeURIComponent(`status:open (${ids.map((i) => `change:${i}`).join(' OR ')})${projectTerm(project)}`)}`),
 
     change: (n: number) =>
       call(changeSchema, 'GET', `changes/${enc(n)}/detail?o=CURRENT_REVISION&o=ALL_REVISIONS&o=DETAILED_LABELS&o=DETAILED_ACCOUNTS&o=CURRENT_ACTIONS&o=MESSAGES`),

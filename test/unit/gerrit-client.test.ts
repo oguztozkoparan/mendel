@@ -32,6 +32,11 @@ describe('gerrit client', () => {
     expect(decodeURIComponent(mock.find('GET', '/a/changes/').at(-1)!.url)).toContain(`q=status:open (change:${id(101)} OR change:${id(90)} OR change:${id(5)}) project:"p/q"`)
   })
 
+  it('escapes quotes and backslashes in the project query term (S10)', async () => {
+    await client().listChanges('a" OR owner:x \\')
+    expect(decodeURIComponent(mock.find('GET', '/a/changes/').at(-1)!.url)).toContain('project:"a\\" OR owner:x \\\\"')
+  })
+
   it('reports unreachable servers', async () => {
     await expect(gerritClient('http://127.0.0.1:1', { username: 'u', password: 'p' }, fetch).self()).rejects.toThrow(/Cannot reach Gerrit/)
   })
