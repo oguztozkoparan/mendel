@@ -5,6 +5,7 @@
 // Main must implement every `invoke` channel (see src/main/ipc/index.ts); preload exposes each one as
 // `window.gitdock['<channel>'](req)` and `window.gitdock.on('<event>', cb)`.
 import { z } from 'zod'
+import type { GerritConnected } from './gerrit'
 
 const res = <Res>() => <Req extends z.ZodType>(req: Req) => ({ req, res: null as unknown as Res })
 
@@ -89,6 +90,8 @@ export interface ProviderState {
   /** null = no provider (none detected, or override 'none'). */
   detection: Detection | null
   override: RepoOverride
+  /** Username of the stored Gerrit credential for the base URL's host; null = not connected. */
+  credentialUser: string | null
 }
 
 const repoId = z.string().min(1).max(64)
@@ -161,6 +164,13 @@ export const invoke = {
   'provider:setOverride': res<ProviderState>()(
     z.object({ repo: repoId, provider: z.enum(['auto', 'gerrit', 'none']), baseUrl: z.string().max(2048).nullable() }).strict()
   ),
+  /** Test `GET /a/accounts/self` with Basic auth, then store the secret in the OS keychain (401: nothing stored). */
+  'gerrit:connect': res<GerritConnected>()(
+    z.object({ repo: repoId, baseUrl: z.string().min(1).max(2048), username: z.string().min(1).max(256), password: z.string().min(1).max(4096) }).strict()
+  ),
+  'gerrit:disconnect': res<void>()(inRepo),
+  /** Open `<baseUrl>/<path>` (or an absolute URL on the same origin) in the browser; other origins are dropped. */
+  'gerrit:open': res<void>()(z.object({ repo: repoId, path: z.string().min(1).max(4096) }).strict()),
   'update:state': res<UpdateState>()(z.undefined()),
   /** Manual "Check for updates"; resolves with the state after the check. */
   'update:check': res<UpdateState>()(z.undefined()),

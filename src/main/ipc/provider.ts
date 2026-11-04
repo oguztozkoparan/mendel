@@ -1,6 +1,7 @@
 import { app, net } from 'electron'
 import type { ProviderState, RepoOverride } from '../../shared/ipc'
 import { detectProvider, registerProvider, type Probe } from '../providers'
+import { credentialUser } from '../providers/gerrit/credentials'
 import { normalizeBaseUrl, readCapped } from '../providers/gerrit/client'
 import { gerritDetection, gerritProvider, probeGerrit } from '../providers/gerrit/detect'
 import { readRemotes } from '../providers/remotes'
@@ -44,7 +45,11 @@ export async function providerState(repo: string): Promise<ProviderState> {
       }
     }
   }
-  const state = { detection, override: { provider: override.provider, ...(override.baseUrl ? { baseUrl: override.baseUrl } : {}) } }
+  const state = {
+    detection,
+    override: { provider: override.provider, ...(override.baseUrl ? { baseUrl: override.baseUrl } : {}) },
+    credentialUser: detection?.baseUrl ? credentialUser(new URL(detection.baseUrl).host) : null
+  }
   active.set(repo, state)
   return state
 }

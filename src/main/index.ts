@@ -25,6 +25,8 @@ function startApp(): void {
   const e2e = !app.isPackaged && process.env.GITDOCK_E2E_USERDATA
   // Test-only userData dir, never honored in packaged builds (TECH.md §5).
   if (e2e) app.setPath('userData', e2e)
+  // e2e: safeStorage must not touch (or prompt for) the developer's real macOS keychain.
+  if (e2e) app.commandLine.appendSwitch('use-mock-keychain')
 
   app.enableSandbox()
   registerAppScheme()

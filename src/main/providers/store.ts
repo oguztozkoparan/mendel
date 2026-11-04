@@ -11,7 +11,9 @@ const schema = z.object({
   /** repoId → override. */
   repos: z
     .record(z.string(), z.object({ provider: z.enum(['auto', 'gerrit', 'none']), baseUrl: z.string().optional(), version: z.string().optional() }))
-    .default({})
+    .default({}),
+  /** Gerrit host (with port) → username + safeStorage-encrypted secret (base64). */
+  credentials: z.record(z.string(), z.object({ username: z.string(), secret: z.string() })).default({})
 })
 export type ProviderStore = z.infer<typeof schema>
 

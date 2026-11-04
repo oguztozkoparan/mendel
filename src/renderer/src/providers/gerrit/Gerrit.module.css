@@ -30,3 +30,14 @@
   margin: 0;
   text-align: center;
 }
+
+.link {
+  align-self: flex-start;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  text-decoration: underline;
+  cursor: pointer;
+}
