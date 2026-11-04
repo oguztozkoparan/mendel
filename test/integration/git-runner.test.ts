@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { gitInfo } from '../../src/main/git/info'
-import { endOfOptions, git, GitError, killAllGit } from '../../src/main/git/runner'
+import { endOfOptions, git, GitError, gitBusy, killAllGit } from '../../src/main/git/runner'
 import { createRepoFixture, type RepoFixture } from '../fixtures/repo'
 
 describe('git runner against real git', () => {
@@ -59,6 +59,11 @@ describe('git runner against real git', () => {
     setTimeout(() => ac.abort(), 100)
     await expect(run).rejects.toMatchObject({ kind: 'Cancelled' })
     expect(Date.now() - started).toBeLessThan(5000)
+  })
+
+  it('a spawn failure (missing cwd) does not leave gitBusy stuck', async () => {
+    await expect(git(['status'], { cwd: path.join(tmpdir(), 'gitdock-no-such-dir-' + Date.now()) })).rejects.toBeInstanceOf(GitError)
+    expect(gitBusy()).toBe(false)
   })
 
   it('killAllGit ends running git children (app quit)', async () => {

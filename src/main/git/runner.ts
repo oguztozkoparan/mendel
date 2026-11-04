@@ -152,7 +152,8 @@ export function git(args: string[], opts: GitOptions): Promise<GitResult> {
       timeout: timeoutMs
     })
     live.set(child, !!opts.background)
-    child.on('exit', () => (live.delete(child), prompt?.revoke())).on('error', () => prompt?.revoke())
+    // A spawn failure emits 'error' without 'exit'.
+    child.on('exit', () => (live.delete(child), prompt?.revoke())).on('error', () => (live.delete(child), prompt?.revoke()))
     let stdout = ''
     let stderr = ''
     let tooLarge = false
