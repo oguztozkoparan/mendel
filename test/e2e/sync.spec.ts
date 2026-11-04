@@ -57,6 +57,28 @@ test('push, fetch + pull, rejected push banner, publish', async () => {
   }
 })
 
+test('auth prompt names the op and repo, and closes when that op is cancelled (S5, R15)', async () => {
+  const fx = createRepoFixture()
+  const remote = await startAuthRemote()
+  fx.git(['remote', 'set-url', 'origin', `${remote.url}/repo.git`])
+  const app = await launchApp(fx.env)
+  const { win } = app
+  try {
+    await openRepo(app, fx.work)
+    await win.getByLabel('Toolbar').getByRole('button', { name: 'Fetch origin' }).click()
+    const dialog = win.getByRole('dialog', { name: 'Authentication required' })
+    await expect(dialog).toContainText(`git fetch in ${fx.work}`)
+    // The modal covers the toolbar's Cancel; call the same IPC it uses.
+    await win.evaluate(() => (window as unknown as { gitdock: Record<string, () => Promise<void>> }).gitdock['sync:cancel']())
+    await expect(dialog).toHaveCount(0)
+    await expect(win.getByLabel('Toolbar').getByRole('button', { name: 'Fetch origin' })).toBeVisible()
+  } finally {
+    await app.close()
+    await remote.close()
+    fx.cleanup()
+  }
+})
+
 test('cancelling an auth prompt during fetch ends the op with a message', async () => {
   const fx = createRepoFixture()
   const remote = await startAuthRemote()

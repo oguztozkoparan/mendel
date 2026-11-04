@@ -25,6 +25,8 @@ export interface AuthPrompt {
   /** text: username; secret: password/passphrase; confirm: yes/no (unknown SSH host key). */
   kind: 'text' | 'secret' | 'confirm'
   prompt: string
+  /** Which op and repo asked, e.g. `git fetch in /path/repo`. */
+  context: string
 }
 
 /** A repo the user added via the native dialog (TECH.md §6.2: the renderer only ever sends its `id`). */
@@ -384,6 +386,8 @@ export const invoke = {
 
 export const events = {
   'auth:prompt': null as unknown as AuthPrompt,
+  /** The prompt's git run ended (or its askpass client went away): close the modal, no answer needed. */
+  'auth:dismiss': null as unknown as { id: string },
   'repo:cloneProgress': null as unknown as CloneProgress,
   /** Files or index of the watched repo changed (debounced); refetch status/diffs. */
   'repo:changed': null as unknown as { repo: string },

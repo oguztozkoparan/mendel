@@ -86,10 +86,11 @@ export function gitPath(recheck = false): string | null {
   return resolved
 }
 
-let extraEnv: Record<string, string> = {}
-/** Env added to every git run (the askpass bridge sets GIT_ASKPASS/SSH_ASKPASS here, not in process.env). */
-export function setGitEnv(env: Record<string, string>): void {
-  extraEnv = env
+/** Per-run env for runs that may prompt (askpass bridge: GIT_ASKPASS + a token revoked when that git exits, S5). */
+export type PromptEnv = (origin: { cwd: string; args: string[] }) => { env: Record<string, string>; revoke(): void }
+let promptEnv: PromptEnv | null = null
+export function setGitEnv(fn: PromptEnv | null): void {
+  promptEnv = fn
 }
 
 export interface GitOptions {
@@ -121,9 +122,10 @@ export interface GitResult {
 export function git(args: string[], opts: GitOptions): Promise<GitResult> {
   const bin = gitPath()
   if (!bin) return Promise.reject(new GitError('GitNotFound', 'Git was not found on PATH', args))
+  const prompt = opts.noPrompt ? null : (promptEnv?.({ cwd: opts.cwd, args }) ?? null)
   const env = {
     ...(opts.env ?? process.env),
-    ...(opts.noPrompt ? {} : extraEnv),
+    ...prompt?.env,
     GIT_TERMINAL_PROMPT: '0',
     LC_ALL: 'C',
     LANG: 'C',
@@ -140,6 +142,7 @@ export function git(args: string[], opts: GitOptions): Promise<GitResult> {
       signal: opts.signal,
       timeout: opts.timeoutMs
     })
+    child.on('exit', () => prompt?.revoke()).on('error', () => prompt?.revoke())
     let stdout = ''
     let stderr = ''
     let tooLarge = false

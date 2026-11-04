@@ -2,7 +2,7 @@
 // git/ssh run GIT_ASKPASS/SSH_ASKPASS = this app's own executable (via a wrapper script outside packaged
 // builds). That process detects GITDOCK_ASKPASS_TOKEN, sends the prompt over a local socket/pipe to the
 // running app, prints the answer and exits (non-zero = cancelled). gitdock stores nothing.
-import { randomBytes, timingSafeEqual } from 'node:crypto'
+import { createHash, randomBytes } from 'node:crypto'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { createConnection, createServer } from 'node:net'
 import os from 'node:os'
@@ -12,17 +12,26 @@ export const ASKPASS_TOKEN_ENV = 'GITDOCK_ASKPASS_TOKEN'
 export const ASKPASS_SOCKET_ENV = 'GITDOCK_ASKPASS_SOCKET'
 const MAX_REQUEST = 64 * 1024
 
+/** The git run a prompt belongs to (shown to the user). */
+export interface PromptOrigin {
+  cwd: string
+  args: string[]
+}
+
 export interface AskpassServer {
-  /** Env to add to every git process (see setGitEnv in git/runner). */
-  env: Record<string, string>
+  /**
+   * Env for one git run (see setGitEnv in git/runner), with a token accepted only until `revoke` (S5):
+   * prompts from anything but a git op gitdock is running are refused. Revoking also cancels its open prompt.
+   */
+  issue(origin: PromptOrigin): { env: Record<string, string>; revoke(): void }
   close(): void
 }
 
 export interface AskpassOptions {
   /** Command that starts this app in askpass mode (packaged: [process.execPath]). */
   command: string[]
-  /** Answer a prompt; null = cancel. */
-  onPrompt(prompt: string): Promise<string | null>
+  /** Answer a prompt; null = cancel. `signal` aborts when the git run ends or the askpass client goes away. */
+  onPrompt(prompt: string, origin: PromptOrigin, signal: AbortSignal): Promise<string | null>
 }
 
 const shQuote = (s: string) => `'${s.replace(/'/g, `'\\''`)}'`
@@ -30,7 +39,6 @@ const shQuote = (s: string) => `'${s.replace(/'/g, `'\\''`)}'`
 export async function startAskpassServer({ command, onPrompt }: AskpassOptions): Promise<AskpassServer> {
   const win = process.platform === 'win32'
   const dir = mkdtempSync(path.join(os.tmpdir(), 'gitdock-askpass-')) // mode 0700
-  const token = randomBytes(32).toString('hex')
   const socket = win ? `\\\\.\\pipe\\gitdock-askpass-${randomBytes(16).toString('hex')}` : path.join(dir, 's')
 
   let program = command[0]
@@ -47,7 +55,9 @@ export async function startAskpassServer({ command, onPrompt }: AskpassOptions):
     )
   }
 
-  const expected = Buffer.from(token)
+  // Live tokens by hash: lookups don't compare secrets byte by byte.
+  const live = new Map<string, { origin: PromptOrigin; ended: AbortController }>()
+  const hash = (t: string) => createHash('sha256').update(t).digest('hex')
   const server = createServer((conn) => {
     let buf = ''
     conn.setEncoding('utf8')
@@ -64,9 +74,11 @@ export async function startAskpassServer({ command, onPrompt }: AskpassOptions):
       } catch {
         return void conn.destroy()
       }
-      const got = Buffer.from(typeof req.token === 'string' ? req.token : '')
-      if (got.length !== expected.length || !timingSafeEqual(got, expected) || typeof req.prompt !== 'string') return void conn.destroy()
-      onPrompt(req.prompt)
+      const op = typeof req.token === 'string' ? live.get(hash(req.token)) : undefined
+      if (!op || op.ended.signal.aborted || typeof req.prompt !== 'string') return void conn.destroy()
+      const gone = new AbortController()
+      conn.on('close', () => gone.abort())
+      onPrompt(req.prompt, op.origin, AbortSignal.any([op.ended.signal, gone.signal]))
         .catch(() => null)
         .then((value) => conn.end(JSON.stringify({ value }) + '\n'))
     })
@@ -74,12 +86,23 @@ export async function startAskpassServer({ command, onPrompt }: AskpassOptions):
   await new Promise<void>((resolve, reject) => server.once('error', reject).listen(socket, resolve))
 
   return {
-    env: {
-      GIT_ASKPASS: program,
-      SSH_ASKPASS: program,
-      SSH_ASKPASS_REQUIRE: 'force', // OpenSSH >= 8.4: use askpass even without DISPLAY / with a tty
-      [ASKPASS_SOCKET_ENV]: socket,
-      [ASKPASS_TOKEN_ENV]: token
+    issue: (origin) => {
+      const token = randomBytes(32).toString('hex')
+      const ended = new AbortController()
+      live.set(hash(token), { origin, ended })
+      return {
+        env: {
+          GIT_ASKPASS: program,
+          SSH_ASKPASS: program,
+          SSH_ASKPASS_REQUIRE: 'force', // OpenSSH >= 8.4: use askpass even without DISPLAY / with a tty
+          [ASKPASS_SOCKET_ENV]: socket,
+          [ASKPASS_TOKEN_ENV]: token
+        },
+        revoke: () => {
+          live.delete(hash(token))
+          ended.abort()
+        }
+      }
     },
     close: () => {
       server.close()
@@ -112,4 +135,10 @@ export function promptKind(prompt: string): 'text' | 'secret' | 'confirm' {
   if (/\(yes\/no/i.test(prompt)) return 'confirm'
   if (/^username/i.test(prompt.trim())) return 'text'
   return 'secret'
+}
+
+/** `git fetch in /path/repo`: which op and repo asked (S5); `-c k=v` and options skipped. */
+export function promptContext({ cwd, args }: PromptOrigin): string {
+  const op = args.find((a, i) => !a.startsWith('-') && args[i - 1] !== '-c')
+  return `git ${op ?? ''} in ${cwd}`
 }

@@ -11,6 +11,16 @@ export function AuthPromptDialog() {
   const [queue, setQueue] = useState<AuthPrompt[]>([])
   const [value, setValue] = useState('')
   useEffect(() => window.gitdock.on('auth:prompt', (p) => setQueue((q) => [...q, p])), [])
+  useEffect(
+    () =>
+      window.gitdock.on('auth:dismiss', ({ id }) =>
+        setQueue((q) => {
+          if (q[0]?.id === id) setValue('')
+          return q.filter((p) => p.id !== id)
+        })
+      ),
+    []
+  )
 
   const current = queue[0]
   if (!current) return null
@@ -32,6 +42,7 @@ export function AuthPromptDialog() {
             <Heading slot="title" id="auth-title">
               Authentication required
             </Heading>
+            <p className={s.muted}>{current.context}</p>
             <label htmlFor="auth-input">{current.prompt}</label>
             {current.kind !== 'confirm' && (
               <input

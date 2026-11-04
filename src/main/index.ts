@@ -55,7 +55,7 @@ function startApp(): void {
       onPrompt: askUser
     }).catch((err: unknown) => (log.error('[askpass] disabled', err), null))
     if (askpass) {
-      setGitEnv(askpass.env)
+      setGitEnv(askpass.issue)
       app.on('will-quit', () => askpass.close())
     }
     // e2e-only seam: lets Playwright drive the real git runner from the main process.
