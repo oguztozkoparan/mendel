@@ -1,5 +1,6 @@
 import { Check, ChevronDown, FolderGit2, FolderOpen, X } from 'lucide-react'
 import { useState } from 'react'
+import { useMenuCommand } from './menu'
 import { Button, Dialog, DialogTrigger, GridList, GridListItem, Input, Popover, SearchField } from 'react-aria-components'
 import type { RepoEntry } from '../../shared/ipc'
 import s from './Repos.module.css'
@@ -54,10 +55,12 @@ export function RepoList(p: { repos: RepoEntry[]; current: string | null; action
 /** Toolbar dropdown (PLAN.md 3.2): filterable recents, current marked, Open…. */
 export function RepoSelector(p: { repos: RepoEntry[]; current: RepoEntry; actions: RepoActions }) {
   const [filter, setFilter] = useState('')
+  const [open, setOpen] = useState(false)
+  useMenuCommand((c) => c === 'repo:selector' && setOpen(true))
   const f = filter.toLowerCase()
   const shown = p.repos.filter((r) => r.name.toLowerCase().includes(f) || r.path.toLowerCase().includes(f))
   return (
-    <DialogTrigger onOpenChange={() => setFilter('')}>
+    <DialogTrigger isOpen={open} onOpenChange={(o) => (setOpen(o), setFilter(''))}>
       <Button className={s.trigger}>
         <FolderGit2 size={14} aria-hidden />
         <span className={s.triggerText}>

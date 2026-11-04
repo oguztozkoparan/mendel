@@ -7,6 +7,7 @@ import { startUpdater } from './ipc/update'
 import log from './log'
 import { clearCurrent } from './repos'
 import { getSettings, onSettingsChanged } from './settings'
+import { buildMenu } from './menu'
 import { createMainWindow } from './window'
 import { hardenSession, registerAppScheme } from './security'
 
@@ -27,6 +28,15 @@ function startApp(): void {
   const e2e = !app.isPackaged && process.env.GITDOCK_E2E_USERDATA
   // Test-only userData dir, never honored in packaged builds (TECH.md §5).
   if (e2e) app.setPath('userData', e2e)
+  // Second launch: hand over to the running instance (keyed by userData) and quit.
+  if (!app.requestSingleInstanceLock()) return app.quit()
+  app.on('second-instance', () => {
+    const win = BrowserWindow.getAllWindows()[0]
+    if (!win) return void (app.isReady() && createMainWindow())
+    if (win.isMinimized()) win.restore()
+    win.show()
+    win.focus()
+  })
 
   app.enableSandbox()
   registerAppScheme()
@@ -48,6 +58,7 @@ function startApp(): void {
     }
     // e2e-only seam: lets Playwright drive the real git runner from the main process.
     if (e2e) Object.assign(globalThis, { __gitdockTest: { git } })
+    buildMenu()
     createMainWindow()
     startUpdater()
     app.on('activate', () => BrowserWindow.getAllWindows().length === 0 && createMainWindow())

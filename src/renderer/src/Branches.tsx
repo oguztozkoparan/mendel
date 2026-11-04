@@ -4,6 +4,7 @@ import { useState, type FormEvent } from 'react'
 import { Button, Dialog, DialogTrigger, GridList, GridListItem, Heading, Input, Label, Modal, ModalOverlay, Popover, SearchField, TextField } from 'react-aria-components'
 import type { BranchInfo } from '../../shared/ipc'
 import a from './App.module.css'
+import { useMenuCommand } from './menu'
 import s from './Repos.module.css'
 
 /** Refetch every query of this repo (keys are `[kind, repoId, ...]`) after a git write. */
@@ -27,6 +28,8 @@ export function BranchSelector(p: { repo: string; onError(msg: string): void }) 
   const [filter, setFilter] = useState('')
   const [showRemote, setShowRemote] = useState(false)
   const [creating, setCreating] = useState<string | null>(null)
+  const [open, setOpen] = useState(false)
+  useMenuCommand((c) => (c === 'branch:selector' ? setOpen(true) : c === 'branch:new' && setCreating('')))
   const b = q.data
   const f = filter.toLowerCase()
   const local = (b?.local ?? []).filter((x) => x.name.toLowerCase().includes(f))
@@ -35,7 +38,7 @@ export function BranchSelector(p: { repo: string; onError(msg: string): void }) 
 
   return (
     <>
-      <DialogTrigger onOpenChange={() => (setFilter(''), setShowRemote(false))}>
+      <DialogTrigger isOpen={open} onOpenChange={(o) => (setOpen(o), setFilter(''), setShowRemote(false))}>
         <Button className={s.trigger} aria-label={`Current branch ${label}`}>
           <GitBranch size={14} aria-hidden />
           <span className={s.triggerText}>

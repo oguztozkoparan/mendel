@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type KeyboardEvent } from 'react'
 import { Button, Checkbox, GridList, GridListItem, ListLayout, Virtualizer } from 'react-aria-components'
 import type { FileChange, RepoEntry } from '../../shared/ipc'
 import a from './App.module.css'
@@ -55,10 +55,19 @@ export function ChangesView({ repo }: { repo: RepoEntry }) {
   const setStaged = (fs: FileChange[], stage: boolean) =>
     act(window.gitdock[stage ? 'changes:stage' : 'changes:unstage']({ repo: repo.id, paths: pathsOf(fs) }))
   const allStaged = files.length > 0 && files.every(fullyStaged)
+  /** PLAN.md §7: Space stages/unstages and Mod+Backspace discards the selected file while the file list has focus. */
+  const onListKey = (e: KeyboardEvent) => {
+    if (!selected || !(e.target as HTMLElement).closest('[aria-label="Changed files"]')) return
+    if (e.key === ' ') setStaged([selected], !fullyStaged(selected))
+    else if (e.key === 'Backspace' && (e.metaKey || e.ctrlKey)) act(window.gitdock['changes:discard']({ repo: repo.id, paths: pathsOf([selected]) }))
+    else return
+    e.preventDefault()
+    e.stopPropagation()
+  }
 
   return (
     <>
-      <aside className={a.side}>
+      <aside className={a.side} onKeyDownCapture={onListKey}>
         <div className={s.listHeader}>
           {files.length > 0 && (
             <Box

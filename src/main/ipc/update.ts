@@ -51,6 +51,9 @@ function errorText(err: unknown): string {
   return redact(msg.split('\n')[0]).slice(0, 200)
 }
 
+/** Menu "Check for Updates…": the result shows in the update pill. */
+export const checkForUpdates = () => void check(true)
+
 async function check(isManual: boolean): Promise<UpdateState> {
   if (!feed) {
     if (isManual) set({ status: 'error', message: 'Updates are not available in this build' })

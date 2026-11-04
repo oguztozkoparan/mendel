@@ -145,6 +145,24 @@ const prefs = z
 export type Settings = z.output<typeof prefs>
 export const settingsFields = prefs.shape
 
+/** Native menu items / accelerators (PLAN.md §7) the renderer acts on; sent as `menu:command`. */
+export type MenuCommand =
+  | 'tab:changes'
+  | 'tab:history'
+  | 'tab:provider'
+  | 'repo:selector'
+  | 'repo:open'
+  | 'repo:clone'
+  | 'repo:reveal'
+  | 'branch:selector'
+  | 'branch:new'
+  | 'sync:fetch'
+  | 'sync:pull'
+  | 'sync:push'
+  | 'sync:rebase'
+  | 'status:refresh'
+  | 'settings'
+
 const repoId = z.string().min(1).max(64)
 const byId = z.object({ id: repoId }).strict()
 /** Repo-relative path; main additionally checks it with resolveUnder (TECH.md §6.4). */
@@ -264,7 +282,8 @@ export const events = {
   'repo:cloneProgress': null as unknown as CloneProgress,
   /** Files or index of the watched repo changed (debounced); refetch status/diffs. */
   'repo:changed': null as unknown as { repo: string },
-  'update:state': null as unknown as UpdateState
+  'update:state': null as unknown as UpdateState,
+  'menu:command': null as unknown as MenuCommand
 } as const
 
 export type InvokeChannel = keyof typeof invoke

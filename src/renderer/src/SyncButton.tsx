@@ -5,6 +5,7 @@ import { Button, Menu, MenuItem, MenuTrigger, Popover } from 'react-aria-compone
 import type { SyncResult } from '../../shared/ipc'
 import { refreshRepo } from './Branches'
 import s from './Repos.module.css'
+import { useMenuCommand } from './menu'
 import { useSettings } from './Settings'
 import { ago } from './time'
 
@@ -62,6 +63,10 @@ export function SyncButton(p: { repo: string; onError(msg: string): void; onNoti
             ? [`Push ↑${st.ahead}`, 'push']
             : [`Fetch ${st.remote}`, 'fetch']
   const primary = op === 'push' && st?.upstream && p.primary ? p.primary : null
+  useMenuCommand((c) => {
+    if (c === 'sync:push' && p.primary && st?.upstream) p.primary.run()
+    else if (c === 'sync:fetch' || c === 'sync:pull' || c === 'sync:push' || c === 'sync:rebase') run(c.slice(5) as Op)
+  })
 
   return (
     <div className={s.sync}>

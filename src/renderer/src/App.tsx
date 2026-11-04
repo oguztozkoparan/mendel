@@ -9,6 +9,7 @@ import { BranchSelector, refreshRepo, StashBanner } from './Branches'
 import { CloneDialog } from './CloneDialog'
 import { ConflictBanner } from './Conflicts'
 import { RepoList, RepoSelector, type RepoActions } from './Repos'
+import { useMenuCommand } from './menu'
 import { RepoView } from './RepoView'
 import { SettingsDialog } from './Settings'
 import { SyncButton, type Notice } from './SyncButton'
@@ -50,6 +51,14 @@ export function App() {
     reveal: (id) => run(window.gitdock['repo:reveal']({ id })),
     clone: () => setCloning(true)
   }
+  useMenuCommand((cmd) => {
+    if (cmd === 'settings') setSettings(true)
+    else if (!usable) return
+    else if (cmd === 'repo:open') actions.add()
+    else if (cmd === 'repo:clone') actions.clone()
+    else if (cmd === 'repo:reveal' && current) actions.reveal(current.id)
+    else if (cmd === 'status:refresh' && current) void refreshRepo(qc, current.id)
+  })
 
   return (
     <div className={s.app}>
