@@ -17,6 +17,17 @@ export const visible = (hunks: HunkData[]): HunkData[] =>
 type Act = (p: Promise<unknown>) => void
 
 export function DiffView({ repo, file, act }: { repo: string; file: FileChange; act: Act }) {
+  // git prints a combined (`diff --cc`) diff for unmerged files, which react-diff-view cannot parse.
+  if (file.conflicted)
+    return (
+      <div className={s.diffPane}>
+        <div className={s.fileHeader}>
+          <h2>{file.path}</h2>
+          <Button onPress={() => act(window.gitdock['changes:stage']({ repo, paths: [file.path] }))}>Mark resolved</Button>
+        </div>
+        <p className={s.empty}>Conflicted file. Resolve the conflict markers in your editor, then mark it resolved.</p>
+      </div>
+    )
   return (
     <div className={s.diffPane}>
       <div className={s.fileHeader}>
