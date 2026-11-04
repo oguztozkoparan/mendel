@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- Mendel: a commit stem whose branch ends in a pea pod; the peas are commits (inheritance, Mendel's peas). -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2a8a57"/>
+      <stop offset="1" stop-color="#11482c"/>
+    </linearGradient>
+    <linearGradient id="pod" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#c4e88f"/>
+      <stop offset="1" stop-color="#8fc95c"/>
+    </linearGradient>
+  </defs>
+  <rect x="100" y="100" width="824" height="824" rx="186" fill="url(#bg)"/>
+  <g transform="translate(-60 0)">
+  <g stroke="#f4f0e2" stroke-width="46" stroke-linecap="round" fill="none">
+    <path d="M400 770 V 330"/>
+    <path d="M400 668 C 400 596 458 560 522 526"/>
+  </g>
+  <g fill="#f4f0e2">
+    <circle cx="400" cy="770" r="60"/>
+    <circle cx="400" cy="330" r="60"/>
+  </g>
+  <g transform="translate(660 410) rotate(-40)">
+    <path d="M-182 0 Q 0 -158 182 0 Q 0 158 -182 0 Z" fill="url(#pod)"/>
+    <g fill="#1d6a41">
+      <circle cx="-88" cy="0" r="40"/>
+      <circle cx="0" cy="0" r="44"/>
+      <circle cx="88" cy="0" r="40"/>
+    </g>
+  </g>
+  </g>
+</svg>

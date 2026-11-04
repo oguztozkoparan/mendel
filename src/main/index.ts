@@ -1,4 +1,5 @@
 import { app, BrowserWindow, nativeTheme } from 'electron'
+import path from 'node:path'
 import { ASKPASS_SOCKET_ENV, ASKPASS_TOKEN_ENV, requestAnswer, startAskpassServer } from './auth/askpass'
 import { git, killAllGit, setGitEnv } from './git/runner'
 import { registerIpc } from './ipc'
@@ -52,6 +53,8 @@ function startApp(): void {
 
   void app.whenReady().then(async () => {
     await shellPath // before git is first resolved
+    // Packaged builds get the icon from the bundle; dev runs would show Electron's.
+    if (!app.isPackaged) app.dock?.setIcon(path.join(__dirname, '../../build/icon.png'))
     hardenSession()
     registerIpc()
     if (!getSettings().reopenLastRepo) clearCurrent()

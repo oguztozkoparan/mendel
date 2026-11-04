@@ -8,6 +8,7 @@ import s from './App.module.css'
 import { AuthPromptDialog } from './AuthPromptDialog'
 import { BranchSelector, refreshLocal, refreshRepo, StashBanner } from './Branches'
 import { CloneDialog } from './CloneDialog'
+import logo from '../../../build/icon.svg'
 import { bannerError, ErrorBanner, type BannerError } from './ErrorBanner'
 import { ConflictBanner } from './Conflicts'
 import { RepoList, RepoSelector, type RepoActions } from './Repos'
@@ -119,6 +120,7 @@ export function App() {
         <RepoView key={current.id} repo={current} focus={focus} />
       ) : (
         <main className={s.welcome}>
+          <img src={logo} alt="" width={96} height={96} />
           <h1>Mendel</h1>
           {git && !usable && (
             <div role="alert" className={s.card}>
