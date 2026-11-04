@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { gitInfo } from '../../src/main/git/info'
-import { endOfOptions, git, GitError } from '../../src/main/git/runner'
+import { endOfOptions, git, GitError, killAllGit } from '../../src/main/git/runner'
 import { createRepoFixture, type RepoFixture } from '../fixtures/repo'
 
 describe('git runner against real git', () => {
@@ -58,6 +58,15 @@ describe('git runner against real git', () => {
     const run = git(['-c', 'alias.slow=!sleep 10', 'slow'], { cwd: fx.work, env: fx.env, signal: ac.signal })
     setTimeout(() => ac.abort(), 100)
     await expect(run).rejects.toMatchObject({ kind: 'Cancelled' })
+    expect(Date.now() - started).toBeLessThan(5000)
+  })
+
+  it('killAllGit ends running git children (app quit)', async () => {
+    fx = createRepoFixture()
+    const started = Date.now()
+    const run = git(['-c', 'alias.slow=!sleep 10', 'slow'], { cwd: fx.work, env: fx.env }).catch((e: unknown) => e)
+    setTimeout(killAllGit, 100)
+    expect(await run).toBeInstanceOf(GitError)
     expect(Date.now() - started).toBeLessThan(5000)
   })
 

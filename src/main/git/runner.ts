@@ -8,6 +8,11 @@ export const MIN_GIT_VERSION = '2.30.0'
 /** Older versions miss security fixes (CVE-2024-32002, CVE-2025-48384): warn, don't block. */
 export const RECOMMENDED_GIT_VERSION = '2.50.1'
 const MAX_OUTPUT = 64 * 1024 * 1024
+/** Default timeout of background reads: a hung read (network FS, stuck lock) must not pin a git process forever. */
+const BACKGROUND_TIMEOUT_MS = 30_000
+const live = new Set<ReturnType<typeof spawn>>()
+/** Kill every running git child (app quit), so none outlives gitdock. */
+export const killAllGit = () => live.forEach((c) => c.kill())
 
 export type GitErrorKind =
   | 'GitNotFound'
@@ -100,7 +105,7 @@ export interface GitOptions {
   /** Abort kills the git process (cancel button, window close). */
   signal?: AbortSignal
   timeoutMs?: number
-  /** Background reads (status/log polling): sets GIT_OPTIONAL_LOCKS=0 so we never block the user's git. */
+  /** Background reads (status/log polling): sets GIT_OPTIONAL_LOCKS=0 so we never block the user's git; 30 s timeout unless set. */
   background?: boolean
   /** Base env instead of process.env (tests pass an isolated env). */
   env?: NodeJS.ProcessEnv
@@ -130,6 +135,7 @@ export function git(args: string[], opts: GitOptions): Promise<GitResult> {
     TERM: 'dumb',
     ...(opts.background ? { GIT_OPTIONAL_LOCKS: '0' } : {})
   }
+  const timeoutMs = opts.timeoutMs ?? (opts.background ? BACKGROUND_TIMEOUT_MS : undefined)
   return new Promise((resolve, reject) => {
     const child = spawn(bin, args, {
       cwd: opts.cwd,
@@ -137,8 +143,10 @@ export function git(args: string[], opts: GitOptions): Promise<GitResult> {
       shell: false,
       windowsHide: true,
       signal: opts.signal,
-      timeout: opts.timeoutMs
+      timeout: timeoutMs
     })
+    live.add(child)
+    child.on('exit', () => live.delete(child))
     let stdout = ''
     let stderr = ''
     let tooLarge = false
@@ -166,8 +174,8 @@ export function git(args: string[], opts: GitOptions): Promise<GitResult> {
       if (opts.signal?.aborted) return reject(new GitError('Cancelled', 'Git operation was cancelled', args))
       if (tooLarge) return reject(new GitError('OutputTooLarge', 'Git output exceeded the size limit', args))
       if (code === 0 || (code !== null && opts.okExitCodes?.includes(code))) return resolve({ stdout, stderr })
-      if (code === null && signal === 'SIGTERM' && opts.timeoutMs)
-        return reject(new GitError('Timeout', `Git timed out after ${opts.timeoutMs} ms`, args))
+      if (code === null && signal === 'SIGTERM' && timeoutMs)
+        return reject(new GitError('Timeout', `Git timed out after ${timeoutMs} ms`, args))
       const msg = stderr.trim() || `git ${args[0] ?? ''} exited with code ${code ?? signal}`
       reject(new GitError(classifyGitError(stderr), msg, args, code, stderr))
     })

@@ -89,7 +89,7 @@ export const gerritHandlers: Handlers<'gerrit:checkout' | 'gerrit:badges' | 'ger
       q === 'replace'
         ? confirm(e, 'Replace', `Branch change/${change}-ps${patchSet} already exists.`, 'Reset it to the fetched patch set?')
         : confirm(e, 'Stash & switch', 'Your local changes would be overwritten by the checkout.', 'Stash them now and restore them when you come back to this branch.')
-    return exclusive(() => checkoutChange(root, remote, change, patchSet, upstream, ask))
+    return exclusive((signal) => checkoutChange(root, remote, change, patchSet, upstream, ask, undefined, signal))
   },
   'gerrit:badges': async ({ repo }) => {
     const commits = await unpushedCommits((await gerritRoot(repo)).root)

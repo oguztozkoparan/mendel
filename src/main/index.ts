@@ -1,6 +1,6 @@
 import { app, BrowserWindow, nativeTheme } from 'electron'
 import { ASKPASS_SOCKET_ENV, ASKPASS_TOKEN_ENV, requestAnswer, startAskpassServer } from './auth/askpass'
-import { git, setGitEnv } from './git/runner'
+import { git, killAllGit, setGitEnv } from './git/runner'
 import { registerIpc } from './ipc'
 import { askUser } from './ipc/auth'
 import { startUpdater } from './ipc/update'
@@ -70,5 +70,6 @@ function startApp(): void {
     app.on('activate', () => BrowserWindow.getAllWindows().length === 0 && createMainWindow())
   })
 
+  app.on('will-quit', killAllGit)
   app.on('window-all-closed', () => process.platform !== 'darwin' && app.quit())
 }
