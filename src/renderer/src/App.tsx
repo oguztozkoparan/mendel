@@ -4,10 +4,11 @@ import { Button } from 'react-aria-components'
 import type { GitInfo } from '../../shared/ipc'
 import s from './App.module.css'
 import { AuthPromptDialog } from './AuthPromptDialog'
-import { BranchSelector, StashBanner } from './Branches'
+import { BranchSelector, refreshRepo, StashBanner } from './Branches'
 import { CloneDialog } from './CloneDialog'
 import { RepoList, RepoSelector, type RepoActions } from './Repos'
 import { RepoView } from './RepoView'
+import { SyncButton, type Notice } from './SyncButton'
 import { UpdatePill } from './UpdatePill'
 
 const INSTALL_HINT: Record<string, string> = {
@@ -21,6 +22,9 @@ export function App() {
   const [git, setGit] = useState<GitInfo | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [cloning, setCloning] = useState(false)
+  const [notice, setNotice] = useState<Notice | null>(null)
+  // Files, index or refs changed on disk: everything shown for that repo may be stale.
+  useEffect(() => window.gitdock.on('repo:changed', (e) => void refreshRepo(qc, e.repo)), [qc])
   const check = (recheck = false) => void window.gitdock['git:info']({ recheck }).then(setGit)
   useEffect(() => check(), [])
   const usable = git?.found === true && git.supported
@@ -48,12 +52,20 @@ export function App() {
       <header className={s.toolbar} aria-label="Toolbar">
         {current && <RepoSelector repos={repos} current={current} actions={actions} />}
         {current && <BranchSelector key={current.id} repo={current.id} onError={setError} />}
+        {current && <SyncButton key={current.id} repo={current.id} onError={setError} onNotice={setNotice} />}
         <UpdatePill />
       </header>
       {error && (
         <div role="alert" className={s.banner}>
           <span>{error}</span>
           <Button onPress={() => setError(null)}>Dismiss</Button>
+        </div>
+      )}
+      {notice && (
+        <div role="alert" className={`${s.banner} ${s.notice}`}>
+          <span>{notice.text}</span>
+          {notice.action && <Button onPress={() => (setNotice(null), notice.action!.run())}>{notice.action.label}</Button>}
+          <Button onPress={() => setNotice(null)}>Dismiss</Button>
         </div>
       )}
       {current && <StashBanner key={current.id} repo={current.id} onError={setError} />}

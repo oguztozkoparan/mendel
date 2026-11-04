@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { ChevronDown, GitBranch, X } from 'lucide-react'
-import { useEffect, useState, type FormEvent } from 'react'
+import { useState, type FormEvent } from 'react'
 import { Button, Dialog, DialogTrigger, GridList, GridListItem, Heading, Input, Label, Modal, ModalOverlay, Popover, SearchField, TextField } from 'react-aria-components'
 import type { BranchInfo } from '../../shared/ipc'
 import a from './App.module.css'
@@ -14,7 +14,6 @@ export const useBranches = (repo: string) => useQuery({ queryKey: ['branches', r
 /** Run a branch write; refresh the repo afterwards and report errors. */
 function useRun(repo: string, onError: (msg: string) => void) {
   const qc = useQueryClient()
-  useEffect(() => window.gitdock.on('repo:changed', (e) => void (e.repo === repo && qc.invalidateQueries({ queryKey: ['branches', repo] }))), [qc, repo])
   return (p: Promise<unknown>) => void p.catch((e: Error) => onError(e.message)).finally(() => refreshRepo(qc, repo))
 }
 

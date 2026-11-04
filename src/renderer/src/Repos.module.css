@@ -100,3 +100,19 @@
   border-top: 1px solid var(--border);
   padding-top: 6px;
 }
+
+.sync {
+  display: flex;
+  align-items: center;
+  border-right: 1px solid var(--border);
+  -webkit-app-region: no-drag;
+}
+
+.sync .trigger {
+  border-right: none;
+  min-width: 160px;
+}
+
+.syncLabel {
+  padding: 0 12px;
+}

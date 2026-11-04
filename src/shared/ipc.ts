@@ -84,6 +84,22 @@ export interface Branches {
   stash: boolean
 }
 
+/** Toolbar sync button state (PLAN.md 3.4). */
+export interface SyncState {
+  /** null when detached. */
+  branch: string | null
+  upstream: string | null
+  ahead: number
+  behind: number
+  /** Remote fetch/publish use (upstream's, else origin, else first); null = repo has no remote. */
+  remote: string | null
+  /** ms epoch of the last fetch (FETCH_HEAD mtime). */
+  lastFetched: number | null
+}
+
+/** rejected = push refused as non-fast-forward (pull first); conflict = merge/rebase stopped on conflicts. */
+export type SyncResult = 'ok' | 'rejected' | 'conflict'
+
 const repoId = z.string().min(1).max(64)
 const byId = z.object({ id: repoId }).strict()
 /** Repo-relative path; main additionally checks it with resolveUnder (TECH.md §6.4). */
@@ -159,6 +175,13 @@ export const invoke = {
   'branch:delete': res<boolean>()(z.object({ repo: repoId, name: branchName }).strict()),
   /** Restore (pop) or discard (confirm first) the current branch's "Stash & switch" changes. false = cancelled. */
   'branch:stash': res<boolean>()(z.object({ repo: repoId, action: z.enum(['restore', 'discard']) }).strict()),
+  'sync:state': res<SyncState>()(inRepo),
+  /** Long ops below are cancellable with `sync:cancel`; git auth prompts arrive via `auth:prompt`. */
+  'sync:fetch': res<void>()(inRepo),
+  'sync:pull': res<SyncResult>()(inRepo),
+  /** Push to upstream, or publish (`push -u`) when the branch has none. */
+  'sync:push': res<SyncResult>()(inRepo),
+  'sync:cancel': res<void>()(z.undefined()),
   'update:state': res<UpdateState>()(z.undefined()),
   /** Manual "Check for updates"; resolves with the state after the check. */
   'update:check': res<UpdateState>()(z.undefined()),
