@@ -10,9 +10,12 @@ export const RECOMMENDED_GIT_VERSION = '2.50.1'
 const MAX_OUTPUT = 64 * 1024 * 1024
 /** Default timeout of background reads: a hung read (network FS, stuck lock) must not pin a git process forever. */
 const BACKGROUND_TIMEOUT_MS = 30_000
-const live = new Set<ReturnType<typeof spawn>>()
+/** Running git children -> whether they are background reads. */
+const live = new Map<ReturnType<typeof spawn>, boolean>()
 /** Kill every running git child (app quit), so none outlives gitdock. */
-export const killAllGit = () => live.forEach((c) => c.kill())
+export const killAllGit = () => live.forEach((_, c) => c.kill())
+/** A git op other than a background read is running (e.g. push, commit, rebase): restarting would interrupt it. */
+export const gitBusy = () => [...live.values()].some((background) => !background)
 
 export type GitErrorKind =
   | 'GitNotFound'
@@ -145,7 +148,7 @@ export function git(args: string[], opts: GitOptions): Promise<GitResult> {
       signal: opts.signal,
       timeout: timeoutMs
     })
-    live.add(child)
+    live.set(child, !!opts.background)
     child.on('exit', () => live.delete(child))
     let stdout = ''
     let stderr = ''
