@@ -61,7 +61,7 @@ function load(): NonNullable<typeof store> {
 function save(): void {
   const s = load()
   const tmp = file() + '.tmp'
-  writeFileSync(tmp, JSON.stringify({ ...s.prefs, window: s.window }, null, 2))
+  writeFileSync(tmp, JSON.stringify({ ...s.prefs, window: s.window }, null, 2), { mode: 0o600 }) // owner-only (S9)
   renameSync(tmp, file())
 }
 

@@ -30,7 +30,7 @@ function load(): Store {
 
 function save(): void {
   const tmp = file() + '.tmp'
-  writeFileSync(tmp, JSON.stringify(load(), null, 2))
+  writeFileSync(tmp, JSON.stringify(load(), null, 2), { mode: 0o600 }) // owner-only (S9)
   renameSync(tmp, file())
 }
 

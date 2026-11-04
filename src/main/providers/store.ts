@@ -33,6 +33,6 @@ export function providerStore(): ProviderStore {
 
 export function saveProviderStore(): void {
   const tmp = file() + '.tmp'
-  writeFileSync(tmp, JSON.stringify(providerStore(), null, 2))
+  writeFileSync(tmp, JSON.stringify(providerStore(), null, 2), { mode: 0o600 }) // owner-only (S9)
   renameSync(tmp, file())
 }

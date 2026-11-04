@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { execFileSync } from 'node:child_process'
-import { readFileSync, writeFileSync } from 'node:fs'
+import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { createRepoFixture } from '../fixtures/repo'
 import { launchApp, openRepo } from './launch'
@@ -52,6 +52,10 @@ test('preferences persist across restart and drive the app', async () => {
 
     await app.close()
     expect(JSON.parse(readFileSync(path.join(userData, 'settings.json'), 'utf8'))).toMatchObject({ theme: 'dark', summaryLimit: 50, pullStrategy: 'rebase' })
+    // S9: app state files are owner-only (POSIX modes only).
+    const json = readdirSync(userData).filter((f) => f.endsWith('.json'))
+    expect(json).toEqual(expect.arrayContaining(['settings.json', 'repos.json']))
+    if (process.platform !== 'win32') for (const f of json) expect([f, statSync(path.join(userData, f)).mode & 0o777]).toEqual([f, 0o600])
     app = await launchApp({ ...fx.env, GITDOCK_E2E_USERDATA: userData })
     await expect.poll(() => dark(app.win)).toBe(true)
   } finally {
