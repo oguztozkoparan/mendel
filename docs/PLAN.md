@@ -49,7 +49,7 @@ Cross-platform desktop git client (Electron + React + Vite + TypeScript), GitHub
 - **Review notifications (new incoming review) → later.** MVP refreshes on focus and on an interval.
 
 ### Later
-Line staging, stash list, 3-way merge editor, multiple accounts per host, review notifications, Gerrit attention set / hashtags / drafts sync / edit commit message on server / related changes / cherry-pick to branch, history search & file history, blame, tags, cherry-pick/revert UI, interactive rebase, `gitdock` CLI launcher (`gitdock .`), jump lists / dock recent items, beta update channel, GitHub provider (PRs), Bitbucket provider (PRs), i18n (Turkish).
+Line staging, stash list, 3-way merge editor, multiple accounts per host, review notifications, Gerrit attention set / hashtags / drafts sync / edit commit message on server / related changes / cherry-pick to branch, history search & file history, blame, tags, cherry-pick/revert UI, interactive rebase, `gitdock` CLI launcher (`gitdock .`), jump lists / dock recent items, beta update channel, GitHub provider (PRs), Bitbucket provider (PRs), i18n (Turkish), SSH setup in Gerrit settings (connection check via `ssh -p 29418 <user>@<host> gerrit version`, show key from `ssh -G`, generate key, upload via `POST /a/accounts/self/sshkeys`; never write `~/.ssh/config`).
 
 ---
 
@@ -275,7 +275,7 @@ interface ProviderSettings { id: ProviderId; component: string }     // settings
 Renderer keeps a registry `{componentId → React component}`; unknown ids render nothing. GitHub plugs in by adding a `Provider` + its components; no git-core changes.
 
 ### 5.5 Gerrit REST usage (for implementers)
-All via `<baseUrl>/a/...` with HTTP Basic (username + HTTP password); strip the `)]}'` prefix before JSON parse. Gate features by server version where noted; target Gerrit ≥ 2.15.
+All via `<baseUrl>/a/...` with HTTP Basic (username + HTTP password); strip the `)]}'` prefix before JSON parse. Gate features by server version where noted; target Gerrit ≥ 2.15. Older target to keep working: **3.1.3** — no attention set (3.3+), no `submit_requirements` (3.5+), no access tokens (3.13+); never require these.
 - Version: `GET /config/server/version` (no auth). Me: `GET /a/accounts/self`.
 - Lists: `GET /a/changes/?q=status:open+owner:self[+project:<p>]&q=status:open+reviewer:self+-owner:self[...]&q=owner:self+-is:open&n=10&o=LABELS&o=DETAILED_ACCOUNTS&o=CURRENT_REVISION`.
 - Detail: `GET /a/changes/<id>/detail?o=CURRENT_REVISION&o=ALL_REVISIONS&o=DETAILED_LABELS&o=CURRENT_ACTIONS&o=SUBMITTABLE&o=MESSAGES` (use `permitted_labels` for vote pickers, actions for buttons).
