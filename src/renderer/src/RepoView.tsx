@@ -12,6 +12,8 @@ import { Reviews } from './providers/gerrit/Reviews'
 /** Open repo: tabs in sidebar head; panel lays out its own sidebar list + main pane (PLAN.md §3). */
 export function RepoView({ repo, focus }: { repo: RepoEntry; focus?: { change: number } | null }) {
   const [tab, setTab] = useState<Key>('changes')
+  /** History "Amend": Changes opens with "Amend last commit" ticked. */
+  const [amend, setAmend] = useState(false)
   useEffect(() => void (focus && setTab('reviews')), [focus])
   const provider = useQuery({ queryKey: ['provider', repo.id], queryFn: () => window.gitdock['provider:get']({ repo: repo.id }) })
   const gerrit = provider.data?.detection?.provider === 'gerrit' ? provider.data : null
@@ -35,10 +37,10 @@ export function RepoView({ repo, focus }: { repo: RepoEntry; focus?: { change: n
         {gerrit && <Tab id="reviews">Reviews</Tab>}
       </TabList>
       <TabPanel id="changes" className={s.panel}>
-        <ChangesView repo={repo} />
+        <ChangesView repo={repo} amend={amend} onAmendDone={() => setAmend(false)} />
       </TabPanel>
       <TabPanel id="history" className={s.panel}>
-        <HistoryView repo={repo.id} decorate={decorate} />
+        <HistoryView repo={repo.id} decorate={decorate} onAmend={() => (setAmend(true), setTab('changes'))} />
       </TabPanel>
       {gerrit && (
         <TabPanel id="reviews" className={s.panel}>

@@ -26,7 +26,7 @@ function Box(p: { label: string; selected: boolean; indeterminate: boolean; onCh
   )
 }
 
-export function ChangesView({ repo }: { repo: RepoEntry }) {
+export function ChangesView({ repo, amend, onAmendDone }: { repo: RepoEntry; amend?: boolean; onAmendDone?: () => void }) {
   const qc = useQueryClient()
   const status = useQuery({ queryKey: ['status', repo.id], queryFn: () => window.gitdock['changes:status']({ repo: repo.id }) })
   const files = status.data ?? []
@@ -100,7 +100,7 @@ export function ChangesView({ repo }: { repo: RepoEntry }) {
             )}
           </GridList>
         </Virtualizer>
-        <CommitBox repo={repo.id} hasStaged={files.some((f) => f.staged)} hint={hint} />
+        <CommitBox repo={repo.id} hasStaged={files.some((f) => f.staged)} hint={hint} amend={amend} onAmendDone={onAmendDone} />
       </aside>
       <section className={a.main}>
         {error && (

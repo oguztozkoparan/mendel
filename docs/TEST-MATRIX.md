@@ -100,6 +100,7 @@ Status: 49 bullets, 48 covered by automation, 1 partly manual (OS theme switch),
 | Open in editor / terminal: custom executable (picked natively, non-executable refused), Changes empty state, menu Mod+Shift+A / Mod+`, System default → OS | e2e/external.spec.ts (macOS/Linux; Windows launch: **manual**); e2e/native.spec.ts (accelerators) |
 | Changes right-click (native menu): discard (confirm), ignore → exact anchored `.gitignore` pattern (untracked only, symlinked `.gitignore` refused), reveal, open in editor, copy path | e2e/context-menu.spec.ts; integration/ignore.test.ts |
 | Diff "Show whitespace" (· / →) persists across restart; Settings → Commit 72-column description ruler | e2e/diff-prefs.spec.ts |
+| History "Amend last commit" only on an unpushed HEAD → Changes with amend ticked and message prefilled | e2e/history.spec.ts: Amend on an unpushed HEAD… |
 
 ## Updates
 | Bullet | Test |

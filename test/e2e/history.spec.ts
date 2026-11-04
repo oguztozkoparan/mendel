@@ -95,3 +95,32 @@ test('large diffs are gated before parsing (History and Changes); commit file li
     fx.cleanup()
   }
 })
+
+test('Amend on an unpushed HEAD opens Changes with amend ticked; pushed or older commits have no Amend', async () => {
+  const fx = createRepoFixture()
+  const app = await launchApp(fx.env)
+  const { win } = app
+  try {
+    await openRepo(app, fx.work)
+    await win.getByRole('tab', { name: 'History' }).click()
+    const detail = win.getByLabel('Commit detail')
+    await expect(detail.getByRole('heading', { name: 'initial commit' })).toBeVisible()
+    await expect(detail.getByRole('button', { name: 'Amend last commit' })).toHaveCount(0) // HEAD is pushed
+
+    fx.commitFile('a.txt', 'a\n', 'Local work\n\nDetails')
+    await win.getByRole('grid', { name: 'Commits' }).getByRole('row', { name: /Local work/ }).click()
+    await win.getByRole('grid', { name: 'Commits' }).getByRole('row', { name: /initial commit/ }).click()
+    await expect(detail.getByRole('button', { name: 'Amend last commit' })).toHaveCount(0) // not HEAD
+    await win.getByRole('grid', { name: 'Commits' }).getByRole('row', { name: /Local work/ }).click()
+    await detail.getByRole('button', { name: 'Amend last commit' }).click()
+
+    await expect(win.getByRole('tab', { name: 'Changes' })).toHaveAttribute('aria-selected', 'true')
+    const form = win.getByRole('form', { name: 'Commit' })
+    await expect(form.getByRole('checkbox', { name: 'Amend last commit' })).toBeChecked()
+    await expect(form.getByRole('textbox', { name: 'Summary' })).toHaveValue('Local work')
+    await expect(form.getByRole('textbox', { name: 'Description' })).toHaveValue('Details')
+  } finally {
+    await app.close()
+    fx.cleanup()
+  }
+})

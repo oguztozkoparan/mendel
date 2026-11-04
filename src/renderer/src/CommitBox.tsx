@@ -14,7 +14,8 @@ export interface CommitHint {
 }
 
 /** Commit box (PLAN.md 3.5): summary, description, amend (prefilled from HEAD), Mod+Enter commits. */
-export function CommitBox({ repo, hasStaged, hint }: { repo: string; hasStaged: boolean; hint?: CommitHint | null }) {
+export function CommitBox(p: { repo: string; hasStaged: boolean; hint?: CommitHint | null; amend?: boolean; onAmendDone?: () => void }) {
+  const { repo, hasStaged, hint } = p
   const qc = useQueryClient()
   const info = useQuery({ queryKey: ['commitInfo', repo], queryFn: () => window.gitdock['commit:info']({ repo }) })
   const settings = useSettings().data
@@ -41,6 +42,11 @@ export function CommitBox({ repo, hasStaged, hint }: { repo: string; hasStaged: 
   useEffect(() => {
     if (preAmend) toggleAmend(true)
   }, [preAmend])
+  // Explicit request (History "Amend"): tick it once HEAD's message is fresh.
+  const amendNow = !!p.amend && head !== null && !info.isFetching
+  useEffect(() => {
+    if (amendNow) (toggleAmend(true), p.onAmendDone?.())
+  }, [amendNow])
   const submit = (e?: FormEvent) => {
     e?.preventDefault()
     if (!canCommit) return

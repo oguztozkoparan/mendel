@@ -16,7 +16,7 @@ const PAGE = 100
  * History tab (PLAN.md 3.6): current branch's commits (pages of 100, virtualized) and the selected commit's detail.
  * `decorate` adds per-row content, e.g. a provider badge ("in review #1234").
  */
-export function HistoryView(p: { repo: string; decorate?: (c: CommitSummary) => ReactNode }) {
+export function HistoryView(p: { repo: string; decorate?: (c: CommitSummary) => ReactNode; onAmend?: () => void }) {
   const branches = useBranches(p.repo)
   // Keyed by HEAD: a new commit/checkout starts a fresh first page, and `--skip` pages stay consistent within one HEAD.
   // Not stale on its own (no all-pages refetch on focus); refreshRepo trims it to page 1 before invalidating.
@@ -69,14 +69,17 @@ export function HistoryView(p: { repo: string; decorate?: (c: CommitSummary) => 
             {q.error.message}
           </p>
         ) : (
-          selected && <CommitView key={selected.sha} repo={p.repo} sha={selected.sha} />
+          selected && (
+            // Amend only HEAD, and only while it is unpushed (PLAN.md 3.6).
+            <CommitView key={selected.sha} repo={p.repo} sha={selected.sha} onAmend={selected === commits[0] && selected.unpushed ? p.onAmend : undefined} />
+          )
         )}
       </section>
     </>
   )
 }
 
-function CommitView(p: { repo: string; sha: string }) {
+function CommitView(p: { repo: string; sha: string; onAmend?: () => void }) {
   const q = useQuery({ queryKey: ['commit', p.repo, p.sha], queryFn: () => window.gitdock['history:commit']({ repo: p.repo, sha: p.sha }) })
   const [file, setFile] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
@@ -89,6 +92,7 @@ function CommitView(p: { repo: string; sha: string }) {
   return (
     <div className={s.detail} aria-label="Commit detail">
       <h2 className={s.title}>{summary}</h2>
+      {p.onAmend && <Button onPress={p.onAmend}>Amend last commit</Button>}
       {body.join('\n').trim() && <pre className={s.message}>{body.join('\n').trim()}</pre>}
       <dl className={s.fields}>
         <dt>Author</dt>
