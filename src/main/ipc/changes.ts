@@ -74,7 +74,7 @@ export const changesHandlers: Handlers<'changes:status' | 'changes:diff' | 'chan
         { id: 'ignore', label: 'Ignore file (add to .gitignore)', enabled: untracked, click: run(() => ignorePath(root, path)) },
         { type: 'separator' },
         { id: 'reveal', label: mac ? 'Reveal in Finder' : 'Show in File Manager', click: run(() => shell.showItemInFolder(abs)) },
-        { id: 'editor', label: 'Open in Editor', click: run(() => openInEditor(abs)) },
+        { id: 'editor', label: 'Open in Editor', click: run(() => openInEditor(root, abs)) },
         { type: 'separator' },
         { id: 'copy', label: 'Copy File Path', click: run(() => clipboard.writeText(abs)) },
         { id: 'copyRelative', label: 'Copy Relative File Path', click: run(() => clipboard.writeText(path)) }

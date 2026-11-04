@@ -51,7 +51,7 @@ export const repoHandlers: Handlers<
   'repo:open': async ({ id }, e) => rememberRepo(await topLevelTrusting(repoRoot(id), BrowserWindow.fromWebContents(e.sender)), id),
   'repo:remove': ({ id }) => forgetRepo(id),
   'repo:reveal': ({ id, path }) => shell.showItemInFolder(inRepo(id, path)),
-  'repo:openEditor': ({ repo, path }) => openInEditor(inRepo(repo, path)),
+  'repo:openEditor': ({ repo, path }) => openInEditor(repoRoot(repo), inRepo(repo, path)),
   'repo:openTerminal': ({ repo }) => openTerminal(repoRoot(repo)),
   'repo:cloneParent': async ({ pick }, e) => {
     if (!pick) return cloneParent()

@@ -2,11 +2,13 @@
 // shell.openPath: never a shell string. Targets are absolute paths main resolved itself (resolveUnder).
 import { spawn } from 'node:child_process'
 import { existsSync, statSync } from 'node:fs'
+import { realpath } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { shell } from 'electron'
 import type { ExternalTool } from '../shared/ipc'
 import { isExecutableFile } from './git/runner'
+import { resolveUnder } from './safe-path'
 import { getSettings } from './settings'
 
 type Kind = 'editor' | 'terminal'
@@ -92,11 +94,34 @@ function chosen(kind: Kind): Tool | null {
   return detectTools(kind).find((t) => t.id === id) ?? null
 }
 
-/** Open an absolute file or folder in the chosen editor; "System default" = the OS file association. */
-export async function openInEditor(abs: string): Promise<void> {
+// Opened with the OS association only off macOS; anything else (scripts, .exe, .lnk, .desktop, .html, .svg...) could run.
+const SAFE_EXT = new Set(
+  ('txt md markdown rst adoc log csv tsv json jsonc json5 yaml yml toml ini cfg conf properties diff patch ' +
+    'c h cc cpp hpp cxx cs java kt kts scala go rs swift m mm dart ts tsx mts cts css scss sass less vue svelte sql graphql proto gradle cmake ' +
+    'png jpg jpeg gif webp bmp ico tif tiff').split(' ').map((e) => '.' + e)
+)
+
+/** How "System default" opens a real (symlink-resolved) path: OS association, macOS text editor, or only reveal it. */
+export function defaultOpener(platform: NodeJS.Platform, real: string, dir: boolean): 'openPath' | 'text' | 'reveal' {
+  // A macOS bundle (.app, .prefPane...) is a folder that launches when opened.
+  if (dir) return platform === 'darwin' && path.extname(real) ? 'reveal' : 'openPath'
+  if (platform === 'darwin') return 'text'
+  return SAFE_EXT.has(path.extname(real).toLowerCase()) ? 'openPath' : 'reveal'
+}
+
+/** Open file or folder `abs` (inside repo `root`) in the chosen editor; "System default" never executes repo content. */
+export async function openInEditor(root: string, abs: string): Promise<void> {
+  const [realRoot, real] = await Promise.all([realpath(root), realpath(abs)])
+  if (resolveUnder(realRoot, path.relative(realRoot, real)) === null) throw new Error('Invalid path')
   const t = chosen('editor')
   if (t) return launch(t, abs, isDir(abs) ? abs : path.dirname(abs), true)
-  const err = await shell.openPath(abs)
+  const how = defaultOpener(process.platform, real, isDir(real))
+  if (how === 'text') return launch({ id: 'open', name: 'TextEdit', exe: '/usr/bin/open', args: (f) => ['-t', f] }, real, path.dirname(real), true)
+  if (how === 'reveal') {
+    shell.showItemInFolder(real)
+    throw new Error('Choose an editor in Settings to open this file type')
+  }
+  const err = await shell.openPath(real)
   if (err) throw new Error(err)
 }
 

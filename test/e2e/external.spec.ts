@@ -1,5 +1,5 @@
 import { expect, test, type ElectronApplication } from '@playwright/test'
-import { chmodSync, existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, readFileSync, realpathSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { createRepoFixture } from '../fixtures/repo'
 import { launchApp, openRepo, stubOpenDialog } from './launch'
@@ -53,7 +53,7 @@ test('custom editor and terminal are launched with the repo path, system default
     await dialog.getByText('System default', { exact: true }).first().click()
     await dialog.getByRole('button', { name: 'Done' }).click()
     await win.getByRole('button', { name: 'Open in editor' }).click()
-    await expect.poll(() => app.evaluate(() => (globalThis as Record<string, unknown>).__opened)).toBe(fx.work)
+    await expect.poll(() => app.evaluate(() => (globalThis as Record<string, unknown>).__opened)).toBe(realpathSync(fx.work))
   } finally {
     await l.close()
     fx.cleanup()
