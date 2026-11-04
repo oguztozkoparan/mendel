@@ -1,4 +1,5 @@
 import type { FileChange, StatusCode } from '../../shared/ipc'
+import { realUnder } from '../safe-path'
 import { git } from './runner'
 
 const code = (c: string | undefined) => (c && c !== '.' ? (c as StatusCode) : null)
@@ -37,6 +38,8 @@ export interface DiffTarget {
  * so hunks can be fed back to `git apply`. Paths are literal pathspecs after `--`.
  */
 export async function getDiff(cwd: string, t: DiffTarget, env?: NodeJS.ProcessEnv): Promise<string> {
+  // --no-index reads the file outside git's path handling: a symlinked parent dir could point out of the repo (S6).
+  if (t.untracked && !(await realUnder(cwd, t.path))) throw new Error('Invalid path')
   const base = ['--literal-pathspecs', '-c', 'core.quotePath=false', 'diff', '--no-color', '--no-ext-diff', '--no-textconv', '--src-prefix=a/', '--dst-prefix=b/']
   const args = t.untracked
     ? [...base, '--no-index', '--', '/dev/null', t.path]

@@ -1,4 +1,4 @@
-import { existsSync, renameSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, renameSync, symlinkSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { getDiff, getStatus, parseStatus } from '../../src/main/git/changes'
@@ -37,6 +37,16 @@ describe('status and diff against a real repo', () => {
     expect((await getStatus(fx.work, fx.env)).map((f) => f.path)).toEqual(['README.md'])
     await getDiff(fx.work, { path: 'README.md', staged: false, untracked: false }, fx.env)
     expect(existsSync(marker)).toBe(false)
+  })
+
+  it('untracked diff refuses paths through a symlinked dir that leaves the repo (S6)', async () => {
+    fx = createRepoFixture()
+    mkdirSync(path.join(fx.dir, 'outside'))
+    writeFileSync(path.join(fx.dir, 'outside', 'secret.txt'), 'secret\n')
+    symlinkSync(path.join(fx.dir, 'outside'), path.join(fx.work, 'link'), 'junction')
+    await expect(getDiff(fx.work, { path: 'link/secret.txt', staged: false, untracked: true }, fx.env)).rejects.toThrow('Invalid path')
+    writeFileSync(path.join(fx.work, 'new.txt'), 'new\n')
+    expect(await getDiff(fx.work, { path: 'new.txt', staged: false, untracked: true }, fx.env)).toContain('+new')
   })
 
   it('reports modified, added, deleted and renamed files', async () => {
