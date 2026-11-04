@@ -63,11 +63,34 @@ export interface CommitInfo {
   head: string | null
 }
 
+export interface BranchInfo {
+  name: string
+  /** e.g. "origin/main"; null when the branch has no upstream. */
+  upstream: string | null
+  ahead: number
+  behind: number
+}
+
+export interface Branches {
+  /** null when HEAD is detached. */
+  current: string | null
+  /** Short sha of HEAD (shown when detached); null before the first commit. */
+  head: string | null
+  /** Current branch first. */
+  local: BranchInfo[]
+  /** Remote-tracking branches, e.g. "origin/feature". */
+  remote: string[]
+  /** "Stash & switch" left changes for the current branch: show Restore / Discard. */
+  stash: boolean
+}
+
 const repoId = z.string().min(1).max(64)
 const byId = z.object({ id: repoId }).strict()
 /** Repo-relative path; main additionally checks it with resolveUnder (TECH.md §6.4). */
 const relPath = z.string().min(1).max(4096)
 const inRepo = z.object({ repo: repoId }).strict()
+/** Main validates further (known branch, `git check-ref-format --branch`, no leading `-`). */
+const branchName = z.string().min(1).max(255)
 const paths = z.object({ repo: repoId, paths: z.array(relPath).min(1).max(100_000) }).strict()
 /** Update checker state (PLAN.md §3.12). `canInstall: false` = "Download" opens the download page instead. */
 export type UpdateState =
@@ -127,6 +150,15 @@ export const invoke = {
       .object({ repo: repoId, summary: z.string().trim().min(1).max(1000), description: z.string().max(100_000), amend: z.boolean() })
       .strict()
   ),
+  'branch:list': res<Branches>()(inRepo),
+  /** Create (from current HEAD, or `from` = a listed local/remote branch) and switch to it. */
+  'branch:create': res<void>()(z.object({ repo: repoId, name: branchName, from: branchName.optional() }).strict()),
+  /** Switch to a listed branch; if local changes block it, main asks "Stash & switch". false = user cancelled. */
+  'branch:switch': res<boolean>()(z.object({ repo: repoId, name: branchName }).strict()),
+  /** Delete a non-current local branch after a native confirm. false = user cancelled. */
+  'branch:delete': res<boolean>()(z.object({ repo: repoId, name: branchName }).strict()),
+  /** Restore (pop) or discard (confirm first) the current branch's "Stash & switch" changes. false = cancelled. */
+  'branch:stash': res<boolean>()(z.object({ repo: repoId, action: z.enum(['restore', 'discard']) }).strict()),
   'update:state': res<UpdateState>()(z.undefined()),
   /** Manual "Check for updates"; resolves with the state after the check. */
   'update:check': res<UpdateState>()(z.undefined()),

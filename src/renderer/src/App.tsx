@@ -4,6 +4,7 @@ import { Button } from 'react-aria-components'
 import type { GitInfo } from '../../shared/ipc'
 import s from './App.module.css'
 import { AuthPromptDialog } from './AuthPromptDialog'
+import { BranchSelector, StashBanner } from './Branches'
 import { CloneDialog } from './CloneDialog'
 import { RepoList, RepoSelector, type RepoActions } from './Repos'
 import { RepoView } from './RepoView'
@@ -46,6 +47,7 @@ export function App() {
     <div className={s.app}>
       <header className={s.toolbar} aria-label="Toolbar">
         {current && <RepoSelector repos={repos} current={current} actions={actions} />}
+        {current && <BranchSelector key={current.id} repo={current.id} onError={setError} />}
         <UpdatePill />
       </header>
       {error && (
@@ -54,6 +56,7 @@ export function App() {
           <Button onPress={() => setError(null)}>Dismiss</Button>
         </div>
       )}
+      {current && <StashBanner key={current.id} repo={current.id} onError={setError} />}
       {current ? (
         <RepoView key={current.id} repo={current} />
       ) : (

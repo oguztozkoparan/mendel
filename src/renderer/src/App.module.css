@@ -180,3 +180,9 @@
   min-height: 0;
   overflow: auto;
 }
+
+/* Informational banner (stash pending, conflicts): same layout as .banner, normal text color. */
+.notice {
+  color: var(--fg);
+  align-items: center;
+}
