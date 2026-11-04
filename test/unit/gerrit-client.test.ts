@@ -26,6 +26,12 @@ describe('gerrit client', () => {
     expect(String((err as Error).message)).not.toContain('nope')
   })
 
+  it('finds open changes by Change-Id in a project', async () => {
+    const id = (n: number) => `I${String(n).padStart(40, '0')}`
+    expect((await client().openChanges([id(101), id(90), id(5)], 'p/q')).map((c) => c._number)).toEqual([101]) // #90 is merged
+    expect(decodeURIComponent(mock.find('GET', '/a/changes/').at(-1)!.url)).toContain(`q=status:open (change:${id(101)} OR change:${id(90)} OR change:${id(5)}) project:"p/q"`)
+  })
+
   it('reports unreachable servers', async () => {
     await expect(gerritClient('http://127.0.0.1:1', { username: 'u', password: 'p' }, fetch).self()).rejects.toThrow(/Cannot reach Gerrit/)
   })

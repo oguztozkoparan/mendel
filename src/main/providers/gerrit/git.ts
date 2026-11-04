@@ -84,7 +84,7 @@ export function parsePushOutput(stderr: string): Omit<GerritSent, 'status'> {
 export async function sendForReview(
   cwd: string,
   remote: string,
-  o: { target: string; topic?: string; reviewers: string[]; wip: boolean },
+  o: { target: string; topic?: string; reviewers: string[]; wip: boolean; ready?: boolean },
   opts: { env?: NodeJS.ProcessEnv; signal?: AbortSignal } = {}
 ): Promise<GerritSent> {
   const commits = await unpushedCommits(cwd, opts.env)

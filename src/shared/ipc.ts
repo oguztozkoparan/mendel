@@ -192,6 +192,8 @@ export interface GerritCommitHint {
   hook: boolean
   /** HEAD is unpushed and has no Change-Id: offer "Add Change-Id to last commit". */
   headMissingChangeId: boolean
+  /** HEAD is unpushed and its Change-Id belongs to this open change: amend uploads a new patch set of it. */
+  patchsetOf: number | null
 }
 
 export interface ProviderState {
@@ -326,7 +328,9 @@ export const invoke = {
   /** Amend only HEAD's message to add a Change-Id (HEAD must be unpushed). */
   'gerrit:addChangeId': res<void>()(inRepo),
   /** Send-for-review dialog data: default target (upstream branch) and the commits a push would send. */
-  'gerrit:pending': res<{ target: string | null; commits: GerritCommit[] }>()(inRepo),
+  'gerrit:pending': res<{ target: string | null; commits: GerritCommit[]; headChange: { number: number; wip: boolean } | null }>()(inRepo),
+  /** History badges: sha → number of the open change with that commit's Change-Id (unpushed commits only). */
+  'gerrit:badges': res<Record<string, number>>()(inRepo),
   /** `git push <remote> HEAD:refs/for/<target>%<options>`; refused when nothing is ahead or a commit lacks a Change-Id. */
   'gerrit:send': res<GerritSent>()(
     z
@@ -335,7 +339,8 @@ export const invoke = {
         target: branchName,
         topic: z.string().max(255).regex(PUSH_OPTION_VALUE).optional(),
         reviewers: z.array(z.string().max(255).regex(PUSH_OPTION_VALUE)).max(50),
-        wip: z.boolean()
+        wip: z.boolean(),
+        ready: z.boolean()
       })
       .strict()
   ),

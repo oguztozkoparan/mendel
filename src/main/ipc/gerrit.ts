@@ -1,5 +1,5 @@
 import { net, shell } from 'electron'
-import { GERRIT_AUTH_ERROR, GERRIT_REBASE_CONFLICT, type GerritDraft } from '../../shared/gerrit'
+import { GERRIT_AUTH_ERROR, GERRIT_REBASE_CONFLICT, type GerritChange, type GerritDraft } from '../../shared/gerrit'
 import log from '../log'
 import { gerritClient, GerritHttpError, normalizeBaseUrl, type Fetch } from '../providers/gerrit/client'
 import { getCredential, removeCredential, saveCredential } from '../providers/gerrit/credentials'
@@ -52,17 +52,38 @@ setCommitMessageTransform(async (message, { cwd, amend }) => {
   return message
 })
 
-export const gerritHandlers: Handlers<'gerrit:pending' | 'gerrit:send' | 'gerrit:commitHint' | 'gerrit:addChangeId' | 'gerrit:connect' | 'gerrit:disconnect' | 'gerrit:open' | 'gerrit:changes' | 'gerrit:change' | 'gerrit:files' | 'gerrit:diff' | 'gerrit:comments' | 'gerrit:review' | 'gerrit:action'> = {
+/** Open changes by Change-Id in this project; empty when REST is unavailable (no URL / credentials): hints only. */
+async function openByChangeId(repo: string, ids: (string | null)[]): Promise<Map<string, GerritChange>> {
+  const wanted = [...new Set(ids.filter((i) => i !== null))].slice(0, 100) // shortcut: first 100 Change-Ids; one query, URL stays short
+  if (!wanted.length) return new Map()
+  try {
+    const list = await (await gerritFor(repo)).openChanges(wanted, (await activeState(repo)).detection?.project || null)
+    return new Map(list.map((c) => [c.change_id, c]))
+  } catch (err) {
+    log.warn('[gerrit] change lookup failed', err instanceof Error ? err.message : err)
+    return new Map()
+  }
+}
+
+export const gerritHandlers: Handlers<'gerrit:badges' | 'gerrit:pending' | 'gerrit:send' | 'gerrit:commitHint' | 'gerrit:addChangeId' | 'gerrit:connect' | 'gerrit:disconnect' | 'gerrit:open' | 'gerrit:changes' | 'gerrit:change' | 'gerrit:files' | 'gerrit:diff' | 'gerrit:comments' | 'gerrit:review' | 'gerrit:action'> = {
   'gerrit:commitHint': async ({ repo }) => {
     const { root } = await gerritRoot(repo)
     const [hook, commits] = await Promise.all([hasCommitMsgHook(root), unpushedCommits(root)])
-    return { hook, headMissingChangeId: !!commits[0] && !commits[0].changeId }
+    const head = commits[0] // HEAD when anything is unpushed
+    const open = await openByChangeId(repo, [head?.changeId ?? null])
+    return { hook, headMissingChangeId: !!head && !head.changeId, patchsetOf: open.get(head?.changeId ?? '')?._number ?? null }
   },
   'gerrit:addChangeId': async ({ repo }) => amendWithChangeId((await gerritRoot(repo)).root),
   'gerrit:pending': async ({ repo }) => {
     const { root } = await gerritRoot(repo)
     const [target, commits] = await Promise.all([upstreamBranch(root), unpushedCommits(root)])
-    return { target, commits }
+    const c = (await openByChangeId(repo, [commits[0]?.changeId ?? null])).get(commits[0]?.changeId ?? '')
+    return { target, commits, headChange: c ? { number: c._number, wip: !!c.work_in_progress } : null }
+  },
+  'gerrit:badges': async ({ repo }) => {
+    const commits = await unpushedCommits((await gerritRoot(repo)).root)
+    const open = await openByChangeId(repo, commits.map((c) => c.changeId))
+    return Object.fromEntries(commits.flatMap((c) => (c.changeId && open.has(c.changeId) ? [[c.sha, open.get(c.changeId)!._number]] : [])))
   },
   'gerrit:send': async ({ repo, ...o }) => {
     const { root, remote } = await gerritRoot(repo)

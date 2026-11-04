@@ -87,6 +87,10 @@ export function gerritClient(baseUrl: string, auth: GerritAuth, fetchFn: Fetch) 
       return { outgoing, incoming, closed }
     },
 
+    /** Open changes whose Change-Id is one of `ids` (History badges, new-patchset hint), optionally in `project`. */
+    openChanges: (ids: string[], project: string | null) =>
+      call(z.array(changeSchema), 'GET', `changes/?q=${encodeURIComponent(`status:open (${ids.map((i) => `change:${i}`).join(' OR ')})${project ? ` project:"${project}"` : ''}`)}`),
+
     change: (n: number) =>
       call(changeSchema, 'GET', `changes/${enc(n)}/detail?o=CURRENT_REVISION&o=ALL_REVISIONS&o=DETAILED_LABELS&o=DETAILED_ACCOUNTS&o=CURRENT_ACTIONS&o=MESSAGES`),
 

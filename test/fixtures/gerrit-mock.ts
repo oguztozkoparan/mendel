@@ -204,6 +204,8 @@ export async function startGerritMock(opts: GerritMockOptions = {}): Promise<Ger
     const project = /project:"?([^"\s]+)"?/.exec(q)?.[1]
     return changes.filter((c) => {
       if (project && c.project !== project) return false
+      const ids = [...q.matchAll(/change:(I[0-9a-f]{40})/g)].map((m) => m[1])
+      if (ids.length) return c.status === 'NEW' && ids.includes(c.change_id)
       if (q.includes('-is:open')) return c.owner._account_id === SELF._account_id && c.status !== 'NEW'
       if (q.includes('reviewer:self')) return c.status === 'NEW' && c.owner._account_id !== SELF._account_id && (c.reviewers?.REVIEWER ?? []).some((r: Json) => r._account_id === SELF._account_id)
       if (q.includes('owner:self')) return c.status === 'NEW' && c.owner._account_id === SELF._account_id

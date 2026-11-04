@@ -10,9 +10,9 @@ export const GERRIT_REBASE_CONFLICT = 'Gerrit could not rebase this change becau
 /** Push-option values (topic, reviewer email/username), TECH.md §6.3: no `,` `%` `=` or spaces that could add options. */
 export const PUSH_OPTION_VALUE = /^[A-Za-z0-9._@+-]+$/
 
-/** `refs/for/<target>%topic=t,r=a@b.c,wip` (PLAN.md §3.9, §5.5); throws on a value outside PUSH_OPTION_VALUE. */
-export function reviewRef(target: string, o: { topic?: string; reviewers: string[]; wip: boolean }): string {
-  const opts = [...(o.topic ? [`topic=${o.topic}`] : []), ...o.reviewers.map((r) => `r=${r}`), ...(o.wip ? ['wip'] : [])]
+/** `refs/for/<target>%topic=t,r=a@b.c,wip|ready` (PLAN.md §3.9, §5.5); throws on a value outside PUSH_OPTION_VALUE. */
+export function reviewRef(target: string, o: { topic?: string; reviewers: string[]; wip: boolean; ready?: boolean }): string {
+  const opts = [...(o.topic ? [`topic=${o.topic}`] : []), ...o.reviewers.map((r) => `r=${r}`), ...(o.wip ? ['wip'] : []), ...(o.ready ? ['ready'] : [])]
   for (const v of [...(o.topic !== undefined ? [o.topic] : []), ...o.reviewers]) if (!PUSH_OPTION_VALUE.test(v)) throw new Error(`Invalid topic or reviewer: ${JSON.stringify(v)}`)
   return `refs/for/${target}${opts.length ? '%' + opts.join(',') : ''}`
 }

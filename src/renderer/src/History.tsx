@@ -40,7 +40,7 @@ export function HistoryView(p: { repo: string; decorate?: (c: CommitSummary) => 
             className={c.list}
             renderEmptyState={() => (q.data ? <p className={c.empty}>No commits yet</p> : null)}
           >
-            <Collection items={commits}>
+            <Collection items={commits} dependencies={[p.decorate]}>
               {(x) => (
                 <GridListItem id={x.sha} textValue={x.summary} className={s.row}>
                   <span className={s.summary}>{x.summary}</span>

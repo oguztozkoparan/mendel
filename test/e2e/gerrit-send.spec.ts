@@ -75,3 +75,38 @@ test('Gerrit pulls with rebase regardless of the merge setting', async () => {
   expect(fx.git(['rev-list', '--merges', '--count', 'HEAD'])).toBe('0')
   expect(fx.git(['log', '-1', '--format=%s', 'HEAD~1'])).toBe('remote r')
 })
+
+test('HEAD with an open change: history badge, amend pre-ticked as new patchset, upload succeeds', async () => {
+  mock.changes[0].work_in_progress = true
+  g = await launchGerrit(mock)
+  const { win, fx } = g
+  await connectGerrit(win, mock)
+  commitForChange(fx, 'x.txt', 101)
+
+  await win.getByRole('tab', { name: 'History' }).click()
+  const commits = win.getByRole('grid', { name: 'Commits' })
+  await expect(commits.getByRole('row', { name: 'Add x.txt' })).toContainText('in review #101')
+  await expect(commits.getByRole('row', { name: 'initial commit' })).not.toContainText('in review')
+
+  await win.getByRole('tab', { name: 'Changes' }).click()
+  const box = win.getByRole('form', { name: 'Commit' })
+  await expect(box.getByRole('checkbox', { name: 'Amend last commit' })).toBeChecked()
+  await expect(box).toContainText('Will upload a new patchset of #101')
+  await expect(box.getByLabel('Summary')).toHaveValue('Add x.txt')
+  writeFileSync(`${fx.work}/x.txt`, 'x v2\n')
+  fx.git(['add', 'x.txt'])
+  const count = fx.git(['rev-list', '--count', 'HEAD'])
+  await box.getByRole('button', { name: 'Amend last commit' }).click()
+  await expect(win.getByText('No local changes')).toBeVisible()
+  expect(fx.git(['rev-list', '--count', 'HEAD'])).toBe(count)
+  expect(fx.git(['log', '-1', '--format=%B'])).toBe(`Add x.txt\n\nChange-Id: I${'101'.padStart(40, '0')}`)
+
+  gerritPushOutput(fx, `${mock.url}/c/p/q/+/101 Add x.txt`)
+  await win.getByRole('button', { name: 'Send for review ↑1' }).click()
+  const dialog = win.getByRole('dialog', { name: 'Send for review' })
+  await dialog.getByLabel(/Mark ready/).check()
+  await expect(dialog.getByLabel('Push ref')).toHaveText('HEAD:refs/for/main%ready')
+  await dialog.getByRole('button', { name: 'Send' }).click()
+  await expect(win.getByRole('alert').filter({ hasText: 'New patchset uploaded to #101' })).toBeVisible()
+  expect(refs(g)).toBe('refs/for/main%ready')
+})

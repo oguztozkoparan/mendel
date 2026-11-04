@@ -14,13 +14,14 @@ export function SendForReview(p: { repo: string; onClose(): void; onSent(r: Gerr
   const [topic, setTopic] = useState('')
   const [reviewers, setReviewers] = useState('')
   const [wip, setWip] = useState(false)
+  const [ready, setReady] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const commits = q.data?.commits ?? []
   const tgt = (target ?? q.data?.target ?? '').trim()
   const list = reviewers.split(',').map((r) => r.trim()).filter(Boolean)
   const invalid = [topic.trim(), ...list].some((v) => v && !PUSH_OPTION_VALUE.test(v))
-  const opts = { topic: topic.trim() || undefined, reviewers: list, wip }
+  const opts = { topic: topic.trim() || undefined, reviewers: list, wip, ready: ready && !wip }
   const ref = tgt && !invalid ? reviewRef(tgt, opts) : null
   const missing = commits.filter((c) => !c.changeId)
   const canSend = !busy && !!ref && commits.length > 0 && !missing.length
@@ -83,6 +84,12 @@ export function SendForReview(p: { repo: string; onClose(): void; onSent(r: Gerr
             <label>
               <input type="checkbox" checked={wip} onChange={(e) => setWip(e.target.checked)} disabled={busy} /> Work in progress
             </label>
+            {q.data?.headChange?.wip && (
+              <label>
+                <input type="checkbox" checked={ready} onChange={(e) => setReady(e.target.checked)} disabled={busy || wip} /> Mark ready (#{q.data.headChange.number} is
+                work in progress)
+              </label>
+            )}
             {invalid && <p className={a.error}>Topic and reviewers may only use letters, digits and . _ @ + - (reviewers comma-separated).</p>}
             {ref && <code aria-label="Push ref">HEAD:{ref}</code>}
             {error && (

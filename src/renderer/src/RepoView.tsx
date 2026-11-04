@@ -5,6 +5,7 @@ import type { RepoEntry } from '../../shared/ipc'
 import s from './App.module.css'
 import { ChangesView } from './Changes'
 import { HistoryView } from './History'
+import h from './History.module.css'
 import { useMenuCommand } from './menu'
 import { Reviews } from './providers/gerrit/Reviews'
 /** Open repo: tabs in sidebar head; panel lays out its own sidebar list + main pane (PLAN.md §3). */
@@ -13,6 +14,7 @@ export function RepoView({ repo, focus }: { repo: RepoEntry; focus?: { change: n
   useEffect(() => void (focus && setTab('reviews')), [focus])
   const provider = useQuery({ queryKey: ['provider', repo.id], queryFn: () => window.gitdock['provider:get']({ repo: repo.id }) })
   const gerrit = provider.data?.detection?.provider === 'gerrit' ? provider.data : null
+  const badges = useQuery({ queryKey: ['gerritBadges', repo.id], queryFn: () => window.gitdock['gerrit:badges']({ repo: repo.id }), enabled: !!gerrit })
   useMenuCommand((c) => {
     if (c === 'tab:changes' || c === 'tab:history') setTab(c.slice(4))
     else if (c === 'tab:provider' && gerrit) setTab('reviews')
@@ -28,7 +30,7 @@ export function RepoView({ repo, focus }: { repo: RepoEntry; focus?: { change: n
         <ChangesView repo={repo} />
       </TabPanel>
       <TabPanel id="history" className={s.panel}>
-        <HistoryView repo={repo.id} />
+        <HistoryView repo={repo.id} decorate={gerrit ? (c) => badges.data?.[c.sha] && <span className={h.badge}>in review #{badges.data[c.sha]}</span> : undefined} />
       </TabPanel>
       {gerrit && (
         <TabPanel id="reviews" className={s.panel}>

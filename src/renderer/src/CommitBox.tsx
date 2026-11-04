@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useState, type FormEvent, type KeyboardEvent } from 'react'
+import { useEffect, useState, type FormEvent, type KeyboardEvent } from 'react'
 import { Button, Checkbox, Input, TextArea, TextField } from 'react-aria-components'
 import s from './Changes.module.css'
 import { useSettings } from './Settings'
@@ -7,6 +7,8 @@ import { useSettings } from './Settings'
 /** A provider's commit-box message (PLAN.md §5.3 "commit-message checks / hints"). */
 export interface CommitHint {
   note: string
+  /** Pre-tick "Amend last commit" and show this while it is ticked (Gerrit: "Will upload a new patchset of #N"). */
+  amend?: string
   /** One-click fix, e.g. "Add Change-Id to last commit". */
   fix?: { label: string; run(): Promise<unknown> }
 }
@@ -33,6 +35,11 @@ export function CommitBox({ repo, hasStaged, hint }: { repo: string; hasStaged: 
       setDescription(rest.join('\n').replace(/^\n+/, ''))
     }
   }
+  // Pre-tick amend for a provider (PLAN.md §4.4 step 4) unless the user is already writing a message.
+  const preAmend = !!hint?.amend && head !== null && !amend && !summary && !description
+  useEffect(() => {
+    if (preAmend) toggleAmend(true)
+  }, [preAmend])
   const submit = (e?: FormEvent) => {
     e?.preventDefault()
     if (!canCommit) return
@@ -75,6 +82,7 @@ export function CommitBox({ repo, hasStaged, hint }: { repo: string; hasStaged: 
         Amend last commit
       </Checkbox>
       {hint && <small className={s.author}>{hint.note}</small>}
+      {amend && hint?.amend && <small className={s.author}>{hint.amend}</small>}
       {hint?.fix && (
         <Button
           isDisabled={busy}

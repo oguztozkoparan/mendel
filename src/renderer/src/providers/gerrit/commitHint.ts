@@ -11,6 +11,7 @@ export function useGerritCommitHint(repo: string): CommitHint | null {
   if (!gerrit || !q.data) return null
   return {
     note: q.data.hook ? 'Change-Id: will be added by commit-msg hook' : 'Change-Id will be added by gitdock',
+    amend: q.data.patchsetOf ? `Will upload a new patchset of #${q.data.patchsetOf}` : undefined,
     fix: q.data.headMissingChangeId
       ? {
           label: 'Add Change-Id to last commit',
