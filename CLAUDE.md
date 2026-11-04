@@ -27,7 +27,7 @@
 - Minimal diffs. No unrequested refactors, renames or "while I was here" changes; flag spotted issues in one line.
 - Security first: renderer has no Node access (contextIsolation, sandbox, no nodeIntegration); all git/network/secrets go through typed IPC in main; never build shell strings, pass git args as arrays; secrets only via OS keychain (`safeStorage`).
 - Never read or print `.env*` or secrets.
-- Run typecheck and tests for touched code before reporting done.
+- Tests per change/commit: `npm run typecheck` + `npm test` (fast, always all) + only the e2e specs the change can affect. Full `npm run e2e` once at the end of a task (and after merges), not before every commit.
 - Do not push unless explicitly asked.
 
 ## graphify
