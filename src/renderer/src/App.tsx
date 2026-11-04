@@ -8,6 +8,7 @@ import s from './App.module.css'
 import { AuthPromptDialog } from './AuthPromptDialog'
 import { BranchSelector, refreshLocal, refreshRepo, StashBanner } from './Branches'
 import { CloneDialog } from './CloneDialog'
+import { bannerError, ErrorBanner, type BannerError } from './ErrorBanner'
 import { ConflictBanner } from './Conflicts'
 import { RepoList, RepoSelector, type RepoActions } from './Repos'
 import { useMenuCommand } from './menu'
@@ -26,7 +27,8 @@ const INSTALL_HINT: Record<string, string> = {
 export function App() {
   const qc = useQueryClient()
   const [git, setGit] = useState<GitInfo | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<BannerError | null>(null)
+  const onError = (e: unknown, retry?: () => void) => setError(bannerError(e, retry))
   const [cloning, setCloning] = useState(false)
   const [notice, setNotice] = useState<Notice | null>(null)
   const [settings, setSettings] = useState(false)
@@ -61,7 +63,7 @@ export function App() {
     setError(null)
     p.then(
       () => qc.invalidateQueries({ queryKey: ['repos'] }),
-      (e: Error) => setError(e.message)
+      (e) => onError(e)
     )
   }
   const actions: RepoActions = {
@@ -88,12 +90,12 @@ export function App() {
     <div className={s.app}>
       <header className={s.toolbar} aria-label="Toolbar">
         {current && <RepoSelector repos={repos} current={current} actions={actions} />}
-        {current && <BranchSelector key={current.id} repo={current.id} onError={setError} />}
+        {current && <BranchSelector key={current.id} repo={current.id} onError={onError} />}
         {current && (
           <SyncButton
             key={current.id}
             repo={current.id}
-            onError={setError}
+            onError={onError}
             onNotice={setNotice}
             primary={gerrit ? { label: 'Send for review', run: () => setSending(true) } : null}
           />
@@ -103,12 +105,7 @@ export function App() {
           <Gear size={16} />
         </Button>
       </header>
-      {error && (
-        <div role="alert" className={s.banner}>
-          <span>{error}</span>
-          <Button onPress={() => setError(null)}>Dismiss</Button>
-        </div>
-      )}
+      {error && <ErrorBanner error={error} onDismiss={() => setError(null)} />}
       {notice && (
         <div role="alert" className={`${s.banner} ${s.notice}`}>
           <span>{notice.text}</span>
@@ -116,8 +113,8 @@ export function App() {
           <Button onPress={() => setNotice(null)}>Dismiss</Button>
         </div>
       )}
-      {current && <ConflictBanner key={current.id} repo={current.id} onError={setError} />}
-      {current && <StashBanner key={current.id} repo={current.id} onError={setError} />}
+      {current && <ConflictBanner key={current.id} repo={current.id} onError={onError} />}
+      {current && <StashBanner key={current.id} repo={current.id} onError={onError} />}
       {current ? (
         <RepoView key={current.id} repo={current} focus={focus} />
       ) : (

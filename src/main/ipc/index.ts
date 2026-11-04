@@ -1,6 +1,7 @@
 import { BrowserWindow, ipcMain, type IpcMainInvokeEvent } from 'electron'
-import { invoke, type EventChannel, type EventPayload, type InvokeChannel, type Req, type Res } from '../../shared/ipc'
+import { invoke, IPC_ERROR_PREFIX, type EventChannel, type EventPayload, type InvokeChannel, type Req, type Res } from '../../shared/ipc'
 import log from '../log'
+import { GitError } from '../git/runner'
 import { redact } from '../redact'
 import { appOrigin } from '../security'
 import { appHandlers } from './app'
@@ -39,7 +40,10 @@ export function registerIpc(): void {
         return await (handlers[channel] as (r: unknown, e: IpcMainInvokeEvent) => unknown)(req, e)
       } catch (err) {
         log.error(`[ipc] ${channel}`, err)
-        throw new Error(redact(err instanceof Error ? err.message : String(err)))
+        const message = redact(err instanceof Error ? err.message : String(err))
+        // Git failures keep their kind + redacted stderr for the error banner (preload decodes this).
+        if (err instanceof GitError) throw new Error(IPC_ERROR_PREFIX + JSON.stringify({ message, kind: err.kind, details: redact(err.stderr) || undefined }))
+        throw new Error(message)
       }
     })
   }

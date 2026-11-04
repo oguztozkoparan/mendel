@@ -201,3 +201,13 @@
 :global(html:not([data-platform='darwin'])) .settings {
   margin-right: 140px; /* window controls overlay */
 }
+
+.details {
+  margin: 6px 0 0;
+  max-height: 200px;
+  overflow: auto;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--fg);
+  white-space: pre-wrap;
+}

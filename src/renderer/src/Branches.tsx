@@ -24,15 +24,15 @@ export const refreshLocal = (qc: QueryClient, repo: string) =>
 export const useBranches = (repo: string) => useQuery({ queryKey: ['branches', repo], queryFn: () => window.gitdock['branch:list']({ repo }) })
 
 /** Run a branch write; refresh the repo afterwards and report errors. */
-function useRun(repo: string, onError: (msg: string) => void) {
+function useRun(repo: string, onError: (e: unknown) => void) {
   const qc = useQueryClient()
-  return (p: Promise<unknown>) => void p.catch((e: Error) => onError(e.message)).finally(() => refreshRepo(qc, repo))
+  return (p: Promise<unknown>) => void p.catch(onError).finally(() => refreshRepo(qc, repo))
 }
 
 export const aheadBehind = (b: Pick<BranchInfo, 'ahead' | 'behind'>) => [b.behind ? `↓${b.behind}` : '', b.ahead ? `↑${b.ahead}` : ''].filter(Boolean).join(' ')
 
 /** Toolbar dropdown (PLAN.md 3.3): filter, New branch…, local (current first, ahead/behind), remote (collapsed), delete. */
-export function BranchSelector(p: { repo: string; onError(msg: string): void }) {
+export function BranchSelector(p: { repo: string; onError(e: unknown): void }) {
   const qc = useQueryClient()
   const run = useRun(p.repo, p.onError)
   const q = useBranches(p.repo)
@@ -186,7 +186,7 @@ function NewBranchDialog(p: { initial: string; from: string; onClose(): void; cr
 }
 
 /** "You have stashed changes on <branch>" banner after Stash & switch (PLAN.md §2 decisions). */
-export function StashBanner(p: { repo: string; onError(msg: string): void }) {
+export function StashBanner(p: { repo: string; onError(e: unknown): void }) {
   const run = useRun(p.repo, p.onError)
   const b = useBranches(p.repo).data
   if (!b?.stash) return null

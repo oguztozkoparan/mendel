@@ -4,13 +4,13 @@ import a from './App.module.css'
 import { refreshRepo } from './Branches'
 
 /** Banner while a merge/rebase is stopped (PLAN.md §4.8): conflicted files with Mark resolved, Continue, Abort. */
-export function ConflictBanner(p: { repo: string; onError(msg: string): void }) {
+export function ConflictBanner(p: { repo: string; onError(e: unknown): void }) {
   const qc = useQueryClient()
   const op = useQuery({ queryKey: ['conflict', p.repo], queryFn: () => window.gitdock['conflict:state']({ repo: p.repo }) }).data
   const status = useQuery({ queryKey: ['status', p.repo], queryFn: () => window.gitdock['changes:status']({ repo: p.repo }), enabled: !!op })
   if (!op) return null
   const conflicted = (status.data ?? []).filter((f) => f.conflicted)
-  const run = (pr: Promise<unknown>) => void pr.catch((e: Error) => p.onError(e.message)).finally(() => refreshRepo(qc, p.repo))
+  const run = (pr: Promise<unknown>) => void pr.catch(p.onError).finally(() => refreshRepo(qc, p.repo))
   return (
     <div role="status" aria-label="Conflicts" className={`${a.banner} ${a.notice} ${a.conflicts}`}>
       <span>

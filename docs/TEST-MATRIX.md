@@ -104,6 +104,7 @@ Status: 49 bullets, 48 covered by automation, 1 partly manual (OS theme switch),
 | Gerrit change detail "Copy fetch command" → `git fetch <remote> refs/changes/NN/N/P && git checkout FETCH_HEAD` via main clipboard | e2e/gerrit-detail.spec.ts: change detail…; unit/gerrit-util.test.ts: fetchCommand… |
 | Welcome "Who are you?" form only while global `user.name`/`user.email` is unset; writes `git config --global` | e2e/identity.spec.ts (both) |
 | Branch selector "New branch from <selected>" (local or remote row) starts at that branch | e2e/branch.spec.ts: New branch from a selected… |
+| Error banner: friendly text by `GitError.kind`, Show details (redacted stderr), Copy, Retry for retryable ops (sync) | e2e/error-banner.spec.ts |
 
 ## Updates
 | Bullet | Test |

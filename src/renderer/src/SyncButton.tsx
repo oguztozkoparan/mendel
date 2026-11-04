@@ -24,7 +24,7 @@ type Op = 'fetch' | 'pull' | 'push' | 'rebase'
 const BUSY: Record<Op, string> = { fetch: 'Fetching…', pull: 'Pulling…', push: 'Pushing…', rebase: 'Rebasing…' }
 
 /** Toolbar sync button (PLAN.md 3.4): label follows ahead/behind; menu has every op; busy ops are cancellable. */
-export function SyncButton(p: { repo: string; onError(msg: string): void; onNotice(n: Notice | null): void; primary?: PrimaryOverride | null }) {
+export function SyncButton(p: { repo: string; onError(e: unknown, retry?: () => void): void; onNotice(n: Notice | null): void; primary?: PrimaryOverride | null }) {
   const qc = useQueryClient()
   const q = useQuery({ queryKey: ['sync', p.repo], queryFn: () => window.gitdock['sync:state']({ repo: p.repo }) })
   const [busy, setBusy] = useState<Op | null>(null)
@@ -52,7 +52,7 @@ export function SyncButton(p: { repo: string; onError(msg: string): void; onNoti
           void window.gitdock['conflict:state']({ repo: p.repo }).then(
             (s) => !s && p.onNotice({ text: 'Your uncommitted changes conflict with the new commits. Resolve the conflicted files; your changes are also kept in the stash.' })
           )
-      }, (e: Error) => p.onError(e.message))
+      }, (e) => p.onError(e, () => run(op)))
       .finally(() => (setBusy(null), refreshRepo(qc, p.repo)))
   }
 

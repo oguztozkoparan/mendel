@@ -6,6 +6,7 @@ import a from './App.module.css'
 import { CommitBox } from './CommitBox'
 import s from './Changes.module.css'
 import { DiffView } from './DiffView'
+import { bannerError, ErrorBanner, type BannerError } from './ErrorBanner'
 import { useGerritCommitHint } from './providers/gerrit/commitHint'
 
 /** Letter shown in the list: index side first, untracked shows as added. */
@@ -33,12 +34,12 @@ export function ChangesView({ repo, amend, onAmendDone }: { repo: RepoEntry; ame
   const hint = useGerritCommitHint(repo.id)
   const [picked, setPicked] = useState<string | null>(null)
   const selected = files.find((f) => f.path === picked) ?? files[0]
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<BannerError | null>(null)
   /** Run a git write, then refresh status + diffs; errors show in the main pane. */
   const act = (p: Promise<unknown>) => {
     setError(null)
     void p
-      .catch((e: Error) => setError(e.message))
+      .catch((e) => setError(bannerError(e)))
       .finally(() => {
         void qc.invalidateQueries({ queryKey: ['status', repo.id] })
         void qc.invalidateQueries({ queryKey: ['diff', repo.id] })
@@ -103,12 +104,7 @@ export function ChangesView({ repo, amend, onAmendDone }: { repo: RepoEntry; ame
         <CommitBox repo={repo.id} hasStaged={files.some((f) => f.staged)} hint={hint} amend={amend} onAmendDone={onAmendDone} />
       </aside>
       <section className={a.main}>
-        {error && (
-          <div role="alert" className={a.banner}>
-            <span>{error}</span>
-            <Button onPress={() => setError(null)}>Dismiss</Button>
-          </div>
-        )}
+        {error && <ErrorBanner error={error} onDismiss={() => setError(null)} />}
         {status.error ? (
           <p role="alert" className={s.empty}>
             {status.error.message}

@@ -152,7 +152,7 @@ Sources: [Electron security checklist](https://www.electronjs.org/docs/latest/tu
 - [ ] Every handler: (1) check `event.senderFrame` exists and `new URL(event.senderFrame.url).origin` (prefer `senderFrame.origin`) equals the app origin (`app://gitdock` / dev server), and the frame is the top frame of our window; (2) `schema.parse(payload)`; (3) only then act.
 - [ ] Renderer never sends commands, argv, file paths outside a repo, or URLs to fetch. It sends ids (`repoId`, `changeId`, `path` relative to repo) that main resolves.
 - [ ] Repos the renderer can address = repos the user added via native dialog (stored list); `repoId` → absolute path lookup in main.
-- [ ] Errors returned to renderer are sanitized (no env, no credentials, no full argv with secrets).
+- [ ] Errors returned to renderer are sanitized (no env, no credentials, no full argv with secrets); a `GitError` additionally carries its `kind` and redacted stderr (encoded after `IPC_ERROR_PREFIX`, decoded in preload) for the error banner.
 
 ### 6.3 Git invocation and argument injection
 - [ ] Resolve git **once** to an absolute path (search `PATH` ourselves; on Windows never let CreateProcess search the repo `cwd`, which would run a planted `git.exe` — cf. Git LFS CVE-2020-27955 **[unverified id]**). Always `execFile(absGit, args, { shell: false, cwd: repoRoot, env, windowsHide: true, maxBuffer })` / `spawn` for streaming. Never a shell, never string concatenation.

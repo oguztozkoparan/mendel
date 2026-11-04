@@ -432,6 +432,17 @@ export const events = {
   'menu:command': null as unknown as MenuCommand
 } as const
 
+/**
+ * Rejection value of a failed `window.gitdock[...]` call when git failed: `kind` = GitError kind, `details` = redacted
+ * stderr. Main encodes it after IPC_ERROR_PREFIX in the error message; preload decodes it. Other failures reject with an Error.
+ */
+export interface IpcError {
+  message: string
+  kind?: string
+  details?: string
+}
+export const IPC_ERROR_PREFIX = 'gitdock-error:'
+
 export type InvokeChannel = keyof typeof invoke
 export type EventChannel = keyof typeof events
 export type Req<C extends InvokeChannel> = z.output<(typeof invoke)[C]['req']>
