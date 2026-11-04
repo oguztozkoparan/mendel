@@ -18,8 +18,8 @@ export interface PrimaryOverride {
   run(): void
 }
 
-type Op = 'fetch' | 'pull' | 'push'
-const BUSY: Record<Op, string> = { fetch: 'Fetching…', pull: 'Pulling…', push: 'Pushing…' }
+type Op = 'fetch' | 'pull' | 'push' | 'rebase'
+const BUSY: Record<Op, string> = { fetch: 'Fetching…', pull: 'Pulling…', push: 'Pushing…', rebase: 'Rebasing…' }
 
 /** Toolbar sync button (PLAN.md 3.4): label follows ahead/behind; menu has every op; busy ops are cancellable. */
 export function SyncButton(p: { repo: string; onError(msg: string): void; onNotice(n: Notice | null): void; primary?: PrimaryOverride | null }) {
@@ -33,7 +33,7 @@ export function SyncButton(p: { repo: string; onError(msg: string): void; onNoti
     setBusy(op)
     p.onNotice(null)
     void window.gitdock[`sync:${op}`]({ repo: p.repo })
-      .then((r: SyncResult | void) => {
+      .then((r: SyncResult | null | void) => {
         if (r === 'rejected') p.onNotice({ text: 'Remote has new commits. Pull first.', action: { label: 'Pull', run: () => run('pull') } })
       }, (e: Error) => p.onError(e.message))
       .finally(() => (setBusy(null), refreshRepo(qc, p.repo)))
@@ -79,10 +79,11 @@ export function SyncButton(p: { repo: string; onError(msg: string): void; onNoti
           <ChevronDown size={14} />
         </Button>
         <Popover placement="bottom end" className={s.popover}>
-          <Menu className={s.menu} onAction={(k) => run(k as Op)} disabledKeys={[...(st?.upstream ? [] : ['pull']), ...(st?.branch ? [] : ['push'])]}>
+          <Menu className={s.menu} onAction={(k) => run(k as Op)} disabledKeys={[...(st?.upstream ? [] : ['pull', 'rebase']), ...(st?.branch ? [] : ['push'])]}>
             <MenuItem id="fetch" className={s.item}>Fetch</MenuItem>
             <MenuItem id="pull" className={s.item}>Pull</MenuItem>
             <MenuItem id="push" className={s.item}>{st?.upstream ? 'Push' : 'Publish branch'}</MenuItem>
+            <MenuItem id="rebase" className={s.item}>Rebase onto upstream</MenuItem>
           </Menu>
         </Popover>
       </MenuTrigger>

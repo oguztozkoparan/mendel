@@ -73,3 +73,15 @@ export async function push(cwd: string, o: Opts = {}): Promise<SyncResult> {
     throw err
   }
 }
+
+/** Tracked files with uncommitted changes (rebase refuses to start on them). */
+export const hasLocalChanges = (cwd: string, env?: NodeJS.ProcessEnv) =>
+  git(['status', '--porcelain', '--untracked-files=no'], { cwd, env, background: true }).then((r) => r.stdout.trim() !== '')
+
+/** PLAN.md 4.8: fetch, then `git rebase @{upstream}`; `autostash` = "Stash & rebase" for a dirty tree. */
+export async function rebaseOntoUpstream(cwd: string, autostash: boolean, o: Opts = {}): Promise<SyncResult> {
+  const s = await syncState(cwd, o.env)
+  if (!s.upstream) throw new Error('The current branch has no upstream to rebase onto')
+  await fetch(cwd, o)
+  return conflictAware(cwd, git(['rebase', ...(autostash ? ['--autostash'] : []), '@{upstream}'], { cwd, ...o }), o.env)
+}

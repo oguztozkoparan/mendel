@@ -211,6 +211,8 @@ export const invoke = {
   'sync:pull': res<SyncResult>()(inRepo),
   /** Push to upstream, or publish (`push -u`) when the branch has none. */
   'sync:push': res<SyncResult>()(inRepo),
+  /** Fetch + rebase the current branch onto its upstream; a dirty tree asks "Stash & rebase" (null = cancelled). */
+  'sync:rebase': res<SyncResult | null>()(inRepo),
   'sync:cancel': res<void>()(z.undefined()),
   /** Current branch history, newest first, pages of 100. */
   'history:log': res<CommitSummary[]>()(z.object({ repo: repoId, skip: z.number().int().min(0).max(10_000_000) }).strict()),
