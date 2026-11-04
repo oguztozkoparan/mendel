@@ -63,6 +63,22 @@ export interface CommitInfo {
   head: string | null
 }
 
+/** Hosting provider of a repo (PLAN.md §5). Only 'gerrit' is implemented; others are reserved ids. */
+export type ProviderId = 'gerrit' | 'github' | 'bitbucket'
+
+/** Result of provider detection for a repo. `baseUrl` null = REST unknown (UI asks for "Set Gerrit URL"). */
+export interface Detection {
+  provider: ProviderId
+  /** Remote name the provider matched, e.g. `origin`. */
+  remote: string
+  host: string
+  baseUrl: string | null
+  project: string
+  serverVersion?: string
+  /** User from an SSH remote (prefills the credentials dialog). */
+  user?: string
+}
+
 const repoId = z.string().min(1).max(64)
 const byId = z.object({ id: repoId }).strict()
 /** Repo-relative path; main additionally checks it with resolveUnder (TECH.md §6.4). */
