@@ -27,3 +27,8 @@ With `CSC_LINK` and `APPLE_ID` set, the macOS build is made with `GITDOCK_MAC_AU
 Unverified until the first signed run: that electron-builder 26 notarizes from the `APPLE_*` env alone; if it does not, add `mac.notarize: true` (and `mac.hardenedRuntime: true`) to `electron-builder.yml`.
 
 Secrets never appear in logs; keep them out of `run:` lines.
+
+## CI hardening
+- Checkouts use `persist-credentials: false`; installs run with `ignore-scripts=true` (`.npmrc`), Electron's binary comes from an explicit `npx install-electron` step (CI e2e only; electron-builder fetches its own).
+- The `draft` job creates the tag's draft release once (`gh release create --draft --verify-tag`) before the build matrix uploads into it; each build checks the packaged app's fuses (`@electron/fuses read`). CI fails on `npm audit --omit=dev --audit-level=high`; Dependabot proposes npm and Actions updates weekly.
+- Deferred: splitting signing (secrets) and publishing (`contents: write`) into separate jobs, so the job holding signing secrets has no write token. Do it when signing certificates are added.

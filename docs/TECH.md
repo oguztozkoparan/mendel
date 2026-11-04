@@ -197,7 +197,7 @@ Sources: [Electron security checklist](https://www.electronjs.org/docs/latest/tu
 
 ### 6.9 Dependency hygiene
 - [ ] Commit `package-lock.json`; CI uses `npm ci`; `npm audit --omit=dev --audit-level=high` fails CI.
-- [ ] `.npmrc`: `ignore-scripts=true` for CI installs except Electron (`npm rebuild electron` / `npx electron-builder install-app-deps` explicitly) **[verify electron postinstall needs]**.
+- [ ] `.npmrc`: `ignore-scripts=true`. Electron 45 has no install script (binary downloads on first run); CI fetches it explicitly with `npx install-electron`. No app dependency is native, so no `install-app-deps`.
 - [ ] Dependabot (npm + github-actions) weekly.
 - [ ] `npx @doyensec/electronegativity@1.10.3 -i src` as an advisory CI step (tool unmaintained since 2023; useful but not authoritative).
 - [ ] New runtime dependency needs a one-line justification in this file.
