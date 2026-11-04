@@ -25,11 +25,19 @@ export function getProvider(id: ProviderId): Provider | undefined {
   return registry.find((p) => p.id === id)
 }
 
+/** Hosts that answered every probe and are no provider (R4): not probed again until `forgetNegatives`. */
+const negative = new Set<string>()
+export const forgetNegatives = (): void => negative.clear()
+
 /** At most one active provider per repo: the first registered provider that detects one. */
 export async function detectProvider(remotes: Remote[], probe: Probe): Promise<Detection | null> {
-  for (const p of registry) {
-    const d = await p.detect(remotes, probe)
+  const todo = remotes.filter((r) => !negative.has(r.host))
+  let unreachable = false // network errors are not a "no": probe again next time
+  const p: Probe = async (url) => (await probe(url)) ?? ((unreachable = true), null)
+  for (const prov of registry) {
+    const d = await prov.detect(todo, p)
     if (d) return d
   }
+  if (!unreachable) for (const r of todo) negative.add(r.host)
   return null
 }

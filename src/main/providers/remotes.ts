@@ -55,3 +55,15 @@ export async function readRemotes(root: string, env?: NodeJS.ProcessEnv): Promis
   }
   return out.sort((a, b) => Number(b.name === 'origin') - Number(a.name === 'origin'))
 }
+
+/**
+ * Remotes the app actually talks to (S8): the current branch's tracked remote first, then `origin`;
+ * else the first remote. Others (forks, mirrors) are never probed.
+ */
+export async function usedRemotes(root: string, env?: NodeJS.ProcessEnv): Promise<Remote[]> {
+  const o = { cwd: root, env, background: true, okExitCodes: [1] }
+  const [all, branch] = await Promise.all([readRemotes(root, env), git(['branch', '--show-current'], o).then((r) => r.stdout.trim(), () => '')])
+  const tracked = branch ? await git(['config', '--get', `branch.${branch}.remote`], o).then((r) => r.stdout.trim(), () => '') : ''
+  const used = all.filter((r) => r.name === tracked || r.name === 'origin').sort((a, b) => Number(b.name === tracked) - Number(a.name === tracked))
+  return used.length ? used : all.slice(0, 1)
+}

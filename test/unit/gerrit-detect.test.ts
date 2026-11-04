@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import type { Probe } from '../../src/main/providers'
+import { detectProvider, forgetNegatives, registerProvider, type Probe } from '../../src/main/providers'
 import { normalizeBaseUrl } from '../../src/main/providers/gerrit/client'
 import { candidates, gerritProvider, projectOf } from '../../src/main/providers/gerrit/detect'
 import { parseRemote } from '../../src/main/providers/remotes'
@@ -39,6 +39,27 @@ describe('gerrit detection', () => {
     let probed = false
     expect(await gerritProvider.detect([remote('git@github.com:o/r.git')], async () => ((probed = true), null))).toBeNull()
     expect(probed).toBe(false)
+  })
+
+  it('remembers hosts that are not Gerrit, but not hosts that were unreachable (R4)', async () => {
+    registerProvider(gerritProvider)
+    let calls = 0
+    const no: Probe = async () => (calls++, { status: 404, body: '' })
+    const r = [remote('https://neg.example.com/x.git')]
+    expect(await detectProvider(r, no)).toBeNull()
+    const first = calls
+    expect(first).toBeGreaterThan(0)
+    expect(await detectProvider(r, no)).toBeNull()
+    expect(calls).toBe(first)
+    forgetNegatives()
+    await detectProvider(r, no)
+    expect(calls).toBe(2 * first)
+    const down = [remote('https://down.example.com/x.git')]
+    const offline: Probe = async () => (calls++, null)
+    await detectProvider(down, offline)
+    const before = calls
+    await detectProvider(down, offline)
+    expect(calls).toBeGreaterThan(before)
   })
 
   it('probe failure + port 29418 → active without base url', async () => {

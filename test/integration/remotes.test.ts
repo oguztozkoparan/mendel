@@ -1,5 +1,5 @@
 import { afterEach, expect, it } from 'vitest'
-import { readRemotes } from '../../src/main/providers/remotes'
+import { readRemotes, usedRemotes } from '../../src/main/providers/remotes'
 import { createRepoFixture, type RepoFixture } from '../fixtures/repo'
 
 let fx: RepoFixture
@@ -15,4 +15,16 @@ it('reads configured remote urls (not insteadOf-rewritten), origin first', async
     ['origin', 'gerrit.test', undefined],
     ['aaa', 'review.example.com', 29418]
   ])
+})
+
+it("used remotes: the current branch's remote and origin only, tracked first (S8)", async () => {
+  fx = createRepoFixture()
+  fx.git(['remote', 'add', 'fork', 'https://fork.example.com/p.git'])
+  fx.git(['remote', 'add', 'mirror', 'https://mirror.example.com/p.git'])
+  expect((await usedRemotes(fx.work, fx.env)).map((r) => r.name)).toEqual(['origin'])
+  fx.git(['config', 'branch.main.remote', 'fork'])
+  expect((await usedRemotes(fx.work, fx.env)).map((r) => r.name)).toEqual(['fork', 'origin'])
+  fx.git(['remote', 'remove', 'origin'])
+  fx.git(['config', '--unset', 'branch.main.remote'])
+  expect((await usedRemotes(fx.work, fx.env)).map((r) => r.name)).toEqual(['fork'])
 })

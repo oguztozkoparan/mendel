@@ -1,10 +1,10 @@
 import { app, net } from 'electron'
 import type { ProviderState, RepoOverride } from '../../shared/ipc'
-import { detectProvider, registerProvider, type Probe } from '../providers'
+import { detectProvider, forgetNegatives, registerProvider, type Probe } from '../providers'
 import { credentialUser } from '../providers/gerrit/credentials'
 import { normalizeBaseUrl, readCapped } from '../providers/gerrit/client'
 import { gerritDetection, gerritProvider, probeGerrit } from '../providers/gerrit/detect'
-import { readRemotes } from '../providers/remotes'
+import { usedRemotes } from '../providers/remotes'
 import { providerStore, saveProviderStore } from '../providers/store'
 import { repoRoot } from '../repos'
 import type { Handlers } from '.'
@@ -32,7 +32,7 @@ export async function providerState(repo: string): Promise<ProviderState> {
   const override: RepoOverride = s.repos[repo] ?? { provider: 'auto' }
   let detection = null
   if (override.provider !== 'none') {
-    const remotes = await readRemotes(repoRoot(repo))
+    const remotes = await usedRemotes(repoRoot(repo))
     const cached = remotes.find((r) => s.hosts[r.host])
     if (override.baseUrl) detection = gerritDetection(remotes[0], override.baseUrl, s.repos[repo]?.version)
     else if (cached) detection = gerritDetection(cached, s.hosts[cached.host].baseUrl, s.hosts[cached.host].version)
@@ -65,6 +65,7 @@ export const providerHandlers: Handlers<'provider:get' | 'provider:setOverride'>
   'provider:get': ({ repo }) => providerState(repo),
   'provider:setOverride': async ({ repo, provider, baseUrl }) => {
     repoRoot(repo) // known repos only
+    forgetNegatives()
     const s = providerStore()
     if (provider === 'auto' && !baseUrl) delete s.repos[repo]
     else if (!baseUrl || provider === 'none') s.repos[repo] = { provider }
