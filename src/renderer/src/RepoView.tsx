@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Tab, TabList, TabPanel, Tabs, type Key } from 'react-aria-components'
 import type { RepoEntry } from '../../shared/ipc'
 import s from './App.module.css'
@@ -8,8 +8,9 @@ import { HistoryView } from './History'
 import { useMenuCommand } from './menu'
 import { Reviews } from './providers/gerrit/Reviews'
 /** Open repo: tabs in sidebar head; panel lays out its own sidebar list + main pane (PLAN.md §3). */
-export function RepoView({ repo }: { repo: RepoEntry }) {
+export function RepoView({ repo, focus }: { repo: RepoEntry; focus?: { change: number } | null }) {
   const [tab, setTab] = useState<Key>('changes')
+  useEffect(() => void (focus && setTab('reviews')), [focus])
   const provider = useQuery({ queryKey: ['provider', repo.id], queryFn: () => window.gitdock['provider:get']({ repo: repo.id }) })
   const gerrit = provider.data?.detection?.provider === 'gerrit' ? provider.data : null
   useMenuCommand((c) => {
@@ -31,7 +32,7 @@ export function RepoView({ repo }: { repo: RepoEntry }) {
       </TabPanel>
       {gerrit && (
         <TabPanel id="reviews" className={s.panel}>
-          <Reviews repo={repo} state={gerrit} />
+          <Reviews repo={repo} state={gerrit} focus={focus} />
         </TabPanel>
       )}
     </Tabs>

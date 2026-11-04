@@ -4,7 +4,9 @@ import { createHash } from 'node:crypto'
 import { constants } from 'node:fs'
 import { access } from 'node:fs/promises'
 import path from 'node:path'
-import { git } from '../../git/runner'
+import { reviewRef, type GerritCommit, type GerritSent } from '../../../shared/gerrit'
+import { validateBranchName } from '../../git/branch'
+import { endOfOptions, git, GitError } from '../../git/runner'
 
 /** `Change-Id: I<40 hex>` in the message's last paragraph (where Gerrit reads it), or null. */
 export function changeIdOf(message: string): string | null {
@@ -42,15 +44,8 @@ export async function addChangeId(cwd: string, message: string, amend: boolean, 
   return (await git(['-c', 'core.commentChar=\x01', 'interpret-trailers', '--if-exists', 'doNothing', '--trailer', `Change-Id: ${id}`], { cwd, env, stdin: message })).stdout
 }
 
-export interface UnpushedCommit {
-  sha: string
-  short: string
-  subject: string
-  changeId: string | null
-}
-
 /** Commits on HEAD that are on no remote-tracking branch (what a push to refs/for/* would send), newest first. */
-export async function unpushedCommits(cwd: string, env?: NodeJS.ProcessEnv): Promise<UnpushedCommit[]> {
+export async function unpushedCommits(cwd: string, env?: NodeJS.ProcessEnv): Promise<GerritCommit[]> {
   const r = await git(['log', '-z', '-n', '100', '--format=%H%x1f%h%x1f%s%x1f%B', 'HEAD', '--not', '--remotes', '--'], { cwd, env, background: true }).catch(() => null)
   return (r?.stdout ?? '')
     .split('\0')
@@ -69,4 +64,41 @@ export async function amendWithChangeId(cwd: string, env?: NodeJS.ProcessEnv): P
   const message = await out(cwd, ['log', '-1', '--format=%B'], env)
   // With a commit-msg hook the hook adds it during the amend; otherwise we do.
   await git(['commit', '--amend', '--only', '-F', '-'], { cwd, env, stdin: await addChangeId(cwd, message + '\n', false, env) })
+}
+
+/** Branch the current branch tracks on its remote (`main` for origin/main): the default review target. */
+export async function upstreamBranch(cwd: string, env?: NodeJS.ProcessEnv): Promise<string | null> {
+  const branch = await out(cwd, ['branch', '--show-current'], env)
+  const merge = branch ? await out(cwd, ['config', '--get', `branch.${branch}.merge`], env) : ''
+  return merge.startsWith('refs/heads/') ? merge.slice('refs/heads/'.length) : null
+}
+
+/** Change URL from Gerrit's push output (`remote:   https://…/c/p/+/1234 subject [NEW]`; 2.x prints no `[NEW]` but "New Changes:"). */
+export function parsePushOutput(stderr: string): Omit<GerritSent, 'status'> {
+  const url = /^remote:\s+(https?:\/\/\S+)/m.exec(stderr)?.[1] ?? null
+  const number = url ? Number(/\/(\d+)\/?$/.exec(url)?.[1]) || null : null
+  return { url, number, updated: !!url && !/\[NEW\]|New Changes:/.test(stderr) }
+}
+
+/** PLAN.md §4.4: `git push <remote> HEAD:refs/for/<target>%topic=…,r=…,wip` after validating target, options and Change-Ids. */
+export async function sendForReview(
+  cwd: string,
+  remote: string,
+  o: { target: string; topic?: string; reviewers: string[]; wip: boolean },
+  opts: { env?: NodeJS.ProcessEnv; signal?: AbortSignal } = {}
+): Promise<GerritSent> {
+  const commits = await unpushedCommits(cwd, opts.env)
+  if (!commits.length) throw new Error('Nothing to send')
+  if (commits.some((c) => !c.changeId)) throw new Error('Every commit sent for review needs a Change-Id')
+  const ref = reviewRef(await validateBranchName(cwd, o.target, opts.env), o)
+  await git(['check-ref-format', ref], { cwd, env: opts.env }).catch(() => {
+    throw new Error(`Invalid review ref: ${ref}`)
+  })
+  try {
+    const r = await git(['-c', 'protocol.ext.allow=never', 'push', ...endOfOptions(remote, `HEAD:${ref}`)], { cwd, ...opts })
+    return { status: 'ok', ...parsePushOutput(r.stderr) }
+  } catch (err) {
+    if (err instanceof GitError && /\(no new changes\)/.test(err.stderr)) return { status: 'no-changes', url: null, number: null, updated: false }
+    throw err
+  }
 }

@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Button, Checkbox, Header, ListBox, ListBoxItem, ListBoxSection } from 'react-aria-components'
 import { GERRIT_AUTH_ERROR, type GerritChange } from '../../../../shared/gerrit'
 import type { ProviderState, RepoEntry } from '../../../../shared/ipc'
@@ -14,10 +14,11 @@ import { initial, labelSummary, shortDate, who } from './util'
 const REFRESH_MS = 5 * 60_000 // shortcut: fixed 5 min; read the Settings value (PLAN.md §6) once Settings exists
 
 /** Reviews tab (PLAN.md §3.7): Outgoing / Incoming / Recently closed in the sidebar, change detail in the main pane. */
-export function Reviews({ repo, state }: { repo: RepoEntry; state: ProviderState }) {
+export function Reviews({ repo, state, focus }: { repo: RepoEntry; state: ProviderState; focus?: { change: number } | null }) {
   const [dialog, setDialog] = useState<'provider' | 'connect' | null>(null)
   const [projectOnly, setProjectOnly] = useState(true)
   const [selected, setSelected] = useState<number | null>(null)
+  useEffect(() => void (focus && setSelected(focus.change)), [focus])
   const d = state.detection!
   const ready = !!d.baseUrl && !!state.credentialUser
   const lists = useQuery({

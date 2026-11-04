@@ -5,7 +5,7 @@
 // Main must implement every `invoke` channel (see src/main/ipc/index.ts); preload exposes each one as
 // `window.gitdock['<channel>'](req)` and `window.gitdock.on('<event>', cb)`.
 import { z } from 'zod'
-import { draftSchema, type GerritChange, type GerritChangeLists, type GerritComment, type GerritConnected, type GerritDiff, type GerritFiles } from './gerrit'
+import { draftSchema, PUSH_OPTION_VALUE, type GerritChange, type GerritCommit, type GerritSent, type GerritChangeLists, type GerritComment, type GerritConnected, type GerritDiff, type GerritFiles } from './gerrit'
 
 const res = <Res>() => <Req extends z.ZodType>(req: Req) => ({ req, res: null as unknown as Res })
 
@@ -325,6 +325,20 @@ export const invoke = {
   'gerrit:commitHint': res<GerritCommitHint>()(inRepo),
   /** Amend only HEAD's message to add a Change-Id (HEAD must be unpushed). */
   'gerrit:addChangeId': res<void>()(inRepo),
+  /** Send-for-review dialog data: default target (upstream branch) and the commits a push would send. */
+  'gerrit:pending': res<{ target: string | null; commits: GerritCommit[] }>()(inRepo),
+  /** `git push <remote> HEAD:refs/for/<target>%<options>`; refused when nothing is ahead or a commit lacks a Change-Id. */
+  'gerrit:send': res<GerritSent>()(
+    z
+      .object({
+        repo: repoId,
+        target: branchName,
+        topic: z.string().max(255).regex(PUSH_OPTION_VALUE).optional(),
+        reviewers: z.array(z.string().max(255).regex(PUSH_OPTION_VALUE)).max(50),
+        wip: z.boolean()
+      })
+      .strict()
+  ),
   /** Open `<baseUrl>/<path>` (or an absolute URL on the same origin) in the browser; other origins are dropped. */
   'gerrit:open': res<void>()(z.object({ repo: repoId, path: z.string().min(1).max(4096) }).strict()),
   /** Reviews lists; `projectOnly` adds `project:"<p>"` to each query. */

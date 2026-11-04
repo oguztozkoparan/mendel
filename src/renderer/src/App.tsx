@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { Settings as Gear } from 'lucide-react'
 import { Button } from 'react-aria-components'
+import type { GerritSent } from '../../shared/gerrit'
 import type { GitInfo } from '../../shared/ipc'
 import s from './App.module.css'
 import { AuthPromptDialog } from './AuthPromptDialog'
@@ -10,6 +11,7 @@ import { CloneDialog } from './CloneDialog'
 import { ConflictBanner } from './Conflicts'
 import { RepoList, RepoSelector, type RepoActions } from './Repos'
 import { useMenuCommand } from './menu'
+import { SendForReview } from './providers/gerrit/SendForReview'
 import { RepoView } from './RepoView'
 import { SettingsDialog } from './Settings'
 import { SyncButton, type Notice } from './SyncButton'
@@ -28,6 +30,9 @@ export function App() {
   const [cloning, setCloning] = useState(false)
   const [notice, setNotice] = useState<Notice | null>(null)
   const [settings, setSettings] = useState(false)
+  const [sending, setSending] = useState(false)
+  /** "Open change #N" from the send toast: RepoView switches to Reviews and selects it. */
+  const [focus, setFocus] = useState<{ change: number } | null>(null)
   // Files, index or refs changed on disk: everything shown for that repo may be stale.
   useEffect(() => window.gitdock.on('repo:changed', (e) => void refreshRepo(qc, e.repo)), [qc])
   const check = (recheck = false) => void window.gitdock['git:info']({ recheck }).then(setGit)
@@ -36,6 +41,15 @@ export function App() {
   const list = useQuery({ queryKey: ['repos'], queryFn: () => window.gitdock['repo:list'](), enabled: usable })
   const repos = list.data?.repos ?? []
   const current = repos.find((r) => r.id === list.data?.current)
+  const provider = useQuery({ queryKey: ['provider', current?.id], queryFn: () => window.gitdock['provider:get']({ repo: current!.id }), enabled: !!current })
+  const gerrit = provider.data?.detection?.provider === 'gerrit'
+  const sent = (r: GerritSent) => {
+    setSending(false)
+    const n = r.number
+    if (r.status === 'no-changes') setNotice({ text: 'Nothing changed since last patchset' })
+    else if (!n) setNotice({ text: 'Sent for review' })
+    else setNotice({ text: r.updated ? `New patchset uploaded to #${n}` : `Created change #${n}`, action: { label: `Open change #${n}`, run: () => setFocus({ change: n }) } })
+  }
 
   const run = (p: Promise<unknown>) => {
     setError(null)
@@ -65,7 +79,15 @@ export function App() {
       <header className={s.toolbar} aria-label="Toolbar">
         {current && <RepoSelector repos={repos} current={current} actions={actions} />}
         {current && <BranchSelector key={current.id} repo={current.id} onError={setError} />}
-        {current && <SyncButton key={current.id} repo={current.id} onError={setError} onNotice={setNotice} />}
+        {current && (
+          <SyncButton
+            key={current.id}
+            repo={current.id}
+            onError={setError}
+            onNotice={setNotice}
+            primary={gerrit ? { label: 'Send for review', run: () => setSending(true) } : null}
+          />
+        )}
         <UpdatePill />
         <Button className={`icon ${s.settings}`} aria-label="Settings" onPress={() => setSettings(true)}>
           <Gear size={16} />
@@ -87,7 +109,7 @@ export function App() {
       {current && <ConflictBanner key={current.id} repo={current.id} onError={setError} />}
       {current && <StashBanner key={current.id} repo={current.id} onError={setError} />}
       {current ? (
-        <RepoView key={current.id} repo={current} />
+        <RepoView key={current.id} repo={current} focus={focus} />
       ) : (
         <main className={s.welcome}>
           <h1>gitdock</h1>
@@ -126,6 +148,7 @@ export function App() {
           onCloned={() => (setCloning(false), void qc.invalidateQueries({ queryKey: ['repos'] }))}
         />
       )}
+      {sending && current && <SendForReview repo={current.id} onClose={() => setSending(false)} onSent={sent} />}
       {settings && <SettingsDialog onClose={() => setSettings(false)} />}
       <AuthPromptDialog />
     </div>

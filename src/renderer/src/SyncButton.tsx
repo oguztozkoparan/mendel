@@ -62,7 +62,7 @@ export function SyncButton(p: { repo: string; onError(msg: string): void; onNoti
           : st.ahead
             ? [`Push ↑${st.ahead}`, 'push']
             : [`Fetch ${st.remote}`, 'fetch']
-  const primary = op === 'push' && st?.upstream && p.primary ? p.primary : null
+  const primary = op === 'push' && st?.upstream && p.primary ? { ...p.primary, label: `${p.primary.label} ↑${st.ahead}` } : null
   useMenuCommand((c) => {
     if (c === 'sync:push' && p.primary && st?.upstream) p.primary.run()
     else if (c === 'sync:fetch' || c === 'sync:pull' || c === 'sync:push' || c === 'sync:rebase') run(c.slice(5) as Op)

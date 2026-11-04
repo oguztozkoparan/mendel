@@ -7,6 +7,34 @@ export const GERRIT_AUTH_ERROR = 'Wrong username or HTTP password / token'
 /** Error text for a server-side rebase that hit conflicts (HTTP 409). */
 export const GERRIT_REBASE_CONFLICT = 'Gerrit could not rebase this change because of conflicts. Rebase it locally instead.'
 
+/** Push-option values (topic, reviewer email/username), TECH.md §6.3: no `,` `%` `=` or spaces that could add options. */
+export const PUSH_OPTION_VALUE = /^[A-Za-z0-9._@+-]+$/
+
+/** `refs/for/<target>%topic=t,r=a@b.c,wip` (PLAN.md §3.9, §5.5); throws on a value outside PUSH_OPTION_VALUE. */
+export function reviewRef(target: string, o: { topic?: string; reviewers: string[]; wip: boolean }): string {
+  const opts = [...(o.topic ? [`topic=${o.topic}`] : []), ...o.reviewers.map((r) => `r=${r}`), ...(o.wip ? ['wip'] : [])]
+  for (const v of [...(o.topic !== undefined ? [o.topic] : []), ...o.reviewers]) if (!PUSH_OPTION_VALUE.test(v)) throw new Error(`Invalid topic or reviewer: ${JSON.stringify(v)}`)
+  return `refs/for/${target}${opts.length ? '%' + opts.join(',') : ''}`
+}
+
+/** A commit a push to refs/for/* would send. */
+export interface GerritCommit {
+  sha: string
+  short: string
+  subject: string
+  changeId: string | null
+}
+
+/** Result of Send for review: change URL/number parsed from the remote's output when it printed one. */
+export interface GerritSent {
+  /** no-changes = Gerrit rejected the push with "no new changes". */
+  status: 'ok' | 'no-changes'
+  url: string | null
+  number: number | null
+  /** true = an existing change got a new patch set (no `[NEW]`). */
+  updated: boolean
+}
+
 export const accountSchema = z.object({
   _account_id: z.number().optional(),
   name: z.string().optional(),

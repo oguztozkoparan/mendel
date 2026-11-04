@@ -2,7 +2,7 @@ import { chmodSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { commit, setCommitMessageTransform } from '../../src/main/git/commit'
-import { addChangeId, amendWithChangeId, changeIdOf, hasCommitMsgHook, unpushedCommits } from '../../src/main/providers/gerrit/git'
+import { addChangeId, amendWithChangeId, changeIdOf, hasCommitMsgHook, parsePushOutput, sendForReview, unpushedCommits, upstreamBranch } from '../../src/main/providers/gerrit/git'
 import { createRepoFixture, type RepoFixture } from '../fixtures/repo'
 
 const ID = /\n\nChange-Id: I[0-9a-f]{40}\n$/
@@ -76,5 +76,59 @@ describe('gerrit change-id', () => {
     expect(fx.git(['rev-list', '--count', 'HEAD'])).toBe('2')
     expect(fx.git(['diff', '--cached', '--name-only'])).toBe('staged.txt')
     expect((await unpushedCommits(fx.work, fx.env))[0].changeId).toBe(changeIdOf(msg()))
+  })
+})
+
+describe('gerrit send for review', () => {
+  let fx: RepoFixture
+  afterEach(() => fx?.cleanup())
+  const withId = (name: string, n: number) => fx.commitFile(name, `${name}\n`, `Add ${name}\n\nChange-Id: I${String(n).padStart(40, '0')}`)
+  const hook = (name: string, body: string) => {
+    const f = path.join(fx.remote, 'hooks', name)
+    writeFileSync(f, `#!/bin/sh\n${body}\n`)
+    chmodSync(f, 0o755)
+  }
+  const refs = () => fx.git(['for-each-ref', '--format=%(refname) %(objectname)', 'refs/for'], fx.remote)
+
+  it('pushes HEAD:refs/for/<target>%topic,r,wip and parses the change URL', async () => {
+    fx = createRepoFixture()
+    const sha = withId('a.txt', 101)
+    hook('post-receive', 'echo "" >&2; echo "New Changes:" >&2; echo "  https://gerrit.test/c/p/q/+/101 Add a.txt [NEW]" >&2')
+    expect(await upstreamBranch(fx.work, fx.env)).toBe('main')
+    const r = await sendForReview(fx.work, 'origin', { target: 'main', topic: 't', reviewers: ['a@b.c', 'bob'], wip: true }, { env: fx.env })
+    expect(r).toEqual({ status: 'ok', url: 'https://gerrit.test/c/p/q/+/101', number: 101, updated: false })
+    expect(refs()).toBe(`refs/for/main%topic=t,r=a@b.c,r=bob,wip ${sha}`)
+    const plain = await sendForReview(fx.work, 'origin', { target: 'main', reviewers: [], wip: false }, { env: fx.env })
+    expect(plain.status).toBe('ok')
+    expect(refs()).toContain(`refs/for/main ${sha}`)
+  })
+
+  it('rejects option injection, bad targets, missing Change-Id and nothing ahead', async () => {
+    fx = createRepoFixture()
+    const send = (o: Partial<{ target: string; topic: string; reviewers: string[] }>) => sendForReview(fx.work, 'origin', { target: 'main', reviewers: [], wip: false, ...o }, { env: fx.env })
+    await expect(send({})).rejects.toThrow('Nothing to send')
+    fx.commitFile('a.txt', 'a\n', 'No id')
+    await expect(send({})).rejects.toThrow('Change-Id')
+    fx.git(['commit', '-q', '--amend', '-m', `Add a\n\nChange-Id: I${'1'.repeat(40)}`])
+    await expect(send({ topic: 't,r=evil@x.y' })).rejects.toThrow('Invalid topic or reviewer')
+    await expect(send({ reviewers: ['a b'] })).rejects.toThrow('Invalid topic or reviewer')
+    await expect(send({ reviewers: ['x%wip'] })).rejects.toThrow('Invalid topic or reviewer')
+    await expect(send({ target: '-main' })).rejects.toThrow('Invalid branch name')
+    await expect(send({ target: 'ma..in' })).rejects.toThrow('Invalid branch name')
+    expect(refs()).toBe('')
+  })
+
+  it('"no new changes" rejection is reported, not thrown', async () => {
+    fx = createRepoFixture()
+    withId('a.txt', 7)
+    hook('pre-receive', 'echo "(no new changes)" >&2; exit 1')
+    expect(await sendForReview(fx.work, 'origin', { target: 'main', reviewers: [], wip: false }, { env: fx.env })).toMatchObject({ status: 'no-changes' })
+  })
+
+  it('parsePushOutput: 3.x new / updated and 2.x outputs', () => {
+    expect(parsePushOutput('remote: SUCCESS\nremote:\nremote:   https://g.example/c/p/+/1234 Fix [NEW]\n')).toEqual({ url: 'https://g.example/c/p/+/1234', number: 1234, updated: false })
+    expect(parsePushOutput('remote:   https://g.example/c/p/+/1234 Fix\n')).toMatchObject({ number: 1234, updated: true })
+    expect(parsePushOutput('remote: New Changes:\nremote:   https://g.example/r/1234 Fix\n')).toMatchObject({ number: 1234, updated: false })
+    expect(parsePushOutput('To /tmp/remote.git\n * [new reference] HEAD -> refs/for/main')).toEqual({ url: null, number: null, updated: false })
   })
 })
