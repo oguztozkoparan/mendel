@@ -19,7 +19,12 @@ type Act = (p: Promise<unknown>) => void
 export function DiffView({ repo, file, act }: { repo: string; file: FileChange; act: Act }) {
   return (
     <div className={s.diffPane}>
-      <h2 className={s.fileHeader}>{file.origPath ? `${file.origPath} → ${file.path}` : file.path}</h2>
+      <div className={s.fileHeader}>
+        <h2>{file.origPath ? `${file.origPath} → ${file.path}` : file.path}</h2>
+        <Button onPress={() => act(window.gitdock['changes:discard']({ repo, paths: file.origPath ? [file.origPath, file.path] : [file.path] }))}>
+          Discard file…
+        </Button>
+      </div>
       {file.unstaged && <DiffSection repo={repo} file={file} act={act} staged={false} title={file.staged ? 'Unstaged changes' : null} />}
       {file.staged && <DiffSection repo={repo} file={file} act={act} staged title={file.unstaged ? 'Staged changes' : null} />}
     </div>
@@ -35,7 +40,7 @@ function DiffSection(p: { repo: string; file: FileChange; act: Act; staged: bool
   })
   const parsed = useMemo(() => (q.data ? parseDiff(q.data)[0] : undefined), [q.data])
   const [showLarge, setShowLarge] = useState(false)
-  const hunkAction = (hunk: string, action: 'stage' | 'unstage') =>
+  const hunkAction = (hunk: string, action: 'stage' | 'unstage' | 'discard') =>
     p.act(window.gitdock['changes:applyHunk']({ repo: p.repo, path: file.path, origPath: file.origPath, untracked: file.unstaged === '?', hunk, action }))
   const lines = parsed?.hunks.reduce((n, h) => n + h.changes.length, 0) ?? 0
 
@@ -61,7 +66,10 @@ function DiffSection(p: { repo: string; file: FileChange; act: Act; staged: bool
                 {staged ? (
                   <Button onPress={() => hunkAction(h.content, 'unstage')}>Unstage hunk</Button>
                 ) : (
-                  <Button onPress={() => hunkAction(h.content, 'stage')}>Stage hunk</Button>
+                  <>
+                    <Button onPress={() => hunkAction(h.content, 'discard')}>Discard hunk…</Button>
+                    <Button onPress={() => hunkAction(h.content, 'stage')}>Stage hunk</Button>
+                  </>
                 )}
               </span>
             </Decoration>,

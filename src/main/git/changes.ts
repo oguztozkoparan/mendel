@@ -69,16 +69,32 @@ export function hunkPatch(diff: string, header: string): string | null {
   return patch.endsWith('\n') ? patch : patch + '\n'
 }
 
-export type HunkAction = 'stage' | 'unstage'
+/**
+ * Throw away all changes (index + worktree) to these paths, only through git (TECH.md §6.4):
+ * tracked -> `restore` from HEAD (a newly added file is removed), untracked -> `clean`. Paths not changed are ignored.
+ */
+export async function discardPaths(cwd: string, paths: string[], env?: NodeJS.ProcessEnv): Promise<void> {
+  const wanted = new Set(paths)
+  const files = (await getStatus(cwd, env)).filter((f) => wanted.has(f.path) || (f.origPath && wanted.has(f.origPath)))
+  const untracked = files.filter((f) => f.unstaged === '?').map((f) => f.path)
+  const tracked = files.filter((f) => f.unstaged !== '?').flatMap((f) => (f.origPath ? [f.origPath, f.path] : [f.path]))
+  if (tracked.length)
+    await git(['--literal-pathspecs', 'restore', '--source=HEAD', '--staged', '--worktree', ...PATHSPEC_STDIN], { cwd, env, stdin: tracked.join('\0') })
+  // shortcut: clean takes pathspecs on argv only; thousands of untracked files at once could hit argv limits, batch then.
+  if (untracked.length) await git(['--literal-pathspecs', 'clean', '-f', '-q', '--', ...untracked], { cwd, env })
+}
+
+export type HunkAction = 'stage' | 'unstage' | 'discard'
 
 /**
  * Re-diff the file in main, pick the hunk the user saw (by its `@@` line) and `git apply` it:
- * stage = unstaged hunk -> index; unstage = staged hunk reversed out of the index.
+ * stage = unstaged hunk -> index; unstage = staged hunk reversed out of the index;
+ * discard = unstaged hunk reversed out of the working tree.
  */
 export async function applyHunk(cwd: string, t: Omit<DiffTarget, 'staged'>, header: string, action: HunkAction, env?: NodeJS.ProcessEnv): Promise<void> {
   const staged = action === 'unstage'
   const patch = hunkPatch(await getDiff(cwd, { ...t, staged, untracked: t.untracked && !staged }, env), header)
   if (!patch) throw new Error('The file changed since the diff was shown; try again')
-  const args = ['apply', '--whitespace=nowarn', '--cached', ...(action === 'unstage' ? ['--reverse'] : []), '-']
+  const args = ['apply', '--whitespace=nowarn', ...(action === 'discard' ? [] : ['--cached']), ...(action === 'stage' ? [] : ['--reverse']), '-']
   await git(args, { cwd, env, stdin: patch })
 }

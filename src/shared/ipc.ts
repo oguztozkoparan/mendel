@@ -87,7 +87,7 @@ export const invoke = {
   /** Stage whole files (include a rename's origPath). */
   'changes:stage': res<void>()(paths),
   'changes:unstage': res<void>()(paths),
-  /** Apply one hunk, identified by its `@@ ... @@` header line as shown in the diff. */
+  /** Apply one hunk, identified by its `@@ ... @@` header line as shown in the diff. `discard` asks a native confirm first. */
   'changes:applyHunk': res<void>()(
     z
       .object({
@@ -96,10 +96,12 @@ export const invoke = {
         origPath: relPath.optional(),
         untracked: z.boolean(),
         hunk: z.string().startsWith('@@').max(4096),
-        action: z.enum(['stage', 'unstage'])
+        action: z.enum(['stage', 'unstage', 'discard'])
       })
       .strict()
-  )
+  ),
+  /** Discard all changes to these files after a native confirm; false = user cancelled. */
+  'changes:discard': res<boolean>()(paths)
 } as const
 
 export const events = {
