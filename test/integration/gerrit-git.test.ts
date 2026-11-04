@@ -2,7 +2,7 @@ import { chmodSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { commit, setCommitMessageTransform } from '../../src/main/git/commit'
-import { addChangeId, amendWithChangeId, changeIdOf, hasCommitMsgHook, parsePushOutput, sendForReview, unpushedCommits, upstreamBranch } from '../../src/main/providers/gerrit/git'
+import { addChangeId, amendWithChangeId, changeIdOf, checkoutChange, hasCommitMsgHook, parsePushOutput, sendForReview, unpushedCommits, upstreamBranch } from '../../src/main/providers/gerrit/git'
 import { createRepoFixture, type RepoFixture } from '../fixtures/repo'
 
 const ID = /\n\nChange-Id: I[0-9a-f]{40}\n$/
@@ -130,5 +130,52 @@ describe('gerrit send for review', () => {
     expect(parsePushOutput('remote:   https://g.example/c/p/+/1234 Fix\n')).toMatchObject({ number: 1234, updated: true })
     expect(parsePushOutput('remote: New Changes:\nremote:   https://g.example/r/1234 Fix\n')).toMatchObject({ number: 1234, updated: false })
     expect(parsePushOutput('To /tmp/remote.git\n * [new reference] HEAD -> refs/for/main')).toEqual({ url: null, number: null, updated: false })
+  })
+})
+
+describe('gerrit checkout change', () => {
+  let fx: RepoFixture
+  afterEach(() => fx?.cleanup())
+  /** Upload a commit that changes README.md as `refs/changes/01/101/<ps>` on the bare remote; work/ stays on main. */
+  const upload = (ps: number) => {
+    const sha = fx.commitFile('README.md', `ps${ps}\n`, `Feature ps${ps}`)
+    fx.git(['push', '-q', 'origin', `HEAD:refs/changes/01/101/${ps}`])
+    fx.git(['reset', '-q', '--hard', 'origin/main'])
+    return sha
+  }
+
+  it('fetches refs/changes/NN/N/P, creates change/N-psP on it tracking the change branch', async () => {
+    fx = createRepoFixture()
+    const sha = upload(2)
+    const asked: string[] = []
+    const ask = async (q: string) => (asked.push(q), true)
+    expect(await checkoutChange(fx.work, 'origin', 101, 2, 'origin/main', ask, fx.env)).toBe('change/101-ps2')
+    expect(fx.git(['branch', '--show-current'])).toBe('change/101-ps2')
+    expect(fx.git(['rev-parse', 'HEAD'])).toBe(sha)
+    expect(fx.git(['rev-parse', '--abbrev-ref', '@{upstream}'])).toBe('origin/main')
+    expect(asked).toEqual([])
+
+    // existing branch: confirm before resetting it; declining changes nothing
+    fx.git(['switch', '-q', 'main'])
+    expect(await checkoutChange(fx.work, 'origin', 101, 2, null, async () => false, fx.env)).toBeNull()
+    expect(fx.git(['branch', '--show-current'])).toBe('main')
+    expect(await checkoutChange(fx.work, 'origin', 101, 2, null, ask, fx.env)).toBe('change/101-ps2')
+    expect(asked).toEqual(['replace'])
+  })
+
+  it('dirty tree conflicting with the change: stash & switch after confirm', async () => {
+    fx = createRepoFixture()
+    const sha = upload(1)
+    writeFileSync(path.join(fx.work, 'README.md'), 'local edit\n')
+    expect(await checkoutChange(fx.work, 'origin', 101, 1, null, async () => false, fx.env)).toBeNull()
+    expect(fx.git(['branch', '--show-current'])).toBe('main')
+    expect(await checkoutChange(fx.work, 'origin', 101, 1, null, async () => true, fx.env)).toBe('change/101-ps1')
+    expect(fx.git(['rev-parse', 'HEAD'])).toBe(sha)
+    expect(fx.git(['stash', 'list', '--format=%gs'])).toBe('On main: gitdock-stash')
+  })
+
+  it('rejects non-positive or non-integer numbers before running git', async () => {
+    fx = createRepoFixture()
+    for (const [n, ps] of [[0, 1], [1, -1], [1.5, 1]]) await expect(checkoutChange(fx.work, 'origin', n, ps, null, async () => true, fx.env)).rejects.toThrow('Invalid change')
   })
 })

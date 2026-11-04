@@ -49,10 +49,10 @@ test('Abandon with message, then Rebase success and conflict', async () => {
   await connectGerrit(win, mock)
   await open(/Add feature X/)
 
-  await win.getByRole('button', { name: 'Rebase' }).click()
+  await win.getByRole('button', { name: 'Rebase', exact: true }).click()
   await expect(win.getByRole('alert')).toHaveText('Gerrit could not rebase this change because of conflicts. Rebase it locally instead.')
   mock.changes[0].rebaseConflict = false
-  await win.getByRole('button', { name: 'Rebase' }).click()
+  await win.getByRole('button', { name: 'Rebase', exact: true }).click()
   await expect(win.getByRole('status')).toHaveText('Rebased on the server.')
   expect(mock.find('POST', '/a/changes/101/rebase')).toHaveLength(2)
 

@@ -5,7 +5,7 @@ import { constants } from 'node:fs'
 import { access } from 'node:fs/promises'
 import path from 'node:path'
 import { reviewRef, type GerritCommit, type GerritSent } from '../../../shared/gerrit'
-import { validateBranchName } from '../../git/branch'
+import { isDirtyError, STASH_MSG, validateBranchName } from '../../git/branch'
 import { endOfOptions, git, GitError } from '../../git/runner'
 
 /** `Change-Id: I<40 hex>` in the message's last paragraph (where Gerrit reads it), or null. */
@@ -101,4 +101,37 @@ export async function sendForReview(
     if (err instanceof GitError && /\(no new changes\)/.test(err.stderr)) return { status: 'no-changes', url: null, number: null, updated: false }
     throw err
   }
+}
+
+/**
+ * PLAN.md §4.7: fetch `refs/changes/NN/N/P`, switch to `change/N-psP` on it, track `upstream` (e.g. origin/main) when it
+ * exists so Send for review targets the change's branch. `ask` confirms replacing the branch / stashing; null = cancelled.
+ */
+export async function checkoutChange(
+  cwd: string,
+  remote: string,
+  n: number,
+  ps: number,
+  upstream: string | null,
+  ask: (q: 'replace' | 'stash') => Promise<boolean>,
+  env?: NodeJS.ProcessEnv
+): Promise<string | null> {
+  if (![n, ps].every((x) => Number.isSafeInteger(x) && x > 0)) throw new Error('Invalid change or patch set number')
+  const name = `change/${n}-ps${ps}`
+  const has = (ref: string) => git(['rev-parse', '--verify', '-q', ref], { cwd, env }).then(() => true, () => false)
+  await git(['-c', 'protocol.ext.allow=never', 'fetch', ...endOfOptions(remote, `refs/changes/${String(n % 100).padStart(2, '0')}/${n}/${ps}`)], { cwd, env })
+  const sha = (await git(['rev-parse', '--verify', 'FETCH_HEAD^{commit}'], { cwd, env })).stdout.trim()
+  const exists = await has(`refs/heads/${name}`)
+  if (exists && !(await ask('replace'))) return null
+  const sw = () => git(['switch', exists ? '-C' : '-c', name, ...endOfOptions(sha)], { cwd, env })
+  try {
+    await sw()
+  } catch (err) {
+    if (!isDirtyError(err)) throw err
+    if (!(await ask('stash'))) return null
+    await git(['stash', 'push', '--include-untracked', '-m', STASH_MSG], { cwd, env })
+    await sw()
+  }
+  if (upstream && (await has(`refs/remotes/${upstream}`))) await git(['branch', `--set-upstream-to=${upstream}`], { cwd, env })
+  return name
 }

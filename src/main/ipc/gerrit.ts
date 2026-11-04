@@ -3,9 +3,11 @@ import { GERRIT_AUTH_ERROR, GERRIT_REBASE_CONFLICT, type GerritChange, type Gerr
 import log from '../log'
 import { gerritClient, GerritHttpError, normalizeBaseUrl, type Fetch } from '../providers/gerrit/client'
 import { getCredential, removeCredential, saveCredential } from '../providers/gerrit/credentials'
-import { addChangeId, amendWithChangeId, hasCommitMsgHook, sendForReview, unpushedCommits, upstreamBranch } from '../providers/gerrit/git'
+import { validateBranchName } from '../git/branch'
+import { addChangeId, amendWithChangeId, checkoutChange, hasCommitMsgHook, sendForReview, unpushedCommits, upstreamBranch } from '../providers/gerrit/git'
 import { setCommitMessageTransform } from '../git/commit'
 import { repoRoot } from '../repos'
+import { confirm } from './branch'
 import { activeState, activeStates, allowLoopbackHttp, providerHandlers } from './provider'
 import { exclusive } from './sync'
 import type { Handlers } from '.'
@@ -65,7 +67,7 @@ async function openByChangeId(repo: string, ids: (string | null)[]): Promise<Map
   }
 }
 
-export const gerritHandlers: Handlers<'gerrit:badges' | 'gerrit:pending' | 'gerrit:send' | 'gerrit:commitHint' | 'gerrit:addChangeId' | 'gerrit:connect' | 'gerrit:disconnect' | 'gerrit:open' | 'gerrit:changes' | 'gerrit:change' | 'gerrit:files' | 'gerrit:diff' | 'gerrit:comments' | 'gerrit:review' | 'gerrit:action'> = {
+export const gerritHandlers: Handlers<'gerrit:checkout' | 'gerrit:badges' | 'gerrit:pending' | 'gerrit:send' | 'gerrit:commitHint' | 'gerrit:addChangeId' | 'gerrit:connect' | 'gerrit:disconnect' | 'gerrit:open' | 'gerrit:changes' | 'gerrit:change' | 'gerrit:files' | 'gerrit:diff' | 'gerrit:comments' | 'gerrit:review' | 'gerrit:action'> = {
   'gerrit:commitHint': async ({ repo }) => {
     const { root } = await gerritRoot(repo)
     const [hook, commits] = await Promise.all([hasCommitMsgHook(root), unpushedCommits(root)])
@@ -79,6 +81,15 @@ export const gerritHandlers: Handlers<'gerrit:badges' | 'gerrit:pending' | 'gerr
     const [target, commits] = await Promise.all([upstreamBranch(root), unpushedCommits(root)])
     const c = (await openByChangeId(repo, [commits[0]?.changeId ?? null])).get(commits[0]?.changeId ?? '')
     return { target, commits, headChange: c ? { number: c._number, wip: !!c.work_in_progress } : null }
+  },
+  'gerrit:checkout': async ({ repo, change, patchSet, branch }, e) => {
+    const { root, remote } = await gerritRoot(repo)
+    const upstream = `${remote}/${await validateBranchName(root, branch)}`
+    const ask = (q: 'replace' | 'stash') =>
+      q === 'replace'
+        ? confirm(e, 'Replace', `Branch change/${change}-ps${patchSet} already exists.`, 'Reset it to the fetched patch set?')
+        : confirm(e, 'Stash & switch', 'Your local changes would be overwritten by the checkout.', 'Stash them now and restore them when you come back to this branch.')
+    return exclusive(() => checkoutChange(root, remote, change, patchSet, upstream, ask))
   },
   'gerrit:badges': async ({ repo }) => {
     const commits = await unpushedCommits((await gerritRoot(repo)).root)

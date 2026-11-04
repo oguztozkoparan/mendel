@@ -2,7 +2,7 @@ import type { BranchInfo, Branches } from '../../shared/ipc'
 import { endOfOptions, git, GitError } from './runner'
 
 /** Message of stashes made by "Stash & switch"; git stores the subject as `On <branch>: gitdock-stash`. */
-const STASH_MSG = 'gitdock-stash'
+export const STASH_MSG = 'gitdock-stash'
 
 /** `%(upstream:track,nobracket)`: "ahead 1, behind 2" / "gone" / "". */
 export function parseTrack(t: string): { ahead: number; behind: number } {
@@ -57,7 +57,7 @@ export async function createBranch(cwd: string, name: string, from: string | und
   await git(['switch', '-c', name, ...(from ? endOfOptions(from) : [])], { cwd, env })
 }
 
-const isDirtyError = (err: unknown) => err instanceof GitError && /would be overwritten by checkout|untracked working tree files would be/.test(err.stderr)
+export const isDirtyError = (err: unknown) => err instanceof GitError && /would be overwritten by checkout|untracked working tree files would be/.test(err.stderr)
 
 /**
  * Switch to a local branch, or to a remote one (`origin/x` -> local `x`, created tracking it if missing).

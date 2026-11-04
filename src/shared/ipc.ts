@@ -329,6 +329,8 @@ export const invoke = {
   'gerrit:addChangeId': res<void>()(inRepo),
   /** Send-for-review dialog data: default target (upstream branch) and the commits a push would send. */
   'gerrit:pending': res<{ target: string | null; commits: GerritCommit[]; headChange: { number: number; wip: boolean } | null }>()(inRepo),
+  /** Fetch patch set `patchSet` and switch to `change/<change>-ps<patchSet>` tracking `<remote>/<branch>`; null = cancelled. */
+  'gerrit:checkout': res<string | null>()(z.object({ repo: repoId, change: changeNum, patchSet: changeNum, branch: branchName }).strict()),
   /** History badges: sha → number of the open change with that commit's Change-Id (unpushed commits only). */
   'gerrit:badges': res<Record<string, number>>()(inRepo),
   /** `git push <remote> HEAD:refs/for/<target>%<options>`; refused when nothing is ahead or a commit lacks a Change-Id. */

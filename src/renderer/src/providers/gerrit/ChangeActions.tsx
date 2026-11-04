@@ -1,8 +1,9 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { useState, type FormEvent } from 'react'
 import { Button, Dialog, Heading, Modal, ModalOverlay } from 'react-aria-components'
-import type { GerritChange } from '../../../../shared/gerrit'
+import { GERRIT_REBASE_CONFLICT, type GerritChange } from '../../../../shared/gerrit'
 import a from '../../App.module.css'
+import { refreshRepo } from '../../Branches'
 import type { Revision } from './ChangeDetail'
 import s from './Gerrit.module.css'
 
@@ -13,8 +14,11 @@ const DONE: Record<Action, string> = {
   rebase: 'Rebased on the server.'
 }
 
-/** Submit / Rebase (current revision actions) and Abandon (change actions): shown only when the server lists them (PLAN.md §4.5). */
-export function ChangeActions({ repo, change, current }: { repo: string; change: GerritChange; current?: Revision }) {
+/**
+ * Submit / Rebase (current revision actions) and Abandon (change actions): shown only when the server lists them (PLAN.md §4.5).
+ * Checkout locally (patch set `ps`, §4.7) and, after a server rebase conflict, Rebase locally (§4.8) work on the local repo.
+ */
+export function ChangeActions({ repo, change, current, ps }: { repo: string; change: GerritChange; current?: Revision; ps: number }) {
   const qc = useQueryClient()
   const [confirm, setConfirm] = useState<'submit' | 'abandon' | null>(null)
   const [message, setMessage] = useState('')
@@ -32,6 +36,23 @@ export function ChangeActions({ repo, change, current }: { repo: string; change:
     ).finally(() => (setBusy(false), setConfirm(null), setMessage('')))
   }
   const submit = (e: FormEvent) => (e.preventDefault(), run(confirm!))
+  /** A local git op: its result text (null = cancelled, no notice), then the repo views refresh. */
+  const local = (p: Promise<string | null>) => {
+    setBusy(true)
+    setNotice(null)
+    p.then(
+      (text) => text && setNotice({ error: false, text }),
+      (err: Error) => setNotice({ error: true, text: err.message })
+    ).finally(() => (setBusy(false), void refreshRepo(qc, repo)))
+  }
+  const checkout = () =>
+    local(window.gitdock['gerrit:checkout']({ repo, change: change._number, patchSet: ps, branch: change.branch }).then((b) => b && `Checked out #${change._number} PS${ps} on ${b}`))
+  const rebaseLocally = () =>
+    local(
+      window.gitdock['sync:rebase']({ repo }).then((r) =>
+        r === 'conflict' ? 'Rebase stopped on conflicts: resolve them, then continue.' : r && 'Rebased locally. Send for review to upload the rebased patch set.'
+      )
+    )
 
   return (
     <>
@@ -45,6 +66,9 @@ export function ChangeActions({ repo, change, current }: { repo: string; change:
           Rebase
         </Button>
       )}
+      <Button isDisabled={busy} onPress={checkout}>
+        Checkout locally
+      </Button>
       {ca.abandon && (
         <Button isDisabled={busy || !ca.abandon.enabled} onPress={() => setConfirm('abandon')}>
           Abandon…
@@ -54,6 +78,11 @@ export function ChangeActions({ repo, change, current }: { repo: string; change:
         <span role={notice.error ? 'alert' : 'status'} className={notice.error ? a.error : s.meta}>
           {notice.text}
         </span>
+      )}
+      {notice?.text === GERRIT_REBASE_CONFLICT && (
+        <Button isDisabled={busy} onPress={rebaseLocally}>
+          Rebase locally
+        </Button>
       )}
       {confirm && (
         <ModalOverlay isOpen isDismissable={!busy} className={a.backdrop} onOpenChange={(o) => !o && setConfirm(null)}>

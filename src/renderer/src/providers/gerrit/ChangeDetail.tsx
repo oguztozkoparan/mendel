@@ -117,7 +117,7 @@ export function ChangeDetail({ repo, number, me, onBack }: { repo: string; numbe
           <Button className="primary" onPress={() => setReplying(true)}>
             Reply…{pending.list.length ? ` (${pending.list.length} pending)` : ''}
           </Button>
-          <ChangeActions repo={repo} change={ch} current={current} />
+          <ChangeActions repo={repo} change={ch} current={current} ps={ps._number} />
         </div>
       </header>
 
