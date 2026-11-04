@@ -1,9 +1,10 @@
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { useMemo, useState, type ReactNode } from 'react'
 import { Button, Collection, GridList, GridListItem, GridListLoadMoreItem, ListBox, ListBoxItem, ListLayout, Virtualizer } from 'react-aria-components'
 import { Diff, Hunk, parseDiff } from 'react-diff-view'
 import type { CommitDetail, CommitSummary } from '../../shared/ipc'
 import a from './App.module.css'
+import { useBranches } from './Branches'
 import c from './Changes.module.css'
 import { visible } from './DiffView'
 import s from './History.module.css'
@@ -16,11 +17,17 @@ const PAGE = 100
  * `decorate` adds per-row content, e.g. a provider badge ("in review #1234").
  */
 export function HistoryView(p: { repo: string; decorate?: (c: CommitSummary) => ReactNode }) {
+  const branches = useBranches(p.repo)
+  // Keyed by HEAD: a new commit/checkout starts a fresh first page, and `--skip` pages stay consistent within one HEAD.
+  // Not stale on its own (no all-pages refetch on focus); refreshRepo trims it to page 1 before invalidating.
   const q = useInfiniteQuery({
-    queryKey: ['history', p.repo],
+    queryKey: ['history', p.repo, branches.data?.head],
     queryFn: ({ pageParam }) => window.gitdock['history:log']({ repo: p.repo, skip: pageParam }),
     initialPageParam: 0,
-    getNextPageParam: (last, all) => (last.length === PAGE ? all.length * PAGE : undefined)
+    getNextPageParam: (last, all) => (last.length === PAGE ? all.length * PAGE : undefined),
+    enabled: !!branches.data,
+    staleTime: Infinity,
+    placeholderData: keepPreviousData
   })
   const commits = useMemo(() => q.data?.pages.flat() ?? [], [q.data])
   const [picked, setPicked] = useState<string | null>(null)

@@ -55,6 +55,12 @@ test('500-commit history: first page fast, scrolling pages in the rest', async (
       await list.evaluate((el) => (el.scrollTop = el.scrollHeight))
       await expect(list.getByRole('row', { name: 'initial commit' })).toBeVisible({ timeout: 500 })
     }).toPass({ timeout: 10_000 })
+    expect(Number(await list.getAttribute('aria-rowcount'))).toBeGreaterThanOrEqual(500)
+    // A refresh (scrolled back to the top) refetches only the first page instead of all five.
+    await list.evaluate((el) => (el.scrollTop = 0))
+    await expect(list.getByRole('row', { name: 'c498' })).toBeVisible()
+    await app.app.evaluate(({ Menu }) => Menu.getApplicationMenu()!.getMenuItemById('status:refresh')!.click())
+    await expect.poll(async () => Number(await list.getAttribute('aria-rowcount'))).toBeLessThan(200)
   } finally {
     await app.close()
     fx.cleanup()
