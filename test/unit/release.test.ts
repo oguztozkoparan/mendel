@@ -22,4 +22,12 @@ describe('scripts/release.mjs guards', () => {
     expect(r.status).toBe(1)
     expect(r.stderr).toContain('must be on main (on topic)')
   })
+
+  it('refuses when HEAD differs from origin/main (R26)', () => {
+    repo = createRepoFixture()
+    repo.commitFile('local.txt', 'x\n') // ahead of origin/main
+    const r = release(repo, 'patch')
+    expect(r.status).toBe(1)
+    expect(r.stderr).toContain('HEAD is not origin/main')
+  })
 })

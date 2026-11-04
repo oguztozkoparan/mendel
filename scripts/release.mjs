@@ -15,6 +15,9 @@ if (!['major', 'minor', 'patch'].includes(bump)) fail('usage: npm run release --
 if (sh('git', ['status', '--porcelain'])) fail('working tree is not clean')
 const branch = sh('git', ['rev-parse', '--abbrev-ref', 'HEAD'])
 if (branch !== 'main') fail(`must be on main (on ${branch})`)
+// The tag must be on origin/main (release.yml checks it too): fetch, then require HEAD == origin/main.
+run('git', ['fetch', '--quiet', 'origin', 'main'])
+if (sh('git', ['rev-parse', 'HEAD']) !== sh('git', ['rev-parse', 'origin/main'])) fail('HEAD is not origin/main (pull or push first)')
 
 run('npm', ['run', 'typecheck'])
 run('npm', ['test'])
