@@ -110,3 +110,21 @@ test('HEAD with an open change: history badge, amend pre-ticked as new patchset,
   await expect(win.getByRole('alert').filter({ hasText: 'New patchset uploaded to #101' })).toBeVisible()
   expect(refs(g)).toBe('refs/for/main%ready')
 })
+
+test('pre-ticked amend waits for the fresh HEAD message (commit made outside, slow commit:info)', async () => {
+  g = await launchGerrit(mock)
+  const { app, win, fx } = g
+  await connectGerrit(win, mock) // Changes tab unmounted: its cached HEAD message is now 'initial commit'
+  commitForChange(fx, 'x.txt', 101)
+  // Make the HEAD message arrive after the Gerrit hint, as under load (handler delayed in main).
+  await app.evaluate(({ ipcMain }) => {
+    const handlers = (ipcMain as unknown as { _invokeHandlers: Map<string, (...a: unknown[]) => unknown> })._invokeHandlers
+    const orig = handlers.get('commit:info')!
+    handlers.set('commit:info', async (...a) => (await new Promise((r) => setTimeout(r, 1500)), orig(...a)))
+  })
+  await win.getByRole('tab', { name: 'Changes' }).click()
+  const box = win.getByRole('form', { name: 'Commit' })
+  await expect(box.getByRole('checkbox', { name: 'Amend last commit' })).toBeChecked()
+  await expect(box.getByLabel('Summary')).toHaveValue('Add x.txt')
+  await expect(box.getByLabel('Description')).toHaveValue(`Change-Id: I${'101'.padStart(40, '0')}`)
+})

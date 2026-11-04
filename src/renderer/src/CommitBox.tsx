@@ -36,7 +36,8 @@ export function CommitBox({ repo, hasStaged, hint }: { repo: string; hasStaged: 
     }
   }
   // Pre-tick amend for a provider (PLAN.md §4.4 step 4) unless the user is already writing a message.
-  const preAmend = !!hint?.amend && head !== null && !amend && !summary && !description
+  // Wait for a fresh HEAD message: a cached one (commit made outside the app) would replace the commit's message.
+  const preAmend = !!hint?.amend && head !== null && !info.isFetching && !amend && !summary && !description
   useEffect(() => {
     if (preAmend) toggleAmend(true)
   }, [preAmend])
