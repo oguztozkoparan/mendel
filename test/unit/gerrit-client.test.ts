@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { GERRIT_AUTH_ERROR } from '../../src/shared/gerrit'
-import { gerritClient, parseGerritJson } from '../../src/main/providers/gerrit/client'
+import { gerritClient, HINT_TIMEOUT_MS, parseGerritJson } from '../../src/main/providers/gerrit/client'
 import { SELF, startGerritMock, type GerritMock } from '../fixtures/gerrit-mock'
 
 let mock: GerritMock
@@ -24,6 +24,13 @@ describe('gerrit client', () => {
     const err = await client('nope').self().catch((e: Error) => e)
     expect(err).toMatchObject({ status: 401, message: GERRIT_AUTH_ERROR })
     expect(String((err as Error).message)).not.toContain('nope')
+  })
+
+  it('gives up on a hanging Change-Id lookup after the short hint timeout', async () => {
+    const hang = (_u: string, init: RequestInit) => new Promise<Response>((_, reject) => init.signal!.addEventListener('abort', () => reject(init.signal!.reason)))
+    const started = Date.now()
+    await expect(gerritClient(mock.url, { username: 'u', password: 'p' }, hang).openChanges(['I' + '0'.repeat(40)], null)).rejects.toThrow('Cannot reach Gerrit')
+    expect(Date.now() - started).toBeLessThan(HINT_TIMEOUT_MS + 1000)
   })
 
   it('finds open changes by Change-Id in a project', async () => {

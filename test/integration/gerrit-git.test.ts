@@ -184,6 +184,17 @@ describe('gerrit checkout change', () => {
     expect(fx.git(['stash', 'list', '--format=%gs'])).toBe('On main: gitdock-stash')
   })
 
+  it('honours the abort signal: cancelled while asking, nothing is switched', async () => {
+    fx = createRepoFixture()
+    upload(1)
+    writeFileSync(path.join(fx.work, 'README.md'), 'local edit\n')
+    const ac = new AbortController()
+    const ask = async () => (ac.abort(), true) // user cancels while the stash confirm is open
+    await expect(checkoutChange(fx.work, 'origin', 101, 1, null, ask, fx.env, ac.signal)).rejects.toMatchObject({ kind: 'Cancelled' })
+    expect(fx.git(['branch', '--show-current'])).toBe('main')
+    expect(fx.git(['stash', 'list'])).toBe('')
+  })
+
   it('rejects non-positive or non-integer numbers before running git', async () => {
     fx = createRepoFixture()
     for (const [n, ps] of [[0, 1], [1, -1], [1.5, 1]]) await expect(checkoutChange(fx.work, 'origin', n, ps, null, async () => true, fx.env)).rejects.toThrow('Invalid change')

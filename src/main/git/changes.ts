@@ -51,13 +51,15 @@ export async function getDiff(cwd: string, t: DiffTarget, env?: NodeJS.ProcessEn
 
 const PATHSPEC_STDIN = ['--pathspec-from-file=-', '--pathspec-file-nul']
 
-/** `git add -A` for exactly these paths (pathspecs via stdin: no argv limits, literal, never options). */
-export async function stagePaths(cwd: string, paths: string[], env?: NodeJS.ProcessEnv): Promise<void> {
+/** `git add -A` for exactly these paths (pathspecs via stdin: no argv limits, literal, never options); null = whole tree. */
+export async function stagePaths(cwd: string, paths: string[] | null, env?: NodeJS.ProcessEnv): Promise<void> {
+  if (!paths) return void (await git(['add', '-A'], { cwd, env }))
   await git(['--literal-pathspecs', 'add', '-A', ...PATHSPEC_STDIN], { cwd, env, stdin: paths.join('\0') })
 }
 
-/** Index back to HEAD for these paths (also works before the first commit). */
-export async function unstagePaths(cwd: string, paths: string[], env?: NodeJS.ProcessEnv): Promise<void> {
+/** Index back to HEAD for these paths, null = all (also works before the first commit). */
+export async function unstagePaths(cwd: string, paths: string[] | null, env?: NodeJS.ProcessEnv): Promise<void> {
+  if (!paths) return void (await git(['reset', '-q'], { cwd, env }))
   await git(['--literal-pathspecs', 'reset', '-q', ...PATHSPEC_STDIN], { cwd, env, stdin: paths.join('\0') })
 }
 
@@ -81,8 +83,14 @@ export async function discardPaths(cwd: string, paths: string[], env?: NodeJS.Pr
   const files = (await getStatus(cwd, env)).filter((f) => wanted.has(f.path) || (f.origPath && wanted.has(f.origPath)))
   const untracked = files.filter((f) => f.unstaged === '?').map((f) => f.path)
   const tracked = files.filter((f) => f.unstaged !== '?').flatMap((f) => (f.origPath ? [f.origPath, f.path] : [f.path]))
-  if (tracked.length)
+  const born = await git(['rev-parse', '--verify', '-q', 'HEAD'], { cwd, env, background: true }).then(() => true, () => false)
+  if (tracked.length && born)
     await git(['--literal-pathspecs', 'restore', '--source=HEAD', '--staged', '--worktree', ...PATHSPEC_STDIN], { cwd, env, stdin: tracked.join('\0') })
+  // No commits yet: nothing to restore from, every tracked file is a staged addition -> unstage, then clean it.
+  if (tracked.length && !born) {
+    await git(['--literal-pathspecs', 'rm', '--cached', '-f', '-q', ...PATHSPEC_STDIN], { cwd, env, stdin: tracked.join('\0') })
+    untracked.push(...tracked)
+  }
   // shortcut: clean takes pathspecs on argv only; thousands of untracked files at once could hit argv limits, batch then.
   if (untracked.length) await git(['--literal-pathspecs', 'clean', '-f', '-q', '--', ...untracked], { cwd, env })
 }

@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { gitInfo } from '../../src/main/git/info'
-import { endOfOptions, git, GitError } from '../../src/main/git/runner'
+import { endOfOptions, git, GitError, killAllGit } from '../../src/main/git/runner'
 import { createRepoFixture, type RepoFixture } from '../fixtures/repo'
 
 describe('git runner against real git', () => {
@@ -41,6 +41,15 @@ describe('git runner against real git', () => {
     expect(`${err.message} ${err.stderr} ${err.args.join(' ')}`).not.toContain('hunter2')
   })
 
+  it('decodes multibyte output split across pipe chunks', async () => {
+    fx = createRepoFixture()
+    const text = 'şğü🙂'.repeat(40_000) // ~440 KB of 2- and 4-byte UTF-8, many 64 KB chunk boundaries
+    fx.commitFile('big.txt', text + '\n')
+    const { stdout } = await git(['show', 'HEAD:big.txt'], { cwd: fx.work, env: fx.env })
+    expect(stdout).not.toContain('\ufffd')
+    expect(stdout).toBe(text + '\n')
+  })
+
   it('kills git on abort', async () => {
     fx = createRepoFixture()
     const ac = new AbortController()
@@ -49,6 +58,15 @@ describe('git runner against real git', () => {
     const run = git(['-c', 'alias.slow=!sleep 10', 'slow'], { cwd: fx.work, env: fx.env, signal: ac.signal })
     setTimeout(() => ac.abort(), 100)
     await expect(run).rejects.toMatchObject({ kind: 'Cancelled' })
+    expect(Date.now() - started).toBeLessThan(5000)
+  })
+
+  it('killAllGit ends running git children (app quit)', async () => {
+    fx = createRepoFixture()
+    const started = Date.now()
+    const run = git(['-c', 'alias.slow=!sleep 10', 'slow'], { cwd: fx.work, env: fx.env }).catch((e: unknown) => e)
+    setTimeout(killAllGit, 100)
+    expect(await run).toBeInstanceOf(GitError)
     expect(Date.now() - started).toBeLessThan(5000)
   })
 

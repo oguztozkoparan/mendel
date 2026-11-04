@@ -3,7 +3,7 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { opInProgress } from '../../src/main/git/conflict'
-import { hasLocalChanges, rebaseOntoUpstream } from '../../src/main/git/sync'
+import { hasLocalChanges, pull, rebaseOntoUpstream } from '../../src/main/git/sync'
 import { createRepoFixture, type RepoFixture } from '../fixtures/repo'
 
 describe('rebase onto upstream', () => {
@@ -33,6 +33,24 @@ describe('rebase onto upstream', () => {
     expect(await rebaseOntoUpstream(fx.work, true, { env: fx.env })).toBe('ok')
     expect(readFileSync(path.join(fx.work, 'a.txt'), 'utf8')).toBe('dirty\n')
     expect(fx.git(['rev-parse', 'HEAD~1'])).toBe(fx.git(['rev-parse', 'origin/main']))
+  })
+
+  it('autostash whose re-apply conflicts is a conflict (git exits 0), stash kept', async () => {
+    fx = createRepoFixture()
+    remoteCommit('README.md', 'theirs\n')
+    writeFileSync(path.join(fx.work, 'README.md'), 'mine\n')
+    expect(await rebaseOntoUpstream(fx.work, true, { env: fx.env })).toBe('conflict')
+    expect(await opInProgress(fx.work, fx.env)).toBeNull()
+    expect(fx.git(['ls-files', '--unmerged'])).toContain('README.md')
+    expect(fx.git(['stash', 'list', '--format=%gs'])).toContain('autostash')
+  })
+
+  it('pull --rebase --autostash: same conflict detection', async () => {
+    fx = createRepoFixture()
+    remoteCommit('README.md', 'theirs\n')
+    writeFileSync(path.join(fx.work, 'README.md'), 'mine\n')
+    expect(await pull(fx.work, true, { env: fx.env }, true)).toBe('conflict')
+    expect(fx.git(['stash', 'list', '--format=%gs'])).toContain('autostash')
   })
 
   it('conflict case stops with a rebase in progress', async () => {

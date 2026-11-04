@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useState, type KeyboardEvent } from 'react'
+import { useState, type KeyboardEvent } from 'react'
 import { Button, Checkbox, GridList, GridListItem, ListLayout, Virtualizer } from 'react-aria-components'
 import type { FileChange, RepoEntry } from '../../shared/ipc'
 import a from './App.module.css'
@@ -29,16 +29,6 @@ function Box(p: { label: string; selected: boolean; indeterminate: boolean; onCh
 export function ChangesView({ repo }: { repo: RepoEntry }) {
   const qc = useQueryClient()
   const status = useQuery({ queryKey: ['status', repo.id], queryFn: () => window.gitdock['changes:status']({ repo: repo.id }) })
-  useEffect(
-    () =>
-      window.gitdock.on('repo:changed', (e) => {
-        if (e.repo !== repo.id) return
-        void qc.invalidateQueries({ queryKey: ['status', repo.id] })
-        void qc.invalidateQueries({ queryKey: ['diff', repo.id] })
-        void qc.invalidateQueries({ queryKey: ['commitInfo', repo.id] })
-      }),
-    [qc, repo.id]
-  )
   const files = status.data ?? []
   const hint = useGerritCommitHint(repo.id)
   const [picked, setPicked] = useState<string | null>(null)
@@ -76,7 +66,7 @@ export function ChangesView({ repo }: { repo: RepoEntry }) {
               label="Stage all"
               selected={allStaged}
               indeterminate={!allStaged && files.some((f) => f.staged)}
-              onChange={(v) => setStaged(files, v)}
+              onChange={(v) => act(window.gitdock[v ? 'changes:stage' : 'changes:unstage']({ repo: repo.id, all: true }))}
             />
           )}
           {files.length === 1 ? '1 changed file' : `${files.length} changed files`}

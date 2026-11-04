@@ -4,6 +4,7 @@ import path from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { afterEach, describe, expect, it } from 'vitest'
 import { applyHunk, getDiff, hunkPatch, stagePaths, unstagePaths } from '../../src/main/git/changes'
+import { invoke } from '../../src/shared/ipc'
 import { createRepoFixture, type RepoFixture } from '../fixtures/repo'
 import { isolatedGitEnv } from '../fixtures/git-env'
 
@@ -24,6 +25,20 @@ describe('staging', () => {
   let fx: RepoFixture
   afterEach(() => fx?.cleanup())
   const cached = () => fx.git(['diff', '--cached', '--name-only'])
+
+  it('stage all / unstage all without a path list (also before the first commit)', async () => {
+    fx = createRepoFixture()
+    const repo = path.join(fx.dir, 'fresh')
+    fx.git(['init', '-q', repo])
+    for (let i = 0; i < 3; i++) writeFileSync(path.join(repo, `f${i}.txt`), `${i}\n`)
+    await stagePaths(repo, null, fx.env)
+    expect(fx.git(['diff', '--cached', '--name-only'], repo)).toBe('f0.txt\nf1.txt\nf2.txt')
+    await unstagePaths(repo, null, fx.env)
+    expect(fx.git(['status', '--porcelain'], repo)).toBe('?? f0.txt\n?? f1.txt\n?? f2.txt')
+    // The IPC contract takes `all` instead of more than 100k paths.
+    expect(invoke['changes:stage'].req.parse({ repo: 'r', all: true })).toEqual({ repo: 'r', all: true })
+    expect(() => invoke['changes:stage'].req.parse({ repo: 'r', paths: Array.from({ length: 100_001 }, (_, i) => `f${i}`) })).toThrow()
+  })
 
   it('stages and unstages files, including deletions and renames', async () => {
     fx = createRepoFixture()

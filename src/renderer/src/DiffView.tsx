@@ -7,6 +7,28 @@ import type { FileChange } from '../../shared/ipc'
 import s from './Changes.module.css'
 
 const LARGE_DIFF_LINES = 5000
+const lineCount = (raw: string) => {
+  let n = 0
+  for (let i = raw.indexOf('\n'); i >= 0; i = raw.indexOf('\n', i + 1)) n++
+  return n
+}
+
+/**
+ * Shared large-diff gate (Changes, History, Gerrit): lines are counted on the raw text, so a huge diff is neither
+ * parsed nor rendered until "Show anyway". `gate` is the notice to show instead of the diff (null = show it).
+ */
+export function useParsedDiff(raw: string | undefined) {
+  const [showLarge, setShowLarge] = useState(false)
+  const lines = useMemo(() => (raw ? lineCount(raw) : 0), [raw])
+  const hidden = lines > LARGE_DIFF_LINES && !showLarge
+  const parsed = useMemo(() => (raw && !hidden ? parseDiff(raw)[0] : undefined), [raw, hidden])
+  const gate = hidden ? (
+    <p className={s.empty}>
+      Large diff hidden ({lines} lines). <Button onPress={() => setShowLarge(true)}>Show anyway</Button>
+    </p>
+  ) : null
+  return { parsed, gate }
+}
 // Control and bidi characters (Trojan Source) are shown as visible markers (TECH.md §6.7). Tab and CR stay.
 const INVISIBLE = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f\u200b-\u200f\u2028-\u202e\u2066-\u2069\ufeff]/g
 const mark = (ch: string) => `⟨U+${ch.codePointAt(0)!.toString(16).toUpperCase().padStart(4, '0')}⟩`
@@ -49,23 +71,16 @@ function DiffSection(p: { repo: string; file: FileChange; act: Act; staged: bool
     queryFn: () =>
       window.gitdock['changes:diff']({ repo: p.repo, path: file.path, origPath: file.origPath, staged, untracked: file.unstaged === '?' && !staged })
   })
-  const parsed = useMemo(() => (q.data ? parseDiff(q.data)[0] : undefined), [q.data])
-  const [showLarge, setShowLarge] = useState(false)
+  const { parsed, gate } = useParsedDiff(q.data)
   const hunkAction = (hunk: string, action: 'stage' | 'unstage' | 'discard') =>
     p.act(window.gitdock['changes:applyHunk']({ repo: p.repo, path: file.path, origPath: file.origPath, untracked: file.unstaged === '?', hunk, action }))
-  const lines = parsed?.hunks.reduce((n, h) => n + h.changes.length, 0) ?? 0
 
   let body
   if (q.error) body = <p role="alert" className={s.empty}>{q.error.message}</p>
   else if (!q.data && q.isPending) body = null
   else if (parsed?.isBinary || /^Binary files /m.test(q.data ?? '')) body = <p className={s.empty}>Binary file changed</p>
+  else if (gate) body = gate
   else if (!parsed || parsed.hunks.length === 0) body = <p className={s.empty}>No content changes</p>
-  else if (lines > LARGE_DIFF_LINES && !showLarge)
-    body = (
-      <p className={s.empty}>
-        Large diff hidden ({lines} lines). <Button onPress={() => setShowLarge(true)}>Show anyway</Button>
-      </p>
-    )
   else
     body = (
       <Diff viewType="unified" diffType={parsed.type} hunks={visible(parsed.hunks)} className={s.diff}>

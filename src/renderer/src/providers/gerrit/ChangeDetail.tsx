@@ -9,20 +9,17 @@ import {
   findChangeByOldLineNumber,
   getChangeKey,
   Hunk,
-  parseDiff,
   type HunkData
 } from 'react-diff-view'
 import 'react-diff-view/style/index.css'
 import type { GerritChange, GerritComment } from '../../../../shared/gerrit'
 import c from '../../Changes.module.css'
-import { visible } from '../../DiffView'
+import { useParsedDiff, visible } from '../../DiffView'
 import { ChangeActions } from './ChangeActions'
 import { Composer, DraftView, Thread, usePending, type Pending, type PendingStore } from './Comments'
 import s from './Gerrit.module.css'
 import { ReplyDialog } from './ReplyDialog'
 import { diffText, fileLabel, fmtVote, shortDate, threadsOf, who } from './util'
-
-const LARGE_DIFF_LINES = 5000
 
 export type Revision = NonNullable<GerritChange['revisions']>[string] & { sha: string }
 export const revisionsOf = (ch: GerritChange): Revision[] =>
@@ -200,9 +197,8 @@ function FileDiff(p: FileDiffProps) {
     queryFn: () => window.gitdock['gerrit:diff']({ repo: p.repo, change: p.number, revision: p.rev, path: p.path, base: p.base }),
     enabled: !p.binary
   })
-  const parsed = useMemo(() => (q.data && !q.data.binary ? parseDiff(diffText(q.data))[0] : undefined), [q.data])
-  const [showLarge, setShowLarge] = useState(false)
-  const lines = parsed?.hunks.reduce((n, h) => n + h.changes.length, 0) ?? 0
+  const raw = useMemo(() => (q.data && !q.data.binary ? diffText(q.data) : undefined), [q.data])
+  const { parsed, gate } = useParsedDiff(raw)
   const [composing, setComposing] = useState<{ side: Side; line: number } | null>(null)
 
   // Anchor threads, new drafts and the open composer to diff rows; anything unanchored is shown above the diff.
@@ -244,14 +240,9 @@ function FileDiff(p: FileDiffProps) {
   let body
   if (p.binary || q.data?.binary) body = <p className={c.empty}>Binary file changed</p>
   else if (q.error) body = <p role="alert" className={c.empty}>{q.error.message}</p>
+  else if (gate) body = gate
   else if (!parsed) body = <div className={s.skeleton} />
   else if (!parsed.hunks.length) body = <p className={c.empty}>No content changes</p>
-  else if (lines > LARGE_DIFF_LINES && !showLarge)
-    body = (
-      <p className={c.empty}>
-        Large diff hidden ({lines} lines). <Button onPress={() => setShowLarge(true)}>Show anyway</Button>
-      </p>
-    )
   else
     body = (
       <Diff viewType="split" diffType={parsed.type} hunks={hunks} widgets={widgets} gutterEvents={gutterEvents} className={c.diff}>

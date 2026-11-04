@@ -1,12 +1,13 @@
 import { app, BrowserWindow, nativeTheme } from 'electron'
 import { ASKPASS_SOCKET_ENV, ASKPASS_TOKEN_ENV, requestAnswer, startAskpassServer } from './auth/askpass'
-import { git, setGitEnv } from './git/runner'
+import { git, killAllGit, setGitEnv } from './git/runner'
 import { registerIpc } from './ipc'
 import { askUser } from './ipc/auth'
 import { startUpdater } from './ipc/update'
 import log from './log'
 import { clearCurrent } from './repos'
 import { getSettings, onSettingsChanged } from './settings'
+import { applyLoginShellPath } from './shell-path'
 import { buildMenu } from './menu'
 import { createMainWindow } from './window'
 import { hardenSession, registerAppScheme, testSeams } from './security'
@@ -44,8 +45,11 @@ function startApp(): void {
 
   app.enableSandbox()
   registerAppScheme()
+  // Dev/e2e inherit the terminal's PATH; only packaged launches (Finder, desktop) need the login shell's.
+  const shellPath = app.isPackaged ? applyLoginShellPath().catch((err: unknown) => log.warn('[path] login shell PATH unavailable', err)) : null
 
   void app.whenReady().then(async () => {
+    await shellPath // before git is first resolved
     hardenSession()
     registerIpc()
     if (!getSettings().reopenLastRepo) clearCurrent()
@@ -68,5 +72,6 @@ function startApp(): void {
     app.on('activate', () => BrowserWindow.getAllWindows().length === 0 && createMainWindow())
   })
 
+  app.on('will-quit', killAllGit)
   app.on('window-all-closed', () => process.platform !== 'darwin' && app.quit())
 }

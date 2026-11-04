@@ -94,6 +94,8 @@ export interface SyncState {
   upstream: string | null
   ahead: number
   behind: number
+  /** Without an upstream: commits on HEAD that are on no remote-tracking branch (what Gerrit's Send for review pushes); else = ahead. */
+  unpushed: number
   /** Remote fetch/publish use (upstream's, else origin, else first); null = repo has no remote. */
   remote: string | null
   /** ms epoch of the last fetch (FETCH_HEAD mtime). */
@@ -217,6 +219,8 @@ const inRepo = z.object({ repo: repoId }).strict()
 const branchName = z.string().min(1).max(255)
 const sha = z.string().regex(/^[0-9a-f]{7,64}$/)
 const paths = z.object({ repo: repoId, paths: z.array(relPath).min(1).max(100_000) }).strict()
+/** `all`: Stage all / Unstage all on the whole tree, no path list (so no 100k cap). */
+const pathsOrAll = z.union([paths, z.object({ repo: repoId, all: z.literal(true) }).strict()])
 const changeNum = z.number().int().positive().max(2 ** 31)
 const revision = z.string().regex(/^(?:[0-9a-f]{40}|\d{1,9}|current)$/)
 /** Update checker state (PLAN.md §3.12). `canInstall: false` = "Download" opens the download page instead. */
@@ -255,8 +259,8 @@ export const invoke = {
     z.object({ repo: repoId, path: relPath, origPath: relPath.optional(), staged: z.boolean(), untracked: z.boolean() }).strict()
   ),
   /** Stage whole files (include a rename's origPath). */
-  'changes:stage': res<void>()(paths),
-  'changes:unstage': res<void>()(paths),
+  'changes:stage': res<void>()(pathsOrAll),
+  'changes:unstage': res<void>()(pathsOrAll),
   /** Apply one hunk, identified by its `@@ ... @@` header line as shown in the diff. `discard` asks a native confirm first. */
   'changes:applyHunk': res<void>()(
     z
@@ -292,9 +296,11 @@ export const invoke = {
   /** Long ops below are cancellable with `sync:cancel`; git auth prompts arrive via `auth:prompt`. */
   /** `auto`: background auto-fetch; never prompts for credentials and is skipped while another op runs. */
   'sync:fetch': res<void>()(z.object({ repo: repoId, auto: z.boolean().optional() }).strict()),
-  'sync:pull': res<SyncResult>()(inRepo),
+  /** null = the user declined "Stash & pull". */
+  'sync:pull': res<SyncResult | null>()(inRepo),
   /** Push to upstream, or publish (`push -u`) when the branch has none. */
-  'sync:push': res<SyncResult>()(inRepo),
+  /** null = the user declined the Gerrit direct-push confirm. */
+  'sync:push': res<SyncResult | null>()(inRepo),
   /** Fetch + rebase the current branch onto its upstream; a dirty tree asks "Stash & rebase" (null = cancelled). */
   'sync:rebase': res<SyncResult | null>()(inRepo),
   'sync:cancel': res<void>()(z.undefined()),
@@ -391,6 +397,8 @@ export const events = {
   'repo:cloneProgress': null as unknown as CloneProgress,
   /** Files or index of the watched repo changed (debounced); refetch status/diffs. */
   'repo:changed': null as unknown as { repo: string },
+  /** The file watcher failed (e.g. Linux inotify limit): no auto-refresh for this repo. */
+  'repo:watchOff': null as unknown as { repo: string },
   'update:state': null as unknown as UpdateState,
   'menu:command': null as unknown as MenuCommand
 } as const

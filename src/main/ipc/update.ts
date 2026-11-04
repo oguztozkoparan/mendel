@@ -4,10 +4,12 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import type { UpdateState } from '../../shared/ipc'
 import log from '../log'
+import { gitBusy } from '../git/runner'
 import { redact } from '../redact'
 import { testSeams } from '../security'
 import { getSettings } from '../settings'
 import { canSelfInstall, downloadUrl, externalAllowed, parseFeed, urlAllowed, type Feed } from '../update/feed'
+import { confirm } from './branch'
 import { emit, type Handlers } from '.'
 
 const FIRST_CHECK_MS = 10_000
@@ -120,8 +122,9 @@ export const updateHandlers: Handlers<'update:state' | 'update:check' | 'update:
     set({ status: 'downloading', version: info.version, percent: 0 })
     await autoUpdater.downloadUpdate().catch(() => undefined) // reported through the 'error' event
   },
-  'update:install': () => {
-    // shortcut: restarts even if a git operation is running; add a busy check once git ops are tracked (PLAN.md §4.10).
-    if (state.status === 'downloaded') autoUpdater.quitAndInstall()
+  'update:install': async (_req, e) => {
+    if (state.status !== 'downloaded') return
+    if (gitBusy() && !(await confirm(e, 'Restart anyway', 'A git operation is still running.', 'Restarting now interrupts it.'))) return
+    autoUpdater.quitAndInstall()
   }
 }

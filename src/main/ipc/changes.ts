@@ -23,20 +23,24 @@ async function confirmDiscard(e: IpcMainInvokeEvent, message: string): Promise<b
 export const changesHandlers: Handlers<'changes:status' | 'changes:diff' | 'changes:stage' | 'changes:unstage' | 'changes:applyHunk' | 'changes:discard'> = {
   'changes:status': ({ repo }) => {
     const root = repoRoot(repo)
-    watchRepo(root, () => emit('repo:changed', { repo }))
+    watchRepo(
+      root,
+      () => emit('repo:changed', { repo }),
+      () => emit('repo:watchOff', { repo })
+    )
     return getStatus(root)
   },
   'changes:diff': ({ repo, path, origPath, staged, untracked }) => {
     const root = repoRoot(repo)
     return getDiff(root, { path: checkPath(root, path), origPath: origPath && checkPath(root, origPath), staged, untracked })
   },
-  'changes:stage': ({ repo, paths }) => {
-    const root = repoRoot(repo)
-    return stagePaths(root, paths.map((p) => checkPath(root, p)))
+  'changes:stage': (req) => {
+    const root = repoRoot(req.repo)
+    return stagePaths(root, 'all' in req ? null : req.paths.map((p) => checkPath(root, p)))
   },
-  'changes:unstage': ({ repo, paths }) => {
-    const root = repoRoot(repo)
-    return unstagePaths(root, paths.map((p) => checkPath(root, p)))
+  'changes:unstage': (req) => {
+    const root = repoRoot(req.repo)
+    return unstagePaths(root, 'all' in req ? null : req.paths.map((p) => checkPath(root, p)))
   },
   'changes:applyHunk': async ({ repo, path, origPath, untracked, hunk, action }, e) => {
     const root = repoRoot(repo)

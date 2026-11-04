@@ -53,6 +53,33 @@ test('newer version: pill, notes, download progress, restart to update', async (
   await expect.poll(() => app.evaluate(() => (globalThis as { __installed?: boolean }).__installed)).toBe(true)
 })
 
+test('restart to update asks first while a git operation is running', async () => {
+  version = '99.0.0'
+  const { app, win } = await launch(feed.url, true)
+  await stubInstall(app)
+  await app.evaluate(({ dialog }) => {
+    const g = globalThis as unknown as { __asked: string[]; __answer: number; __gitdockTest: { git(a: string[], o: { cwd: string }): Promise<unknown> } }
+    g.__asked = []
+    g.__answer = 1 // Cancel
+    dialog.showMessageBox = (async (_w: unknown, o: { message: string }) => (g.__asked.push(o.message), { response: g.__answer, checkboxChecked: false })) as never
+    void g.__gitdockTest.git(['-c', 'alias.slow=!sleep 30', 'slow'], { cwd: process.cwd() }).catch(() => undefined) // a long user op, e.g. a push
+  })
+  const state = () =>
+    app.evaluate(() => {
+      const g = globalThis as unknown as { __asked: string[]; __installed?: boolean }
+      return { asked: g.__asked, installed: g.__installed ?? false }
+    })
+  await win.getByRole('button', { name: 'Check for updates' }).click()
+  await win.getByRole('button', { name: 'Update v99.0.0 available' }).click()
+  await win.getByRole('button', { name: 'Download' }).click()
+  await win.getByRole('button', { name: 'Restart to update' }).click()
+  await expect.poll(async () => (await state()).asked).toEqual(['A git operation is still running.'])
+  expect((await state()).installed).toBe(false)
+  await app.evaluate(() => void ((globalThis as unknown as { __answer: number }).__answer = 0))
+  await win.getByRole('button', { name: 'Restart to update' }).click()
+  await expect.poll(async () => (await state()).installed).toBe(true)
+})
+
 test('newer version without self-install opens the download page', async () => {
   version = '99.0.0'
   const { app, win } = await launch(feed.url, false)

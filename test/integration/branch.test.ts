@@ -2,6 +2,7 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { applyBranchStash, createBranch, deleteBranch, listBranches, parseTrack, stashAndSwitch, switchBranch, validateBranchName } from '../../src/main/git/branch'
+import { rebaseOntoUpstream } from '../../src/main/git/sync'
 import { createRepoFixture, type RepoFixture } from '../fixtures/repo'
 
 describe('parseTrack', () => {
@@ -100,5 +101,25 @@ describe('branches', () => {
     const b = await listBranches(fx.work, fx.env)
     expect(b.current).toBeNull()
     expect(b.head).toBe(fx.git(['rev-parse', '--short', 'HEAD']))
+  })
+})
+
+describe('git calls per op', () => {
+  let fx: RepoFixture
+  afterEach(() => fx?.cleanup())
+  /** Run `op` with GIT_TRACE and count how often git ran `sub` (e.g. for-each-ref = one listBranches). */
+  const count = async (sub: string, op: (env: NodeJS.ProcessEnv) => Promise<unknown>) => {
+    const trace = path.join(fx.dir, `trace-${sub}-${Math.random()}`)
+    await op({ ...fx.env, GIT_TRACE: trace })
+    return readFileSync(trace, 'utf8').split('\n').filter((l) => l.includes(`built-in: git ${sub}`)).length
+  }
+
+  it('reuses already-read branch/sync state instead of re-reading it', async () => {
+    fx = createRepoFixture()
+    fx.git(['branch', 'other'])
+    expect(await count('for-each-ref', (env) => switchBranch(fx.work, 'other', env))).toBe(1)
+    expect(await count('for-each-ref', (env) => deleteBranch(fx.work, 'main', false, env))).toBe(1)
+    fx.git(['switch', '-q', '-c', 'main', '--track', 'origin/main'])
+    expect(await count('for-each-ref', (env) => rebaseOntoUpstream(fx.work, false, { env }))).toBe(1)
   })
 })

@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient, type InfiniteData, type QueryClient } from '@tanstack/react-query'
 import { ChevronDown, GitBranch, X } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { Button, Dialog, DialogTrigger, GridList, GridListItem, Heading, Input, Label, Modal, ModalOverlay, Popover, SearchField, TextField } from 'react-aria-components'
@@ -7,8 +7,19 @@ import a from './App.module.css'
 import { useMenuCommand } from './menu'
 import s from './Repos.module.css'
 
-/** Refetch every query of this repo (keys are `[kind, repoId, ...]`) after a git write. */
-export const refreshRepo = (qc: QueryClient, repo: string) => qc.invalidateQueries({ predicate: (q) => q.queryKey[1] === repo })
+/** Refetch every query of this repo (keys are `[kind, repoId, ...]`) after a git write; History refetches only its first page. */
+export const refreshRepo = (qc: QueryClient, repo: string) => {
+  qc.setQueriesData<InfiniteData<unknown[], number>>({ queryKey: ['history', repo] }, (d) => d && { pages: d.pages.slice(0, 1), pageParams: d.pageParams.slice(0, 1) })
+  return qc.invalidateQueries({ predicate: (q) => q.queryKey[1] === repo })
+}
+
+const LOCAL = new Set(['status', 'diff', 'commitInfo', 'sync', 'branches', 'conflict'])
+/**
+ * Files, index or refs changed on disk: refetch local git state only. Provider/Gerrit queries (incl. the commit hint)
+ * refresh on interval, focus, HEAD change or explicit ops instead of every save.
+ */
+export const refreshLocal = (qc: QueryClient, repo: string) =>
+  qc.invalidateQueries({ predicate: (q) => q.queryKey[1] === repo && LOCAL.has(q.queryKey[0] as string) && q.queryKey[2] !== 'gerrit' })
 
 export const useBranches = (repo: string) => useQuery({ queryKey: ['branches', repo], queryFn: () => window.gitdock['branch:list']({ repo }) })
 

@@ -1,7 +1,8 @@
 import { expect, test } from '@playwright/test'
-import { writeFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { startGerritMock, type GerritMock } from '../fixtures/gerrit-mock'
 import { commitForChange, connectGerrit, gerritPushOutput, launchGerrit, type GerritApp } from './gerrit'
+import { stubMessageBox } from './launch'
 
 let mock: GerritMock
 let g: GerritApp | null = null
@@ -76,6 +77,25 @@ test('Gerrit pulls with rebase regardless of the merge setting', async () => {
   expect(fx.git(['log', '-1', '--format=%s', 'HEAD~1'])).toBe('remote r')
 })
 
+test('Gerrit pull with a dirty tree: Stash & pull confirm, then autostash keeps the edit', async () => {
+  g = await launchGerrit(mock)
+  const { app, win, fx } = g
+  const other = `${fx.dir}/other`
+  fx.git(['clone', '-q', fx.remote, other], fx.dir)
+  writeFileSync(`${other}/r.txt`, 'r\n')
+  fx.git(['add', 'r.txt'], other)
+  fx.git(['commit', '-q', '-m', 'remote r'], other)
+  fx.git(['push', '-q'], other)
+  writeFileSync(`${fx.work}/README.md`, 'local edit\n')
+  await stubMessageBox(app, 0)
+  await win.getByRole('button', { name: 'Sync options' }).click()
+  await win.getByRole('menuitem', { name: 'Fetch' }).click()
+  await win.getByRole('button', { name: 'Pull ↓1' }).click()
+  await expect(win.getByRole('button', { name: /^Fetch origin/ })).toBeVisible()
+  expect(fx.git(['log', '-1', '--format=%s'])).toBe('remote r')
+  expect(readFileSync(`${fx.work}/README.md`, 'utf8')).toBe('local edit\n')
+})
+
 test('HEAD with an open change: history badge, amend pre-ticked as new patchset, upload succeeds', async () => {
   mock.changes[0].work_in_progress = true
   g = await launchGerrit(mock)
@@ -127,4 +147,37 @@ test('pre-ticked amend waits for the fresh HEAD message (commit made outside, sl
   await expect(box.getByRole('checkbox', { name: 'Amend last commit' })).toBeChecked()
   await expect(box.getByLabel('Summary')).toHaveValue('Add x.txt')
   await expect(box.getByLabel('Description')).toHaveValue(`Change-Id: I${'101'.padStart(40, '0')}`)
+})
+
+test('new local branch without upstream: Send for review is offered; plain Publish asks before pushing to refs/heads', async () => {
+  g = await launchGerrit(mock)
+  const { app, win, fx } = g
+  fx.git(['switch', '-q', '-c', 'topic-x'])
+  commitForChange(fx, 'x.txt', 101)
+  gerritPushOutput(fx, `${mock.url}/c/p/q/+/101 Add x.txt [NEW]`)
+  await win.getByRole('button', { name: 'Send for review ↑1' }).click()
+  const dialog = win.getByRole('dialog', { name: 'Send for review' })
+  await dialog.getByLabel('Target branch').fill('main')
+  await dialog.getByRole('button', { name: 'Send' }).click()
+  await expect(win.getByRole('alert').filter({ hasText: 'Created change #101' })).toBeVisible()
+  expect(refs(g)).toBe('refs/for/main')
+
+  const asked = () => app.evaluate(() => (globalThis as unknown as { __asked: string[] }).__asked)
+  await app.evaluate(({ dialog }) => {
+    const g = globalThis as unknown as { __asked: string[] }
+    g.__asked = []
+    dialog.showMessageBox = (async (_w: unknown, o: { message: string }) => (g.__asked.push(o.message), { response: 1, checkboxChecked: false })) as never // Cancel
+  })
+  const publish = async () => {
+    await win.getByRole('button', { name: 'Sync options' }).click()
+    await win.getByRole('menuitem', { name: 'Publish branch' }).click()
+  }
+  await publish()
+  await expect.poll(asked).toEqual(['Push directly to refs/heads/topic-x?'])
+  await expect(win.getByRole('button', { name: 'Send for review ↑1' })).toBeEnabled()
+  expect(fx.git(['ls-remote', '--heads', 'origin', 'topic-x'])).toBe('')
+
+  await stubMessageBox(app, 0)
+  await publish()
+  await expect.poll(() => fx.git(['ls-remote', '--heads', 'origin', 'topic-x'])).toContain('refs/heads/topic-x')
 })

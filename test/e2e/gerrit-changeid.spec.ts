@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test'
 import { readdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { startGerritMock, type GerritMock } from '../fixtures/gerrit-mock'
-import { launchGerrit, type GerritApp } from './gerrit'
+import { commitForChange, connectGerrit, launchGerrit, type GerritApp } from './gerrit'
 
 let mock: GerritMock
 let g: GerritApp | null = null
@@ -35,4 +35,23 @@ test('no hook: commit gets a Change-Id from gitdock; unpushed HEAD without one g
   expect(fx.git(['log', '-1', '--format=%B'])).toMatch(/^Add b\n\nChange-Id: I[0-9a-f]{40}$/)
   expect(readdirSync(path.join(fx.work, '.git/hooks'))).toEqual(hooks)
   expect(mock.requests.filter((r) => r.url.includes('/tools/hooks'))).toHaveLength(0) // hook never downloaded
+})
+
+test('saving files refreshes local state only: no Gerrit lookup per save', async () => {
+  g = await launchGerrit(mock)
+  const { win, fx } = g
+  await connectGerrit(win, mock)
+  commitForChange(fx, 'x.txt', 101)
+  await win.getByRole('tab', { name: 'History' }).click()
+  await expect(win.getByRole('grid', { name: 'Commits' }).getByRole('row', { name: 'Add x.txt' })).toContainText('in review #101')
+  await win.getByRole('tab', { name: 'Changes' }).click()
+  await expect(win.getByRole('form', { name: 'Commit' })).toContainText('Will upload a new patchset of #101')
+  const lookups = () => mock.find('GET', 'change:I').length
+  await expect.poll(lookups).toBe(2) // commit hint + History badges, once for the new HEAD
+  const files = win.getByRole('grid', { name: 'Changed files' })
+  for (const name of ['y.txt', 'z.txt']) {
+    writeFileSync(path.join(fx.work, name), `${name}\n`)
+    await expect(files).toContainText(name)
+  }
+  expect(lookups()).toBe(2)
 })

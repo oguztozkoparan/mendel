@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test'
 import { execFileSync } from 'node:child_process'
+import { writeFileSync } from 'node:fs'
+import path from 'node:path'
 import { createRepoFixture } from '../fixtures/repo'
 import { launchApp, openRepo } from './launch'
 
@@ -55,6 +57,39 @@ test('500-commit history: first page fast, scrolling pages in the rest', async (
       await list.evaluate((el) => (el.scrollTop = el.scrollHeight))
       await expect(list.getByRole('row', { name: 'initial commit' })).toBeVisible({ timeout: 500 })
     }).toPass({ timeout: 10_000 })
+    expect(Number(await list.getAttribute('aria-rowcount'))).toBeGreaterThanOrEqual(500)
+    // A refresh (scrolled back to the top) refetches only the first page instead of all five.
+    await list.evaluate((el) => (el.scrollTop = 0))
+    await expect(list.getByRole('row', { name: 'c498' })).toBeVisible()
+    await app.app.evaluate(({ Menu }) => Menu.getApplicationMenu()!.getMenuItemById('status:refresh')!.click())
+    await expect.poll(async () => Number(await list.getAttribute('aria-rowcount'))).toBeLessThan(200)
+  } finally {
+    await app.close()
+    fx.cleanup()
+  }
+})
+
+test('large diffs are gated before parsing (History and Changes); commit file list is virtualized', async () => {
+  const fx = createRepoFixture()
+  const big = Array.from({ length: 6000 }, (_, i) => `line ${i}`).join('\n') + '\n'
+  for (let i = 0; i < 1000; i++) writeFileSync(path.join(fx.work, `f${String(i).padStart(4, '0')}.txt`), `${i}\n`)
+  fx.git(['add', '-A'])
+  fx.commitFile('big.txt', big, 'Big commit')
+  writeFileSync(path.join(fx.work, 'big.txt'), big.replaceAll('line', 'LINE'))
+  const app = await launchApp(fx.env)
+  const { win } = app
+  try {
+    await openRepo(app, fx.work)
+    await expect(win.getByText(/Large diff hidden \(\d+ lines\)/)).toBeVisible()
+
+    await win.getByRole('tab', { name: 'History' }).click()
+    const files = win.getByRole('listbox', { name: 'Changed files' })
+    await expect(files.getByRole('option').first()).toBeVisible()
+    expect(await files.getByRole('option').count()).toBeLessThan(200) // 1001 files, only visible rows rendered
+    await files.getByRole('option', { name: 'big.txt' }).click() // sorted first
+    const diff = win.getByLabel('Commit detail')
+    await diff.getByRole('button', { name: 'Show anyway' }).click()
+    await expect(win.getByLabel('Commit diff')).toContainText('line 5999')
   } finally {
     await app.close()
     fx.cleanup()
