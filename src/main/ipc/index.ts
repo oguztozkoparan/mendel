@@ -6,6 +6,7 @@ import { appOrigin } from '../security'
 import { appHandlers } from './app'
 import { authHandlers } from './auth'
 import { gitHandlers } from './git'
+import { updateHandlers } from './update'
 
 export type Handlers<C extends InvokeChannel = InvokeChannel> = {
   [K in C]: (req: Req<K>, e: IpcMainInvokeEvent) => Res<K> | Promise<Res<K>>
@@ -19,7 +20,7 @@ function trusted(e: IpcMainInvokeEvent): boolean {
 
 /** Add each channel group's handlers here; the type forces every channel in the contract to be handled. */
 export function registerIpc(): void {
-  const handlers: Handlers = { ...appHandlers, ...gitHandlers, ...authHandlers }
+  const handlers: Handlers = { ...appHandlers, ...gitHandlers, ...authHandlers, ...updateHandlers }
   for (const channel of Object.keys(invoke) as InvokeChannel[]) {
     ipcMain.handle(channel, async (e, raw: unknown) => {
       if (!trusted(e)) throw new Error('Untrusted IPC sender')

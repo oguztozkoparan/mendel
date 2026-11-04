@@ -26,15 +26,31 @@ export interface AuthPrompt {
   prompt: string
 }
 
+/** Update checker state (PLAN.md §3.12). `canInstall: false` = "Download" opens the download page instead. */
+export type UpdateState =
+  | { status: 'idle' }
+  | { status: 'checking' }
+  | { status: 'up-to-date'; version: string }
+  | { status: 'available'; version: string; notes: string; canInstall: boolean }
+  | { status: 'downloading'; version: string; percent: number }
+  | { status: 'downloaded'; version: string }
+  | { status: 'error'; message: string }
+
 export const invoke = {
   'app:info': res<AppInfo>()(z.undefined()),
   'git:info': res<GitInfo>()(z.object({ recheck: z.boolean() }).strict().optional()),
   /** value null = cancel (git/ssh then fails with AuthFailed). For `confirm` prompts send 'yes'. */
-  'auth:respond': res<void>()(z.object({ id: z.string().max(64), value: z.string().max(4096).nullable() }).strict())
+  'auth:respond': res<void>()(z.object({ id: z.string().max(64), value: z.string().max(4096).nullable() }).strict()),
+  'update:state': res<UpdateState>()(z.undefined()),
+  /** Manual "Check for updates"; resolves with the state after the check. */
+  'update:check': res<UpdateState>()(z.undefined()),
+  'update:download': res<void>()(z.undefined()),
+  'update:install': res<void>()(z.undefined())
 } as const
 
 export const events = {
-  'auth:prompt': null as unknown as AuthPrompt
+  'auth:prompt': null as unknown as AuthPrompt,
+  'update:state': null as unknown as UpdateState
 } as const
 
 export type InvokeChannel = keyof typeof invoke

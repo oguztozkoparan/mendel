@@ -3,6 +3,7 @@ import { ASKPASS_SOCKET_ENV, ASKPASS_TOKEN_ENV, requestAnswer, startAskpassServe
 import { git, setGitEnv } from './git/runner'
 import { registerIpc } from './ipc'
 import { askUser } from './ipc/auth'
+import { startUpdater } from './ipc/update'
 import log from './log'
 import { createMainWindow } from './window'
 import { hardenSession, registerAppScheme } from './security'
@@ -43,6 +44,7 @@ function startApp(): void {
     // e2e-only seam: lets Playwright drive the real git runner from the main process.
     if (e2e) Object.assign(globalThis, { __gitdockTest: { git } })
     createMainWindow()
+    startUpdater()
     app.on('activate', () => BrowserWindow.getAllWindows().length === 0 && createMainWindow())
   })
 

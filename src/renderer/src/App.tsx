@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { GitInfo } from '../../shared/ipc'
 import s from './App.module.css'
 import { AuthPromptDialog } from './AuthPromptDialog'
+import { UpdatePill } from './UpdatePill'
 
 const INSTALL_HINT: Record<string, string> = {
   darwin: 'Install Git with Xcode Command Line Tools (xcode-select --install) or Homebrew (brew install git).',
@@ -17,7 +18,7 @@ export function App() {
 
   return (
     <div className={s.app}>
-      <header className={s.toolbar} aria-label="Toolbar" />
+      <header className={s.toolbar} aria-label="Toolbar"><UpdatePill /></header>
       <main className={s.welcome}>
         <h1>gitdock</h1>
         {git && !usable && (
