@@ -64,7 +64,7 @@ export class GitError extends Error {
   }
 }
 
-function isExecutableFile(p: string): boolean {
+export function isExecutableFile(p: string): boolean {
   try {
     accessSync(p, constants.X_OK)
     return statSync(p).isFile()

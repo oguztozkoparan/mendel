@@ -45,6 +45,7 @@ export function DiffView({ repo, file, act }: { repo: string; file: FileChange; 
       <div className={s.diffPane}>
         <div className={s.fileHeader}>
           <h2>{file.path}</h2>
+          <Button onPress={() => act(window.gitdock['repo:openEditor']({ repo, path: file.path }))}>Open in editor</Button>
           <Button onPress={() => act(window.gitdock['changes:stage']({ repo, paths: [file.path] }))}>Mark resolved</Button>
         </div>
         <p className={s.empty}>Conflicted file. Resolve the conflict markers in your editor, then mark it resolved.</p>

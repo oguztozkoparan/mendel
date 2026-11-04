@@ -14,7 +14,11 @@ export const DEFAULTS: Settings = {
   summaryLimit: 72,
   spellcheck: true,
   autoUpdateCheck: true,
-  reviewsRefreshMinutes: 5
+  reviewsRefreshMinutes: 5,
+  editor: 'system',
+  editorPath: '',
+  terminal: 'system',
+  terminalPath: ''
 }
 
 /** Main-only state stored next to the preferences. */

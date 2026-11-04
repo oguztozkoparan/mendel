@@ -1,4 +1,4 @@
-import { Check, ChevronDown, FolderGit2, FolderOpen, X } from 'lucide-react'
+import { Check, ChevronDown, Code, FolderGit2, FolderOpen, SquareTerminal, X } from 'lucide-react'
 import { useState } from 'react'
 import { useMenuCommand } from './menu'
 import { Button, Dialog, DialogTrigger, GridList, GridListItem, Input, Popover, SearchField } from 'react-aria-components'
@@ -11,6 +11,8 @@ export interface RepoActions {
   open(id: string): void
   remove(id: string): void
   reveal(id: string): void
+  editor(id: string): void
+  terminal(id: string): void
   clone(): void
 }
 
@@ -37,9 +39,17 @@ export function RepoList(p: { repos: RepoEntry[]; current: string | null; action
             <small>{r.exists ? r.path : `Missing: ${r.path}`}</small>
           </div>
           {r.exists ? (
-            <Button className="icon" aria-label={`Reveal ${r.name}`} onPress={() => actions.reveal(r.id)}>
-              <FolderOpen size={14} />
-            </Button>
+            <>
+              <Button className="icon" aria-label={`Open ${r.name} in editor`} onPress={() => actions.editor(r.id)}>
+                <Code size={14} />
+              </Button>
+              <Button className="icon" aria-label={`Open ${r.name} in terminal`} onPress={() => actions.terminal(r.id)}>
+                <SquareTerminal size={14} />
+              </Button>
+              <Button className="icon" aria-label={`Reveal ${r.name}`} onPress={() => actions.reveal(r.id)}>
+                <FolderOpen size={14} />
+              </Button>
+            </>
           ) : (
             <Button onPress={done(() => actions.add(r.id))}>Locate…</Button>
           )}

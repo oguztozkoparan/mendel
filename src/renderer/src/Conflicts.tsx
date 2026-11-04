@@ -19,7 +19,7 @@ export function ConflictBanner(p: { repo: string; onError(msg: string): void }) 
         <ul>
           {conflicted.map((f) => (
             <li key={f.path}>
-              <code>{f.path}</code>{' '}
+              <code>{f.path}</code> <Button onPress={() => run(window.gitdock['repo:openEditor']({ repo: p.repo, path: f.path }))}>Open in editor</Button>{' '}
               <Button onPress={() => run(window.gitdock['changes:stage']({ repo: p.repo, paths: [f.path] }))}>Mark resolved</Button>
             </li>
           ))}

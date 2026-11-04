@@ -1,11 +1,20 @@
 import { BrowserWindow, dialog, shell } from 'electron'
 import { cloneRepo, validateCloneUrl } from '../git/clone'
+import { openInEditor, openTerminal } from '../external'
 import { dubiousDir, repoTopLevel, trustDirectory } from '../git/repo'
 import { cloneParent, forgetRepo, listRepos, rememberRepo, repoRoot } from '../repos'
 import { resolveUnder } from '../safe-path'
 import { emit, type Handlers } from '.'
 
 let cloning: AbortController | null = null
+
+/** Absolute path of the repo root or of repo-relative `rel` in it (TECH.md §6.4). */
+function inRepo(id: string, rel?: string): string {
+  const root = repoRoot(id)
+  const abs = rel === undefined ? root : resolveUnder(root, rel)
+  if (!abs) throw new Error('Invalid path')
+  return abs
+}
 
 /** repoTopLevel; on "dubious ownership" ask (native, in main) to trust exactly that folder, then retry (S16). */
 async function topLevelTrusting(dir: string, win: BrowserWindow | null): Promise<string> {
@@ -29,7 +38,7 @@ async function topLevelTrusting(dir: string, win: BrowserWindow | null): Promise
 }
 
 export const repoHandlers: Handlers<
-  'repo:list' | 'repo:add' | 'repo:open' | 'repo:remove' | 'repo:reveal' | 'repo:cloneParent' | 'repo:clone' | 'repo:cloneCancel'
+  'repo:list' | 'repo:add' | 'repo:open' | 'repo:remove' | 'repo:reveal' | 'repo:openEditor' | 'repo:openTerminal' | 'repo:cloneParent' | 'repo:clone' | 'repo:cloneCancel'
 > = {
   'repo:list': () => listRepos(),
   'repo:add': async (req, e) => {
@@ -41,7 +50,9 @@ export const repoHandlers: Handlers<
   },
   'repo:open': async ({ id }, e) => rememberRepo(await topLevelTrusting(repoRoot(id), BrowserWindow.fromWebContents(e.sender)), id),
   'repo:remove': ({ id }) => forgetRepo(id),
-  'repo:reveal': ({ id }) => shell.showItemInFolder(repoRoot(id)),
+  'repo:reveal': ({ id, path }) => shell.showItemInFolder(inRepo(id, path)),
+  'repo:openEditor': ({ repo, path }) => openInEditor(inRepo(repo, path)),
+  'repo:openTerminal': ({ repo }) => openTerminal(repoRoot(repo)),
   'repo:cloneParent': async ({ pick }, e) => {
     if (!pick) return cloneParent()
     const win = BrowserWindow.fromWebContents(e.sender)!

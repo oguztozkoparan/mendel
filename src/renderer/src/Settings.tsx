@@ -61,6 +61,8 @@ export function SettingsDialog(p: { repo?: string; onClose(): void }) {
             <TabPanel id="General" className={s.panel}>
               <Choice label="Theme" value={st.theme} options={[['system', 'System'], ['light', 'Light'], ['dark', 'Dark']]} onChange={(theme) => set({ theme })} />
               <CloneFolder />
+              <ToolChoice kind="editor" st={st} set={set} onError={setError} />
+              <ToolChoice kind="terminal" st={st} set={set} onError={setError} />
               <Toggle label="Reopen last repository on start" value={st.reopenLastRepo} onChange={(reopenLastRepo) => set({ reopenLastRepo })} />
               <Toggle label="Confirm before discarding changes" value={st.confirmDiscard} onChange={(confirmDiscard) => set({ confirmDiscard })} />
             </TabPanel>
@@ -122,6 +124,29 @@ function Row(p: { label: string; children: ReactNode }) {
       <span>{p.label}</span>
       <div className={a.row}>{p.children}</div>
     </div>
+  )
+}
+
+/** Editor / terminal (PLAN.md §6): System default, detected apps, or a custom executable picked natively in main. */
+function ToolChoice(p: { kind: 'editor' | 'terminal'; st: Settings; set(patch: Partial<Settings>): void; onError(msg: string): void }) {
+  const qc = useQueryClient()
+  const tools = useQuery({ queryKey: ['tools'], queryFn: () => window.gitdock['settings:tools']() }).data
+  const editor = p.kind === 'editor'
+  const custom = editor ? p.st.editorPath : p.st.terminalPath
+  const options: [string, string][] = [
+    ['system', 'System default'],
+    ...(tools?.[editor ? 'editors' : 'terminals'] ?? []).map((t): [string, string] => [t.id, t.name]),
+    ...(custom ? [['custom', `Custom: ${custom}`] as [string, string]] : [])
+  ]
+  const pick = () =>
+    void window.gitdock['settings:pickTool']({ kind: p.kind }).then((v) => qc.setQueryData(['settings'], v), (e: Error) => p.onError(e.message))
+  return (
+    <>
+      <Choice label={editor ? 'External editor' : 'Terminal'} value={editor ? p.st.editor : p.st.terminal} options={options} onChange={(v) => p.set(editor ? { editor: v } : { terminal: v })} />
+      <div className={a.row}>
+        <Button onPress={pick}>Choose custom {p.kind}…</Button>
+      </div>
+    </>
   )
 }
 

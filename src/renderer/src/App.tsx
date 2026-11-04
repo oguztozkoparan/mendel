@@ -69,6 +69,8 @@ export function App() {
     open: (id) => run(window.gitdock['repo:open']({ id })),
     remove: (id) => run(window.gitdock['repo:remove']({ id })),
     reveal: (id) => run(window.gitdock['repo:reveal']({ id })),
+    editor: (repo) => run(window.gitdock['repo:openEditor']({ repo })),
+    terminal: (repo) => run(window.gitdock['repo:openTerminal']({ repo })),
     clone: () => setCloning(true)
   }
   useMenuCommand((cmd) => {
@@ -77,6 +79,8 @@ export function App() {
     else if (cmd === 'repo:open') actions.add()
     else if (cmd === 'repo:clone') actions.clone()
     else if (cmd === 'repo:reveal' && current) actions.reveal(current.id)
+    else if (cmd === 'repo:editor' && current) actions.editor(current.id)
+    else if (cmd === 'repo:terminal' && current) actions.terminal(current.id)
     else if (cmd === 'status:refresh' && current) void refreshRepo(qc, current.id)
   })
 

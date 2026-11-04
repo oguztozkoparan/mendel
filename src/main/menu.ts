@@ -71,7 +71,9 @@ export function buildMenu(): void {
         item('Push', 'sync:push', 'CmdOrCtrl+P'),
         item('Rebase onto Upstream', 'sync:rebase'),
         { type: 'separator' },
-        item(mac ? 'Reveal in Finder' : 'Show in File Manager', 'repo:reveal', 'CmdOrCtrl+Shift+R')
+        item(mac ? 'Reveal in Finder' : 'Show in File Manager', 'repo:reveal', 'CmdOrCtrl+Shift+R'),
+        item('Open in Editor', 'repo:editor', 'CmdOrCtrl+Shift+A'),
+        item('Open in Terminal', 'repo:terminal', 'CmdOrCtrl+`')
       ]
     },
     {

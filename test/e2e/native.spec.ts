@@ -34,6 +34,8 @@ test('menu accelerators match PLAN §7 and trigger their actions', async () => {
       'sync:push': 'CmdOrCtrl+P',
       'status:refresh': 'CmdOrCtrl+R',
       'repo:reveal': 'CmdOrCtrl+Shift+R',
+      'repo:editor': 'CmdOrCtrl+Shift+A',
+      'repo:terminal': 'CmdOrCtrl+`',
       settings: 'CmdOrCtrl+,'
     })
     expect(await app.evaluate(({ Menu }) => !!Menu.getApplicationMenu()!.getMenuItemById('update:check'))).toBe(true)

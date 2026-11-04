@@ -94,6 +94,11 @@ Status: 49 bullets, 48 covered by automation, 1 partly manual (OS theme switch),
 | Window bounds persist; second launch focuses first | e2e/native.spec.ts: window bounds persist… |
 | Every §7 shortcut triggers its action | e2e/native.spec.ts: menu accelerators… |
 
+## MVP extras (REVIEW.md batch B)
+| Behaviour | Test |
+|---|---|
+| Open in editor / terminal: custom executable (picked natively, non-executable refused), Changes empty state, menu Mod+Shift+A / Mod+`, System default → OS | e2e/external.spec.ts (macOS/Linux; Windows launch: **manual**); e2e/native.spec.ts (accelerators) |
+
 ## Updates
 | Bullet | Test |
 |---|---|

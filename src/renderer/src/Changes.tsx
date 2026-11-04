@@ -111,7 +111,15 @@ export function ChangesView({ repo }: { repo: RepoEntry }) {
         ) : selected ? (
           <DiffView key={selected.path} repo={repo.id} file={selected} act={act} />
         ) : (
-          status.data && <p className={s.empty}>No local changes</p>
+          status.data && (
+            <div className={s.empty}>
+              <p>No local changes</p>
+              <div className={a.row}>
+                <Button onPress={() => act(window.gitdock['repo:openEditor']({ repo: repo.id }))}>Open in editor</Button>
+                <Button onPress={() => act(window.gitdock['repo:reveal']({ id: repo.id }))}>Reveal</Button>
+              </div>
+            </div>
+          )
         )}
       </section>
     </>

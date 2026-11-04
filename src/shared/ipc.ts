@@ -146,11 +146,23 @@ const prefs = z
     spellcheck: z.boolean(),
     autoUpdateCheck: z.boolean(),
     /** Gerrit Reviews tab auto-refresh. */
-    reviewsRefreshMinutes: z.union([z.literal(1), z.literal(5), z.literal(15), z.literal(30)])
+    reviewsRefreshMinutes: z.union([z.literal(1), z.literal(5), z.literal(15), z.literal(30)]),
+    /** 'system' (OS default), 'custom' (`editorPath`) or a detected tool id (`app:tools`). */
+    editor: z.string().min(1).max(64),
+    /** Custom editor executable; set only through the native picker in main (`settings:pickTool`). */
+    editorPath: z.string().max(4096),
+    terminal: z.string().min(1).max(64),
+    terminalPath: z.string().max(4096)
   })
   .strict()
 export type Settings = z.output<typeof prefs>
 export const settingsFields = prefs.shape
+
+/** An installed editor/terminal gitdock can launch. */
+export interface ExternalTool {
+  id: string
+  name: string
+}
 
 /** Native menu items / accelerators (PLAN.md §7) the renderer acts on; sent as `menu:command`. */
 export type MenuCommand =
@@ -161,6 +173,8 @@ export type MenuCommand =
   | 'repo:open'
   | 'repo:clone'
   | 'repo:reveal'
+  | 'repo:editor'
+  | 'repo:terminal'
   | 'branch:selector'
   | 'branch:new'
   | 'sync:fetch'
@@ -246,7 +260,11 @@ export const invoke = {
   'repo:add': res<RepoEntry | null>()(z.object({ locate: repoId.optional() }).strict().optional()),
   'repo:open': res<RepoEntry>()(byId),
   'repo:remove': res<void>()(byId),
-  'repo:reveal': res<void>()(byId),
+  /** Show the repo (or `path` in it) in Finder / Explorer / the file manager. */
+  'repo:reveal': res<void>()(z.object({ id: repoId, path: relPath.optional() }).strict()),
+  /** Open the repo root (or `path` in it) in the editor chosen in Settings. */
+  'repo:openEditor': res<void>()(z.object({ repo: repoId, path: relPath.optional() }).strict()),
+  'repo:openTerminal': res<void>()(inRepo),
   /** Folder clones go into (absolute, for display). `pick` shows the native folder dialog first. */
   'repo:cloneParent': res<string>()(z.object({ pick: z.boolean() }).strict()),
   /** Clone into `<cloneParent>/<name>`, then open it. Progress via `repo:cloneProgress`. */
@@ -316,7 +334,12 @@ export const invoke = {
   'conflict:abort': res<boolean>()(inRepo),
   'settings:get': res<Settings>()(z.undefined()),
   /** Change some preferences; resolves with all of them. */
-  'settings:set': res<Settings>()(prefs.partial()),
+  /** Custom tool paths are not settable from the renderer (TECH.md §6.2): see `settings:pickTool`. */
+  'settings:set': res<Settings>()(prefs.omit({ editorPath: true, terminalPath: true }).partial()),
+  /** Installed editors and terminals for Settings → General. */
+  'settings:tools': res<{ editors: ExternalTool[]; terminals: ExternalTool[] }>()(z.undefined()),
+  /** Native file picker for a custom editor/terminal executable; resolves with all settings (unchanged if cancelled). */
+  'settings:pickTool': res<Settings>()(z.object({ kind: z.enum(['editor', 'terminal']) }).strict()),
   /** Global git identity used for commits (`git config --global user.name/email`). */
   'settings:gitIdentity': res<{ name: string; email: string }>()(z.undefined()),
   'settings:setGitIdentity': res<void>()(
