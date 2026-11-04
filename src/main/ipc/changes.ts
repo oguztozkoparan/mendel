@@ -1,5 +1,6 @@
-import { BrowserWindow, dialog, type IpcMainInvokeEvent } from 'electron'
-import { applyHunk, discardPaths, getDiff, getStatus, stagePaths, unstagePaths } from '../git/changes'
+import { BrowserWindow, clipboard, dialog, Menu, shell, type IpcMainInvokeEvent } from 'electron'
+import { openInEditor } from '../external'
+import { applyHunk, discardPaths, getDiff, getStatus, ignorePath, stagePaths, unstagePaths } from '../git/changes'
 import { repoRoot } from '../repos'
 import { getSettings } from '../settings'
 import { resolveUnder } from '../safe-path'
@@ -20,7 +21,7 @@ async function confirmDiscard(e: IpcMainInvokeEvent, message: string): Promise<b
   return r.response === 0
 }
 
-export const changesHandlers: Handlers<'changes:status' | 'changes:diff' | 'changes:stage' | 'changes:unstage' | 'changes:applyHunk' | 'changes:discard'> = {
+export const changesHandlers: Handlers<'changes:status' | 'changes:diff' | 'changes:stage' | 'changes:unstage' | 'changes:applyHunk' | 'changes:discard' | 'changes:menu'> = {
   'changes:status': ({ repo }) => {
     const root = repoRoot(repo)
     watchRepo(
@@ -54,5 +55,32 @@ export const changesHandlers: Handlers<'changes:status' | 'changes:diff' | 'chan
     if (!(await confirmDiscard(e, `Discard all changes to ${what}?`))) return false
     await discardPaths(root, paths)
     return true
+  },
+  'changes:menu': ({ repo, path, origPath, untracked }, e) => {
+    const root = repoRoot(repo)
+    const abs = resolveUnder(root, checkPath(root, path))!
+    const paths = origPath ? [checkPath(root, origPath), path] : [path]
+    const mac = process.platform === 'darwin'
+    return new Promise<void>((resolve, reject) => {
+      let picked = false
+      // Settles with the picked action's outcome; the menu's close callback alone means "nothing picked".
+      const run = (fn: () => unknown) => () => ((picked = true), Promise.resolve().then(fn).then(() => resolve(), reject))
+      const menu = Menu.buildFromTemplate([
+        {
+          id: 'discard',
+          label: 'Discard changes…',
+          click: run(async () => (await confirmDiscard(e, `Discard all changes to ${path}?`)) && discardPaths(root, paths))
+        },
+        { id: 'ignore', label: 'Ignore file (add to .gitignore)', enabled: untracked, click: run(() => ignorePath(root, path)) },
+        { type: 'separator' },
+        { id: 'reveal', label: mac ? 'Reveal in Finder' : 'Show in File Manager', click: run(() => shell.showItemInFolder(abs)) },
+        { id: 'editor', label: 'Open in Editor', click: run(() => openInEditor(abs)) },
+        { type: 'separator' },
+        { id: 'copy', label: 'Copy File Path', click: run(() => clipboard.writeText(abs)) },
+        { id: 'copyRelative', label: 'Copy Relative File Path', click: run(() => clipboard.writeText(path)) }
+      ])
+      // Clicks may be dispatched just after the close callback (macOS): give them a moment.
+      menu.popup({ window: BrowserWindow.fromWebContents(e.sender)!, callback: () => setTimeout(() => picked || resolve(), 200) })
+    })
   }
 }

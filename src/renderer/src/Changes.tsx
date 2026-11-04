@@ -83,7 +83,12 @@ export function ChangesView({ repo }: { repo: RepoEntry }) {
             className={s.list}
           >
             {(f) => (
-              <GridListItem id={f.path} textValue={f.path} className={s.row}>
+              <GridListItem
+                id={f.path}
+                textValue={f.path}
+                className={s.row}
+                onContextMenu={(e) => (e.preventDefault(), act(window.gitdock['changes:menu']({ repo: repo.id, path: f.path, origPath: f.origPath, untracked: f.unstaged === '?' })))}
+              >
                 <Box label="Staged" selected={fullyStaged(f)} indeterminate={!!f.staged && !!f.unstaged} onChange={(v) => setStaged([f], v)} />
                 <span className={s.path} title={f.origPath ? `${f.origPath} → ${f.path}` : f.path}>
                   {f.path}

@@ -1,5 +1,6 @@
+import { appendFileSync, lstatSync, readFileSync } from 'node:fs'
 import type { FileChange, StatusCode } from '../../shared/ipc'
-import { realUnder } from '../safe-path'
+import { realUnder, resolveUnder } from '../safe-path'
 import { git } from './runner'
 
 const code = (c: string | undefined) => (c && c !== '.' ? (c as StatusCode) : null)
@@ -108,4 +109,23 @@ export async function applyHunk(cwd: string, t: Omit<DiffTarget, 'staged'>, head
   if (!patch) throw new Error('The file changed since the diff was shown; try again')
   const args = ['apply', '--whitespace=nowarn', ...(action === 'discard' ? [] : ['--cached']), ...(action === 'stage' ? [] : ['--reverse']), '-']
   await git(args, { cwd, env, stdin: patch })
+}
+
+/** `.gitignore` pattern matching exactly repo-relative `rel`: anchored with `/`, glob chars and trailing spaces escaped. */
+export function ignorePattern(rel: string): string {
+  if (/[\r\n\0]/.test(rel)) throw new Error('This file name cannot be written to .gitignore')
+  return '/' + rel.replace(/[\\*?[]/g, '\\$&').replace(/ +$/, (sp) => sp.replace(/ /g, '\\ '))
+}
+
+/** Append `rel`'s exact pattern to the repo root's `.gitignore` (created if missing; a symlinked one is refused). */
+export function ignorePath(root: string, rel: string): void {
+  const file = resolveUnder(root, '.gitignore')!
+  let text = ''
+  try {
+    if (lstatSync(file).isSymbolicLink()) throw new Error('.gitignore is a symbolic link; edit it yourself')
+    text = readFileSync(file, 'utf8')
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err
+  }
+  appendFileSync(file, (text && !text.endsWith('\n') ? '\n' : '') + ignorePattern(rel) + '\n')
 }

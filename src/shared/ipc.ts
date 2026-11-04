@@ -294,6 +294,8 @@ export const invoke = {
   ),
   /** Discard all changes to these files after a native confirm; false = user cancelled. */
   'changes:discard': res<boolean>()(paths),
+  /** Native right-click menu for a changed file (discard, ignore, reveal, open in editor, copy path); main runs the pick. */
+  'changes:menu': res<void>()(z.object({ repo: repoId, path: relPath, origPath: relPath.optional(), untracked: z.boolean() }).strict()),
   'commit:info': res<CommitInfo>()(inRepo),
   /** Message = `summary\n\ndescription\n`, sent to `git commit -F -`; hook failures reject with git's stderr. */
   'commit:create': res<void>()(
