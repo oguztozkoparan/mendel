@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { createRepoFixture } from '../fixtures/repo'
-import { launchApp, stubOpenDialog } from './launch'
+import { launchApp, stubMessageBox, stubOpenDialog } from './launch'
 
 test('open a repo subfolder opens the top level, adds to recents and reopens on relaunch', async () => {
   const fx = createRepoFixture()
@@ -65,6 +65,24 @@ test('recent entry with deleted path is greyed with Locate and Remove', async ()
     await expect(rows).toHaveCount(1)
     await rows.first().getByRole('button', { name: 'Remove work from list' }).click()
     await expect(win.getByRole('button', { name: 'Open local repository…' })).toBeVisible()
+  } finally {
+    await close()
+    fx.cleanup()
+  }
+})
+
+test('dubious ownership: cancel keeps it closed, "Trust this folder" adds exactly it to safe.directory and opens it', async () => {
+  const fx = createRepoFixture()
+  const { app, win, close } = await launchApp({ ...fx.env, GIT_TEST_ASSUME_DIFFERENT_OWNER: '1' })
+  try {
+    await stubOpenDialog(app, fx.work)
+    await stubMessageBox(app, 1)
+    await win.getByRole('button', { name: 'Open local repository…' }).click()
+    await expect(win.getByRole('alert')).toContainText('dubious ownership')
+    await stubMessageBox(app, 0)
+    await win.getByRole('button', { name: 'Open local repository…' }).click()
+    await expect(win.getByLabel('Toolbar')).toContainText('work')
+    expect(path.resolve(fx.git(['config', '--global', '--get-all', 'safe.directory']))).toBe(fx.work)
   } finally {
     await close()
     fx.cleanup()
