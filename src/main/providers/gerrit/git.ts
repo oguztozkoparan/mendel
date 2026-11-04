@@ -5,7 +5,7 @@ import { constants } from 'node:fs'
 import { access } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
-import { reviewRef, type GerritCommit, type GerritSent } from '../../../shared/gerrit'
+import { changeRef, reviewRef, type GerritCommit, type GerritSent } from '../../../shared/gerrit'
 import { isDirtyError, stashPush, validateBranchName } from '../../git/branch'
 import { endOfOptions, git, GitError } from '../../git/runner'
 
@@ -122,7 +122,7 @@ export async function checkoutChange(
   if (![n, ps].every((x) => Number.isSafeInteger(x) && x > 0)) throw new Error('Invalid change or patch set number')
   const name = `change/${n}-ps${ps}`
   const has = (ref: string) => git(['rev-parse', '--verify', '-q', ref], { cwd, env, signal }).then(() => true, () => false)
-  await git(['-c', 'protocol.ext.allow=never', 'fetch', ...endOfOptions(remote, `refs/changes/${String(n % 100).padStart(2, '0')}/${n}/${ps}`)], { cwd, env, signal })
+  await git(['-c', 'protocol.ext.allow=never', 'fetch', ...endOfOptions(remote, changeRef(n, ps))], { cwd, env, signal })
   const sha = (await git(['rev-parse', '--verify', 'FETCH_HEAD^{commit}'], { cwd, env, signal })).stdout.trim()
   const exists = await has(`refs/heads/${name}`)
   if (exists && !(await ask('replace'))) return null

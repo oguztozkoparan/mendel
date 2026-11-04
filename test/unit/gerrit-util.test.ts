@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { reviewRef } from '../../src/shared/gerrit'
+import { fetchCommand, reviewRef } from '../../src/shared/gerrit'
 import { abbrev, gerritDate, labelSummary } from '../../src/renderer/src/providers/gerrit/util'
 
 it('summarizes labels as highest/lowest vote', () => {
@@ -29,4 +29,10 @@ it('groups comments into threads by in_reply_to', async () => {
 it('reviewRef rejects push-option separators in the target branch (S4)', () => {
   expect(reviewRef('main', { reviewers: ['a@b.c'], wip: true })).toBe('refs/for/main%r=a@b.c,wip')
   for (const t of ['main%r=x', 'a,b', 'a=b']) expect(() => reviewRef(t, { reviewers: [], wip: false })).toThrow(/Invalid target branch/)
+})
+
+it('fetchCommand builds refs/changes/NN/N/P and quotes odd remote names', () => {
+  expect(fetchCommand('origin', 1234, 3)).toBe('git fetch origin refs/changes/34/1234/3 && git checkout FETCH_HEAD')
+  expect(fetchCommand('origin', 5, 1)).toBe('git fetch origin refs/changes/05/5/1 && git checkout FETCH_HEAD')
+  expect(fetchCommand("my remote's", 100, 2)).toBe("git fetch 'my remote'\\''s' refs/changes/00/100/2 && git checkout FETCH_HEAD")
 })

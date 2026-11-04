@@ -1,7 +1,7 @@
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState, type FormEvent } from 'react'
 import { Button, Dialog, Heading, Modal, ModalOverlay } from 'react-aria-components'
-import { GERRIT_REBASE_CONFLICT, type GerritChange } from '../../../../shared/gerrit'
+import { fetchCommand, GERRIT_REBASE_CONFLICT, type GerritChange } from '../../../../shared/gerrit'
 import a from '../../App.module.css'
 import { refreshRepo } from '../../Branches'
 import type { Revision } from './ChangeDetail'
@@ -24,6 +24,7 @@ export function ChangeActions({ repo, change, current, ps }: { repo: string; cha
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState<{ error: boolean; text: string } | null>(null)
+  const remote = useQuery({ queryKey: ['provider', repo], queryFn: () => window.gitdock['provider:get']({ repo }) }).data?.detection?.remote
   const ra = current?.actions ?? {}
   const ca = change.actions ?? {}
 
@@ -69,6 +70,19 @@ export function ChangeActions({ repo, change, current, ps }: { repo: string; cha
       <Button isDisabled={busy} onPress={checkout}>
         Checkout locally
       </Button>
+      {remote && (
+        <Button
+          isDisabled={busy}
+          onPress={() =>
+            void window.gitdock['app:copy']({ text: fetchCommand(remote, change._number, ps) }).then(
+              () => setNotice({ error: false, text: 'Fetch command copied' }),
+              (err: Error) => setNotice({ error: true, text: err.message })
+            )
+          }
+        >
+          Copy fetch command
+        </Button>
+      )}
       {ca.abandon && (
         <Button isDisabled={busy || !ca.abandon.enabled} onPress={() => setConfirm('abandon')}>
           Abandon…

@@ -19,6 +19,13 @@ export function reviewRef(target: string, o: { topic?: string; reviewers: string
   return `refs/for/${target}${opts.length ? '%' + opts.join(',') : ''}`
 }
 
+/** `refs/changes/NN/N/P`: patch set `ps` of change `n` (NN = last two digits of n). */
+export const changeRef = (n: number, ps: number) => `refs/changes/${String(n % 100).padStart(2, '0')}/${n}/${ps}`
+
+/** "Copy fetch command" text (PLAN.md §3.8); a remote name with shell-special characters is single-quoted. */
+export const fetchCommand = (remote: string, n: number, ps: number) =>
+  `git fetch ${/^[\w./-]+$/.test(remote) ? remote : `'${remote.replace(/'/g, `'\\''`)}'`} ${changeRef(n, ps)} && git checkout FETCH_HEAD`
+
 /** A commit a push to refs/for/* would send. */
 export interface GerritCommit {
   sha: string

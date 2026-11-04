@@ -47,6 +47,11 @@ test('change detail: header, labels, files with Commit Message first, side-by-si
   })
   await win.getByRole('button', { name: 'Open #101 in browser' }).click()
   await expect.poll(() => g!.app.evaluate(() => (globalThis as { __opened?: string }).__opened)).toBe(`${mock.url}/c/p/q/+/101`)
+
+  // Copy fetch command for the selected patch set, through main's clipboard.
+  await win.getByRole('button', { name: 'Copy fetch command' }).click()
+  await expect(win.getByText('Fetch command copied')).toBeVisible()
+  expect(await g.app.evaluate(({ clipboard }) => clipboard.readText())).toBe('git fetch origin refs/changes/01/101/2 && git checkout FETCH_HEAD')
 })
 
 test('change not found → message and back', async () => {
