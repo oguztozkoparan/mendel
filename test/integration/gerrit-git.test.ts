@@ -1,4 +1,4 @@
-import { chmodSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { commit, setCommitMessageTransform } from '../../src/main/git/commit'
@@ -21,6 +21,16 @@ describe('gerrit change-id', () => {
     expect(changeIdOf(`s\n\nbody\n\nChange-Id: ${id}\n`)).toBe(id)
     expect(changeIdOf(`s\n\nChange-Id: ${id}\n\nmore text`)).toBeNull()
     expect(changeIdOf('s\n\nChange-Id: Ixyz')).toBeNull()
+  })
+
+  it("never runs the repo's trailer.<key>.cmd while adding the Change-Id (S1)", async () => {
+    fx = createRepoFixture()
+    const marker = path.join(fx.dir, 'trailer-cmd-ran')
+    fx.git(['config', 'trailer.cid.key', 'Change-Id'])
+    fx.git(['config', 'trailer.cid.cmd', `touch '${marker}'`])
+    const out = await addChangeId(fx.work, 'Subject\n', false, fx.env)
+    expect(out).toMatch(/^Subject\n\nChange-Id: I[0-9a-f]{40}\n$/)
+    expect(existsSync(marker)).toBe(false)
   })
 
   it('no hook: commit gets a Change-Id; amend keeps it; nothing is written to the hooks dir', async () => {

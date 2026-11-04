@@ -100,7 +100,7 @@ export interface GitOptions {
   /** Abort kills the git process (cancel button, window close). */
   signal?: AbortSignal
   timeoutMs?: number
-  /** Background reads (status/log polling): sets GIT_OPTIONAL_LOCKS=0 so we never block the user's git. */
+  /** Background reads (status/log polling): GIT_OPTIONAL_LOCKS=0 so we never block the user's git; repo fsmonitor off. */
   background?: boolean
   /** Base env instead of process.env (tests pass an isolated env). */
   env?: NodeJS.ProcessEnv
@@ -131,7 +131,8 @@ export function git(args: string[], opts: GitOptions): Promise<GitResult> {
     ...(opts.background ? { GIT_OPTIONAL_LOCKS: '0' } : {})
   }
   return new Promise((resolve, reject) => {
-    const child = spawn(bin, args, {
+    // S1: a repo's core.fsmonitor is a command; never run it from reads triggered just by opening/polling a repo.
+    const child = spawn(bin, opts.background ? ['-c', 'core.fsmonitor=false', ...args] : args, {
       cwd: opts.cwd,
       env,
       shell: false,

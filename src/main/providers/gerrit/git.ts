@@ -3,6 +3,7 @@
 import { createHash } from 'node:crypto'
 import { constants } from 'node:fs'
 import { access } from 'node:fs/promises'
+import os from 'node:os'
 import path from 'node:path'
 import { reviewRef, type GerritCommit, type GerritSent } from '../../../shared/gerrit'
 import { isDirtyError, STASH_MSG, validateBranchName } from '../../git/branch'
@@ -41,7 +42,8 @@ export async function addChangeId(cwd: string, message: string, amend: boolean, 
     id = 'I' + createHash('sha1').update(input).digest('hex')
   }
   // commentChar \x01: the message is final text (commit -F), so '#' lines are content, not comments to skip.
-  return (await git(['-c', 'core.commentChar=\x01', 'interpret-trailers', '--if-exists', 'doNothing', '--trailer', `Change-Id: ${id}`], { cwd, env, stdin: message })).stdout
+  // cwd outside the repo (S1): the repo's `trailer.<key>.cmd` config would otherwise run as a command.
+  return (await git(['-c', 'core.commentChar=\x01', 'interpret-trailers', '--if-exists', 'doNothing', '--trailer', `Change-Id: ${id}`], { cwd: os.tmpdir(), env, stdin: message })).stdout
 }
 
 /** Commits on HEAD that are on no remote-tracking branch (what a push to refs/for/* would send), newest first. */

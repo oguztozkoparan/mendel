@@ -1,4 +1,4 @@
-import { renameSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { getDiff, getStatus, parseStatus } from '../../src/main/git/changes'
@@ -26,6 +26,18 @@ describe('parseStatus', () => {
 describe('status and diff against a real repo', () => {
   let fx: RepoFixture
   afterEach(() => fx?.cleanup())
+
+  it('background reads never run the repo-configured fsmonitor command (S1)', async () => {
+    fx = createRepoFixture()
+    const marker = path.join(fx.dir, 'fsmonitor-ran')
+    const hook = path.join(fx.dir, 'fsmonitor.sh')
+    writeFileSync(hook, `#!/bin/sh\ntouch '${marker}'\n`, { mode: 0o755 })
+    fx.git(['config', 'core.fsmonitor', hook])
+    writeFileSync(path.join(fx.work, 'README.md'), 'changed\n')
+    expect((await getStatus(fx.work, fx.env)).map((f) => f.path)).toEqual(['README.md'])
+    await getDiff(fx.work, { path: 'README.md', staged: false, untracked: false }, fx.env)
+    expect(existsSync(marker)).toBe(false)
+  })
 
   it('reports modified, added, deleted and renamed files', async () => {
     fx = createRepoFixture()
