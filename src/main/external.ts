@@ -54,7 +54,8 @@ export function detectTools(kind: Kind): Tool[] {
         { id: 'notepad++', name: 'Notepad++', exe: path.join(pf, 'Notepad++', 'notepad++.exe') }
       ],
       terminal: [
-        { id: 'wt', name: 'Windows Terminal', exe: path.join(local, 'Microsoft', 'WindowsApps', 'wt.exe'), args: (dir) => ['-d', dir] },
+        // wt re-parses `;` in its argv (command injection via folder name): the folder comes from cwd instead.
+        { id: 'wt', name: 'Windows Terminal', exe: path.join(local, 'Microsoft', 'WindowsApps', 'wt.exe'), args: () => ['-d', '.'] },
         { id: 'powershell', name: 'PowerShell', exe: path.join(sys, 'WindowsPowerShell', 'v1.0', 'powershell.exe') },
         { id: 'cmd', name: 'Command Prompt', exe: path.join(sys, 'cmd.exe') }
       ]
@@ -68,9 +69,11 @@ export function detectTools(kind: Kind): Tool[] {
 }
 
 /** A user-picked custom tool: an absolute executable (or .app on macOS); args are fixed, never a command line. */
-export function validCustomTool(p: string): boolean {
+export function validCustomTool(p: string, platform: NodeJS.Platform = process.platform): boolean {
   if (!path.isAbsolute(p) || p.includes('\0')) return false
-  return process.platform === 'darwin' && p.endsWith('.app') ? isDir(p) : isExecutableFile(p)
+  // Windows: spawn without a shell runs only .exe (.cmd/.bat fail with EINVAL), and X_OK is true for any file.
+  if (platform === 'win32' && !/\.exe$/i.test(p)) return false
+  return platform === 'darwin' && p.endsWith('.app') ? isDir(p) : isExecutableFile(p)
 }
 
 function launch(t: Tool, target: string, cwd: string, withTarget: boolean): Promise<void> {

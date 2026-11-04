@@ -18,7 +18,12 @@ export const settingsHandlers: Handlers<'settings:get' | 'settings:set' | 'setti
   },
   'settings:pickTool': async ({ kind }, e) => {
     const win = BrowserWindow.fromWebContents(e.sender)!
-    const r = await dialog.showOpenDialog(win, { properties: ['openFile'], title: `Choose ${kind} application`, defaultPath: process.platform === 'darwin' ? '/Applications' : undefined })
+    const r = await dialog.showOpenDialog(win, {
+      properties: ['openFile'],
+      title: `Choose ${kind} application`,
+      defaultPath: process.platform === 'darwin' ? '/Applications' : undefined,
+      filters: process.platform === 'win32' ? [{ name: 'Programs', extensions: ['exe'] }] : undefined
+    })
     const p = r.filePaths[0]
     if (r.canceled || !p) return getSettings()
     if (!validCustomTool(p)) throw new Error(`Not an application or executable: ${p}`)
