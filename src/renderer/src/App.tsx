@@ -149,7 +149,7 @@ export function App() {
         />
       )}
       {sending && current && <SendForReview repo={current.id} onClose={() => setSending(false)} onSent={sent} />}
-      {settings && <SettingsDialog onClose={() => setSettings(false)} />}
+      {settings && <SettingsDialog repo={current?.id} onClose={() => setSettings(false)} />}
       <AuthPromptDialog />
     </div>
   )

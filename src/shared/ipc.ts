@@ -140,7 +140,9 @@ const prefs = z
     pullStrategy: z.enum(['merge', 'rebase']),
     summaryLimit: z.number().int().min(20).max(200),
     spellcheck: z.boolean(),
-    autoUpdateCheck: z.boolean()
+    autoUpdateCheck: z.boolean(),
+    /** Gerrit Reviews tab auto-refresh. */
+    reviewsRefreshMinutes: z.union([z.literal(1), z.literal(5), z.literal(15), z.literal(30)])
   })
   .strict()
 export type Settings = z.output<typeof prefs>

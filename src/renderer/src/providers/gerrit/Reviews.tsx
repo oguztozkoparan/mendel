@@ -4,14 +4,13 @@ import { Button, Checkbox, Header, ListBox, ListBoxItem, ListBoxSection } from '
 import { GERRIT_AUTH_ERROR, type GerritChange } from '../../../../shared/gerrit'
 import type { ProviderState, RepoEntry } from '../../../../shared/ipc'
 import a from '../../App.module.css'
+import { useSettings } from '../../Settings'
 import { ChangeDetail } from './ChangeDetail'
 import c from '../../Changes.module.css'
 import { GerritConnectDialog } from './GerritConnectDialog'
 import s from './Gerrit.module.css'
 import { RepoProviderDialog } from './RepoProviderDialog'
 import { initial, labelSummary, shortDate, who } from './util'
-
-const REFRESH_MS = 5 * 60_000 // shortcut: fixed 5 min; read the Settings value (PLAN.md §6) once Settings exists
 
 /** Reviews tab (PLAN.md §3.7): Outgoing / Incoming / Recently closed in the sidebar, change detail in the main pane. */
 export function Reviews({ repo, state, focus }: { repo: RepoEntry; state: ProviderState; focus?: { change: number } | null }) {
@@ -21,11 +20,12 @@ export function Reviews({ repo, state, focus }: { repo: RepoEntry; state: Provid
   useEffect(() => void (focus && setSelected(focus.change)), [focus])
   const d = state.detection!
   const ready = !!d.baseUrl && !!state.credentialUser
+  const refreshMinutes = useSettings().data?.reviewsRefreshMinutes ?? 5
   const lists = useQuery({
     queryKey: ['gerrit', repo.id, 'changes', projectOnly],
     queryFn: () => window.gitdock['gerrit:changes']({ repo: repo.id, projectOnly }),
     enabled: ready,
-    refetchInterval: REFRESH_MS
+    refetchInterval: refreshMinutes * 60_000
   })
   const authFailed = lists.error?.message === GERRIT_AUTH_ERROR
 

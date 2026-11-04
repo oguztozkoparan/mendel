@@ -13,7 +13,8 @@ export const DEFAULTS: Settings = {
   pullStrategy: 'merge',
   summaryLimit: 72,
   spellcheck: true,
-  autoUpdateCheck: true
+  autoUpdateCheck: true,
+  reviewsRefreshMinutes: 5
 }
 
 /** Main-only state stored next to the preferences. */

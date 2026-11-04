@@ -4,6 +4,8 @@ import { Button, Checkbox, Dialog, Heading, Input, Label, Modal, ModalOverlay, R
 import type { Settings, UpdateState } from '../../shared/ipc'
 import a from './App.module.css'
 import c from './Changes.module.css'
+import { GerritConnectDialog } from './providers/gerrit/GerritConnectDialog'
+import { RepoProviderDialog } from './providers/gerrit/RepoProviderDialog'
 import s from './Settings.module.css'
 
 export const useSettings = () => useQuery({ queryKey: ['settings'], queryFn: () => window.gitdock['settings:get']() })
@@ -33,7 +35,7 @@ function Choice<T extends string | number>(p: { label: string; value: T; options
 }
 
 /** Settings modal with sections (PLAN.md §3.11, §6). Every change is saved right away. */
-export function SettingsDialog(p: { onClose(): void }) {
+export function SettingsDialog(p: { repo?: string; onClose(): void }) {
   const qc = useQueryClient()
   const q = useSettings()
   const [error, setError] = useState<string | null>(null)
@@ -50,7 +52,7 @@ export function SettingsDialog(p: { onClose(): void }) {
           </Heading>
           <Tabs orientation="vertical" className={s.tabs}>
             <TabList aria-label="Sections" className={s.sections}>
-              {['General', 'Git', 'Commit', 'Updates', 'Advanced'].map((t) => (
+              {['General', 'Git', 'Commit', 'Gerrit', 'Updates', 'Advanced'].map((t) => (
                 <Tab key={t} id={t}>
                   {t}
                 </Tab>
@@ -82,6 +84,15 @@ export function SettingsDialog(p: { onClose(): void }) {
                 <Input type="number" min={20} max={200} className={s.number} />
               </TextField>
               <Toggle label="Spellcheck" value={st.spellcheck} onChange={(spellcheck) => set({ spellcheck })} />
+            </TabPanel>
+            <TabPanel id="Gerrit" className={s.panel}>
+              <GerritSection repo={p.repo} />
+              <Choice
+                label="Reviews refresh"
+                value={st.reviewsRefreshMinutes}
+                options={[[1, 'Every minute'], [5, 'Every 5 min'], [15, 'Every 15 min'], [30, 'Every 30 min']]}
+                onChange={(reviewsRefreshMinutes) => set({ reviewsRefreshMinutes })}
+              />
             </TabPanel>
             <TabPanel id="Updates" className={s.panel}>
               <Toggle label="Check for updates automatically" value={st.autoUpdateCheck} onChange={(autoUpdateCheck) => set({ autoUpdateCheck })} />
@@ -154,6 +165,37 @@ function GitSection() {
         </Button>
         {msg && <span role="status">{msg}</span>}
       </div>
+    </>
+  )
+}
+
+/** Current repo's provider override and Gerrit account (PLAN.md §6), reusing the Reviews tab dialogs. */
+function GerritSection({ repo }: { repo?: string }) {
+  const q = useQuery({ queryKey: ['provider', repo], queryFn: () => window.gitdock['provider:get']({ repo: repo! }), enabled: !!repo })
+  const [dialog, setDialog] = useState<'provider' | 'connect' | null>(null)
+  const st = q.data
+  const d = st?.detection
+  if (!repo) return <p className={a.muted}>Open a repository to set its provider and Gerrit account.</p>
+  if (!st) return null
+  const gerrit = d?.provider === 'gerrit'
+  return (
+    <>
+      <Row label="This repository">
+        <span>
+          {gerrit ? `Gerrit${d.baseUrl ? ` at ${d.baseUrl}` : ' (URL not set)'}` : 'No provider'} · provider setting: {st.override.provider}
+        </span>
+      </Row>
+      {gerrit && (
+        <Row label="Account">
+          <span>{st.credentialUser ? `Connected as ${st.credentialUser}` : 'Not connected'}</span>
+        </Row>
+      )}
+      <div className={a.row}>
+        <Button onPress={() => setDialog('provider')}>Repository provider…</Button>
+        {gerrit && d.baseUrl && <Button onPress={() => setDialog('connect')}>Connect…</Button>}
+      </div>
+      {dialog === 'provider' && <RepoProviderDialog repo={repo} state={st} onClose={() => setDialog(null)} />}
+      {dialog === 'connect' && <GerritConnectDialog repo={repo} state={st} onClose={() => setDialog(null)} />}
     </>
   )
 }
