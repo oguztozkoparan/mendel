@@ -393,6 +393,8 @@ export const events = {
   'repo:cloneProgress': null as unknown as CloneProgress,
   /** Files or index of the watched repo changed (debounced); refetch status/diffs. */
   'repo:changed': null as unknown as { repo: string },
+  /** The file watcher failed (e.g. Linux inotify limit): no auto-refresh for this repo. */
+  'repo:watchOff': null as unknown as { repo: string },
   'update:state': null as unknown as UpdateState,
   'menu:command': null as unknown as MenuCommand
 } as const

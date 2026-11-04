@@ -23,7 +23,11 @@ async function confirmDiscard(e: IpcMainInvokeEvent, message: string): Promise<b
 export const changesHandlers: Handlers<'changes:status' | 'changes:diff' | 'changes:stage' | 'changes:unstage' | 'changes:applyHunk' | 'changes:discard'> = {
   'changes:status': ({ repo }) => {
     const root = repoRoot(repo)
-    watchRepo(root, () => emit('repo:changed', { repo }))
+    watchRepo(
+      root,
+      () => emit('repo:changed', { repo }),
+      () => emit('repo:watchOff', { repo })
+    )
     return getStatus(root)
   },
   'changes:diff': ({ repo, path, origPath, staged, untracked }) => {

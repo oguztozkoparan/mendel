@@ -34,6 +34,13 @@ export function App() {
   /** "Open change #N" from the send toast: RepoView switches to Reviews and selects it. */
   const [focus, setFocus] = useState<{ change: number } | null>(null)
   useEffect(() => window.gitdock.on('repo:changed', (e) => void refreshLocal(qc, e.repo)), [qc])
+  useEffect(
+    () =>
+      window.gitdock.on('repo:watchOff', () =>
+        setNotice({ text: 'Auto-refresh is off: too many folders to watch (raise fs.inotify.max_user_watches). Changes refresh when you return to the window or use View → Refresh.' })
+      ),
+    []
+  )
   const check = (recheck = false) => void window.gitdock['git:info']({ recheck }).then(setGit)
   useEffect(() => check(), [])
   const usable = git?.found === true && git.supported
