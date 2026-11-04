@@ -144,6 +144,10 @@ const prefs = z
     pullStrategy: z.enum(['merge', 'rebase']),
     summaryLimit: z.number().int().min(20).max(200),
     spellcheck: z.boolean(),
+    /** Vertical guide at column 72 in the commit description. */
+    descriptionRuler: z.boolean(),
+    /** Changes diff shows spaces/tabs as · / →. */
+    showWhitespace: z.boolean(),
     autoUpdateCheck: z.boolean(),
     /** Gerrit Reviews tab auto-refresh. */
     reviewsRefreshMinutes: z.union([z.literal(1), z.literal(5), z.literal(15), z.literal(30)]),

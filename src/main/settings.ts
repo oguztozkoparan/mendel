@@ -13,6 +13,8 @@ export const DEFAULTS: Settings = {
   pullStrategy: 'merge',
   summaryLimit: 72,
   spellcheck: true,
+  descriptionRuler: false,
+  showWhitespace: false,
   autoUpdateCheck: true,
   reviewsRefreshMinutes: 5,
   editor: 'system',

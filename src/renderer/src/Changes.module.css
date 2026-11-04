@@ -217,6 +217,12 @@
   font-size: 12px;
 }
 
+.ruler {
+  /* 6px = textarea padding-left (global.css) */
+  background-image: linear-gradient(to right, transparent calc(6px + 72ch), var(--border) calc(6px + 72ch), var(--border) calc(7px + 72ch), transparent calc(7px + 72ch));
+  background-attachment: local;
+}
+
 .amend {
   display: inline-flex;
   align-items: center;

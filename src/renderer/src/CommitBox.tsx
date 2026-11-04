@@ -74,7 +74,13 @@ export function CommitBox({ repo, hasStaged, hint }: { repo: string; hasStaged: 
         </span>
       </TextField>
       <TextField aria-label="Description" value={description} onChange={setDescription}>
-        <TextArea placeholder="Description" rows={5} className={s.description} spellCheck={settings?.spellcheck} />
+        <TextArea
+          placeholder="Description"
+          rows={5}
+          className={settings?.descriptionRuler ? `${s.description} ${s.ruler}` : s.description}
+          data-ruler={settings?.descriptionRuler || undefined}
+          spellCheck={settings?.spellcheck}
+        />
       </TextField>
       <Checkbox isSelected={amend} onChange={toggleAmend} isDisabled={head === null} className={s.amend}>
         <span className={s.box} aria-hidden>

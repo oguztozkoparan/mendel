@@ -10,7 +10,7 @@ import s from './Settings.module.css'
 
 export const useSettings = () => useQuery({ queryKey: ['settings'], queryFn: () => window.gitdock['settings:get']() })
 
-function Toggle(p: { label: string; value: boolean; onChange(v: boolean): void }) {
+export function Toggle(p: { label: string; value: boolean; onChange(v: boolean): void }) {
   return (
     <Checkbox isSelected={p.value} onChange={p.onChange} className={c.amend}>
       <span className={c.box} aria-hidden>
@@ -86,6 +86,7 @@ export function SettingsDialog(p: { repo?: string; onClose(): void }) {
                 <Input type="number" min={20} max={200} className={s.number} />
               </TextField>
               <Toggle label="Spellcheck" value={st.spellcheck} onChange={(spellcheck) => set({ spellcheck })} />
+              <Toggle label="Show 72-column ruler in description" value={st.descriptionRuler} onChange={(descriptionRuler) => set({ descriptionRuler })} />
             </TabPanel>
             <TabPanel id="Gerrit" className={s.panel}>
               <GerritSection repo={p.repo} />
