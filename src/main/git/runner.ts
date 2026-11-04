@@ -104,6 +104,8 @@ export interface GitOptions {
   background?: boolean
   /** Base env instead of process.env (tests pass an isolated env). */
   env?: NodeJS.ProcessEnv
+  /** Live stderr chunks (redacted), e.g. `--progress` output. */
+  onStderr?: (chunk: string) => void
 }
 
 export interface GitResult {
@@ -144,7 +146,7 @@ export function git(args: string[], opts: GitOptions): Promise<GitResult> {
       }
     }
     child.stdout.on('data', collect((s) => (stdout += s)))
-    child.stderr.on('data', collect((s) => (stderr += s)))
+    child.stderr.on('data', collect((s) => ((stderr += s), opts.onStderr?.(redact(s)))))
     child.stdin.on('error', () => {}) // git may exit before reading stdin (EPIPE); the exit code tells the story
     child.stdin.end(opts.stdin ?? '')
     child.on('error', (err) => {

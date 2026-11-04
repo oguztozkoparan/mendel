@@ -10,6 +10,7 @@ export interface RepoActions {
   open(id: string): void
   remove(id: string): void
   reveal(id: string): void
+  clone(): void
 }
 
 /** Recent repos rows (welcome screen and repo selector). Missing folders are greyed with Locate / Remove. */
@@ -75,6 +76,7 @@ export function RepoSelector(p: { repos: RepoEntry[]; current: RepoEntry; action
               <RepoList repos={shown} current={p.current.id} actions={p.actions} onDone={close} />
               <div className={s.menuActions}>
                 <Button onPress={() => (close(), p.actions.add())}>Open…</Button>
+                <Button onPress={() => (close(), p.actions.clone())}>Clone…</Button>
               </div>
             </>
           )}

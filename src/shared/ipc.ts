@@ -35,6 +35,12 @@ export interface RepoEntry {
   exists: boolean
 }
 
+export interface CloneProgress {
+  /** git's phase, e.g. "Receiving objects". */
+  phase: string
+  percent: number
+}
+
 const repoId = z.string().min(1).max(64)
 const byId = z.object({ id: repoId }).strict()
 
@@ -49,11 +55,17 @@ export const invoke = {
   'repo:add': res<RepoEntry | null>()(z.object({ locate: repoId.optional() }).strict().optional()),
   'repo:open': res<RepoEntry>()(byId),
   'repo:remove': res<void>()(byId),
-  'repo:reveal': res<void>()(byId)
+  'repo:reveal': res<void>()(byId),
+  /** Folder clones go into (absolute, for display). `pick` shows the native folder dialog first. */
+  'repo:cloneParent': res<string>()(z.object({ pick: z.boolean() }).strict()),
+  /** Clone into `<cloneParent>/<name>`, then open it. Progress via `repo:cloneProgress`. */
+  'repo:clone': res<RepoEntry>()(z.object({ url: z.string().min(1).max(2048), name: z.string().min(1).max(255) }).strict()),
+  'repo:cloneCancel': res<void>()(z.undefined())
 } as const
 
 export const events = {
-  'auth:prompt': null as unknown as AuthPrompt
+  'auth:prompt': null as unknown as AuthPrompt,
+  'repo:cloneProgress': null as unknown as CloneProgress
 } as const
 
 export type InvokeChannel = keyof typeof invoke

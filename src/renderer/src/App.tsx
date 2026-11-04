@@ -4,6 +4,7 @@ import { Button } from 'react-aria-components'
 import type { GitInfo } from '../../shared/ipc'
 import s from './App.module.css'
 import { AuthPromptDialog } from './AuthPromptDialog'
+import { CloneDialog } from './CloneDialog'
 import { RepoList, RepoSelector, type RepoActions } from './Repos'
 import { RepoView } from './RepoView'
 
@@ -17,6 +18,7 @@ export function App() {
   const qc = useQueryClient()
   const [git, setGit] = useState<GitInfo | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [cloning, setCloning] = useState(false)
   const check = (recheck = false) => void window.gitdock['git:info']({ recheck }).then(setGit)
   useEffect(() => check(), [])
   const usable = git?.found === true && git.supported
@@ -35,7 +37,8 @@ export function App() {
     add: (locate) => run(window.gitdock['repo:add'](locate ? { locate } : undefined)),
     open: (id) => run(window.gitdock['repo:open']({ id })),
     remove: (id) => run(window.gitdock['repo:remove']({ id })),
-    reveal: (id) => run(window.gitdock['repo:reveal']({ id }))
+    reveal: (id) => run(window.gitdock['repo:reveal']({ id })),
+    clone: () => setCloning(true)
   }
 
   return (
@@ -65,6 +68,9 @@ export function App() {
             <Button className="primary" isDisabled={!usable} onPress={() => actions.add()}>
               Open local repository…
             </Button>
+            <Button isDisabled={!usable} onPress={actions.clone}>
+              Clone repository…
+            </Button>
           </div>
           {repos.length > 0 && (
             <div className={s.recents}>
@@ -79,6 +85,12 @@ export function App() {
             </p>
           )}
         </main>
+      )}
+      {cloning && (
+        <CloneDialog
+          onClose={() => setCloning(false)}
+          onCloned={() => (setCloning(false), void qc.invalidateQueries({ queryKey: ['repos'] }))}
+        />
       )}
       <AuthPromptDialog />
     </div>

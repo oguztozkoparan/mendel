@@ -9,7 +9,8 @@ import log from './log'
 
 const schema = z.object({
   repos: z.array(z.object({ id: z.string(), path: z.string() })),
-  current: z.string().nullable()
+  current: z.string().nullable(),
+  cloneParent: z.string().optional()
 })
 type Store = z.infer<typeof schema>
 
@@ -64,4 +65,14 @@ export function forgetRepo(id: string): void {
   s.repos = s.repos.filter((r) => r.id !== id)
   if (s.current === id) s.current = null
   save()
+}
+
+/** Where clones go: last folder picked in the clone dialog, else Documents. */
+export function cloneParent(set?: string): string {
+  const s = load()
+  if (set) {
+    s.cloneParent = set
+    save()
+  }
+  return s.cloneParent ?? app.getPath('documents')
 }
