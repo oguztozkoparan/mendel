@@ -102,6 +102,7 @@ Status: 49 bullets, 48 covered by automation, 1 partly manual (OS theme switch),
 | Diff "Show whitespace" (· / →) persists across restart; Settings → Commit 72-column description ruler | e2e/diff-prefs.spec.ts |
 | History "Amend last commit" only on an unpushed HEAD → Changes with amend ticked and message prefilled | e2e/history.spec.ts: Amend on an unpushed HEAD… |
 | Gerrit change detail "Copy fetch command" → `git fetch <remote> refs/changes/NN/N/P && git checkout FETCH_HEAD` via main clipboard | e2e/gerrit-detail.spec.ts: change detail…; unit/gerrit-util.test.ts: fetchCommand… |
+| Welcome "Who are you?" form only while global `user.name`/`user.email` is unset; writes `git config --global` | e2e/identity.spec.ts (both) |
 
 ## Updates
 | Bullet | Test |

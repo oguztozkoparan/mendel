@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { Button, Checkbox, Dialog, Heading, Input, Label, Modal, ModalOverlay, Radio, RadioGroup, Tab, TabList, TabPanel, Tabs, TextField } from 'react-aria-components'
 import type { Settings, UpdateState } from '../../shared/ipc'
 import a from './App.module.css'
@@ -192,6 +192,44 @@ function GitSection() {
         {msg && <span role="status">{msg}</span>}
       </div>
     </>
+  )
+}
+
+/** Welcome "Who are you?" (PLAN.md §4.1 step 2): shown only while the global user.name or user.email is unset. */
+export function IdentityForm() {
+  const id = useQuery({ queryKey: ['gitIdentity'], queryFn: () => window.gitdock['settings:gitIdentity']() })
+  const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  useEffect(() => {
+    if (id.data) (setName(id.data.name), setEmail(id.data.email))
+  }, [id.data])
+  if (!id.data || (id.data.name && id.data.email)) return null
+  const save = (e: FormEvent) => {
+    e.preventDefault()
+    setError(null)
+    window.gitdock['settings:setGitIdentity']({ name, email }).then(() => id.refetch(), (err: Error) => setError(err.message))
+  }
+  return (
+    <form className={`${a.card} ${a.form}`} aria-label="Who are you?" onSubmit={save}>
+      <strong>Who are you? Used for commits</strong>
+      <TextField value={name} onChange={setName} className={a.field}>
+        <Label>Name</Label>
+        <Input spellCheck={false} />
+      </TextField>
+      <TextField value={email} onChange={setEmail} className={a.field}>
+        <Label>Email</Label>
+        <Input spellCheck={false} />
+      </TextField>
+      {error && (
+        <p role="alert" className={a.error}>
+          {error}
+        </p>
+      )}
+      <Button type="submit" className="primary" isDisabled={!name.trim() || !email.trim()}>
+        Save
+      </Button>
+    </form>
   )
 }
 

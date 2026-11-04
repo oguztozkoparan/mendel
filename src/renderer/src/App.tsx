@@ -13,7 +13,7 @@ import { RepoList, RepoSelector, type RepoActions } from './Repos'
 import { useMenuCommand } from './menu'
 import { SendForReview } from './providers/gerrit/SendForReview'
 import { RepoView } from './RepoView'
-import { SettingsDialog } from './Settings'
+import { IdentityForm, SettingsDialog } from './Settings'
 import { SyncButton, type Notice } from './SyncButton'
 import { UpdatePill } from './UpdatePill'
 
@@ -130,6 +130,7 @@ export function App() {
               <Button onPress={() => check(true)}>Recheck</Button>
             </div>
           )}
+          {usable && <IdentityForm />}
           <div className={s.row}>
             <Button className="primary" isDisabled={!usable} onPress={() => actions.add()}>
               Open local repository…
