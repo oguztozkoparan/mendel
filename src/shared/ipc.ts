@@ -13,8 +13,14 @@ export interface AppInfo {
   platform: string
 }
 
+/** `supported`: >= MIN_GIT_VERSION (usable); `outdated`: < RECOMMENDED_GIT_VERSION (security warning). */
+export type GitInfo =
+  | { found: false }
+  | { found: true; path: string; version: string; supported: boolean; outdated: boolean }
+
 export const invoke = {
-  'app:info': res<AppInfo>()(z.undefined())
+  'app:info': res<AppInfo>()(z.undefined()),
+  'git:info': res<GitInfo>()(z.object({ recheck: z.boolean() }).strict().optional())
 } as const
 
 export const events = {} as const

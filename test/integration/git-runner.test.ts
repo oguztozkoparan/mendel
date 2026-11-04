@@ -1,0 +1,59 @@
+import { mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
+import { afterEach, describe, expect, it } from 'vitest'
+import { gitInfo } from '../../src/main/git/info'
+import { endOfOptions, git, GitError } from '../../src/main/git/runner'
+import { createRepoFixture, type RepoFixture } from '../fixtures/repo'
+
+describe('git runner against real git', () => {
+  let fx: RepoFixture
+  afterEach(() => fx?.cleanup())
+
+  it('runs commands with arg arrays and isolated env', async () => {
+    fx = createRepoFixture()
+    const { stdout } = await git(['log', '-1', '--format=%H', ...endOfOptions('HEAD')], { cwd: fx.work, env: fx.env })
+    expect(stdout.trim()).toBe(fx.git(['rev-parse', 'HEAD']))
+  })
+
+  it('feeds stdin (commit -F -)', async () => {
+    fx = createRepoFixture()
+    await git(['commit', '--allow-empty', '-q', '-F', '-'], { cwd: fx.work, env: fx.env, stdin: 'summary\n\n-description; $(touch x)\n' })
+    expect(fx.git(['log', '-1', '--format=%B'])).toBe('summary\n\n-description; $(touch x)')
+  })
+
+  it('maps failures to GitError kinds', async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), 'gitdock-norepo-'))
+    try {
+      const err = await git(['status'], { cwd: dir, env: { ...process.env, GIT_CEILING_DIRECTORIES: path.dirname(dir) } }).catch((e: unknown) => e)
+      expect(err).toBeInstanceOf(GitError)
+      expect((err as GitError).kind).toBe('NotARepository')
+      expect((err as GitError).exitCode).toBe(128)
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('redacts credentials from errors', async () => {
+    fx = createRepoFixture()
+    const err = (await git(['ls-remote', 'https://bob:hunter2@127.0.0.1:9/x.git'], { cwd: fx.work, env: fx.env }).catch((e: unknown) => e)) as GitError
+    expect(err.kind).toBe('RemoteUnreachable')
+    expect(`${err.message} ${err.stderr} ${err.args.join(' ')}`).not.toContain('hunter2')
+  })
+
+  it('kills git on abort', async () => {
+    fx = createRepoFixture()
+    const ac = new AbortController()
+    const started = Date.now()
+    // test-only shell alias to get a slow git process
+    const run = git(['-c', 'alias.slow=!sleep 10', 'slow'], { cwd: fx.work, env: fx.env, signal: ac.signal })
+    setTimeout(() => ac.abort(), 100)
+    await expect(run).rejects.toMatchObject({ kind: 'Cancelled' })
+    expect(Date.now() - started).toBeLessThan(5000)
+  })
+
+  it('reports version info', async () => {
+    const info = await gitInfo()
+    expect(info).toMatchObject({ found: true, supported: true })
+  })
+})
