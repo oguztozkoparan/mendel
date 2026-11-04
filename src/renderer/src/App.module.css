@@ -186,3 +186,8 @@
   color: var(--fg);
   align-items: center;
 }
+
+.conflicts ul {
+  margin: 4px 0 0;
+  padding-left: 16px;
+}

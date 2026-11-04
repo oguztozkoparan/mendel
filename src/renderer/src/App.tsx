@@ -6,6 +6,7 @@ import s from './App.module.css'
 import { AuthPromptDialog } from './AuthPromptDialog'
 import { BranchSelector, refreshRepo, StashBanner } from './Branches'
 import { CloneDialog } from './CloneDialog'
+import { ConflictBanner } from './Conflicts'
 import { RepoList, RepoSelector, type RepoActions } from './Repos'
 import { RepoView } from './RepoView'
 import { SyncButton, type Notice } from './SyncButton'
@@ -68,6 +69,7 @@ export function App() {
           <Button onPress={() => setNotice(null)}>Dismiss</Button>
         </div>
       )}
+      {current && <ConflictBanner key={current.id} repo={current.id} onError={setError} />}
       {current && <StashBanner key={current.id} repo={current.id} onError={setError} />}
       {current ? (
         <RepoView key={current.id} repo={current} />

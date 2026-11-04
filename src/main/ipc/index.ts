@@ -8,6 +8,7 @@ import { authHandlers } from './auth'
 import { branchHandlers } from './branch'
 import { changesHandlers } from './changes'
 import { commitHandlers } from './commit'
+import { conflictHandlers } from './conflict'
 import { gitHandlers } from './git'
 import { historyHandlers } from './history'
 import { repoHandlers } from './repo'
@@ -26,7 +27,7 @@ function trusted(e: IpcMainInvokeEvent): boolean {
 
 /** Add each channel group's handlers here; the type forces every channel in the contract to be handled. */
 export function registerIpc(): void {
-  const handlers: Handlers = { ...appHandlers, ...gitHandlers, ...authHandlers, ...repoHandlers, ...changesHandlers, ...commitHandlers, ...updateHandlers, ...branchHandlers, ...syncHandlers, ...historyHandlers }
+  const handlers: Handlers = { ...appHandlers, ...gitHandlers, ...authHandlers, ...repoHandlers, ...changesHandlers, ...commitHandlers, ...updateHandlers, ...branchHandlers, ...syncHandlers, ...historyHandlers, ...conflictHandlers }
   for (const channel of Object.keys(invoke) as InvokeChannel[]) {
     ipcMain.handle(channel, async (e, raw: unknown) => {
       if (!trusted(e)) throw new Error('Untrusted IPC sender')

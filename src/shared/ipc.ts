@@ -124,6 +124,9 @@ export interface CommitDetail {
   files: { path: string; origPath?: string; status: string }[]
 }
 
+/** A merge or rebase stopped on conflicts (or otherwise waiting to be continued). */
+export type OpInProgress = 'merge' | 'rebase' | null
+
 const repoId = z.string().min(1).max(64)
 const byId = z.object({ id: repoId }).strict()
 /** Repo-relative path; main additionally checks it with resolveUnder (TECH.md §6.4). */
@@ -214,6 +217,11 @@ export const invoke = {
   'history:commit': res<CommitDetail>()(z.object({ repo: repoId, sha }).strict()),
   /** Read-only diff of one file of a commit (against its first parent). */
   'history:diff': res<string>()(z.object({ repo: repoId, sha, path: relPath, origPath: relPath.optional() }).strict()),
+  'conflict:state': res<OpInProgress>()(inRepo),
+  /** Continue the merge/rebase once all files are marked resolved (`changes:stage`); 'conflict' = stopped again. */
+  'conflict:continue': res<SyncResult>()(inRepo),
+  /** Abort after a native confirm; false = cancelled. */
+  'conflict:abort': res<boolean>()(inRepo),
   'update:state': res<UpdateState>()(z.undefined()),
   /** Manual "Check for updates"; resolves with the state after the check. */
   'update:check': res<UpdateState>()(z.undefined()),
