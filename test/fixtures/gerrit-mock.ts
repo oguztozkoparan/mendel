@@ -269,9 +269,13 @@ export async function startGerritMock(opts: GerritMockOptions = {}): Promise<Ger
       }
       case 'POST submit':
         c.status = 'MERGED'
+        c.actions = {}
+        c.revisions[c.current_revision].actions = {}
         return json(summary(c))
       case 'POST abandon':
         c.status = 'ABANDONED'
+        c.actions = { restore: { method: 'POST', label: 'Restore', enabled: true } }
+        c.revisions[c.current_revision].actions = {}
         if (body.message) c.messages.push({ id: `msg${nextId++}`, author: SELF, date: ts('2026-11-04'), message: `Abandoned\n\n${body.message}` })
         return json(summary(c))
       case 'POST rebase':

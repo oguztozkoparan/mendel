@@ -104,6 +104,10 @@ export function gerritClient(baseUrl: string, auth: GerritAuth, fetchFn: Fetch) 
     review: (n: number, rev: string | number, input: { message?: string; labels?: Record<string, number>; comments?: Record<string, Omit<GerritDraft, 'path' | 'patch_set'>[]> }) =>
       call(z.object({ labels: z.record(z.string(), z.number()).optional() }), 'POST', `changes/${enc(n)}/revisions/${enc(rev)}/review`, input),
 
+    /** Change-level POST: submit, abandon (optional message) or server-side rebase. */
+    action: (n: number, action: 'submit' | 'abandon' | 'rebase', message?: string) =>
+      call(z.unknown(), 'POST', `changes/${enc(n)}/${action}`, message ? { message } : {}),
+
     diff: (n: number, rev: string, path: string, base?: number) =>
       call(diffSchema, 'GET', `changes/${enc(n)}/revisions/${enc(rev)}/files/${enc(path)}/diff?intraline=false${base ? `&base=${enc(base)}` : ''}`)
   }

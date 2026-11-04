@@ -194,6 +194,10 @@ export const invoke = {
       })
       .strict()
   ),
+  /** Submit / abandon (optional message) / server rebase; the UI offers only actions the server listed. */
+  'gerrit:action': res<void>()(
+    z.object({ repo: repoId, change: changeNum, action: z.enum(['submit', 'abandon', 'rebase']), message: z.string().max(100_000).optional() }).strict()
+  ),
   'update:state': res<UpdateState>()(z.undefined()),
   /** Manual "Check for updates"; resolves with the state after the check. */
   'update:check': res<UpdateState>()(z.undefined()),

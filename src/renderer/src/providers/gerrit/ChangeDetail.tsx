@@ -16,6 +16,7 @@ import 'react-diff-view/style/index.css'
 import type { GerritChange, GerritComment } from '../../../../shared/gerrit'
 import c from '../../Changes.module.css'
 import { visible } from '../../DiffView'
+import { ChangeActions } from './ChangeActions'
 import { Composer, DraftView, Thread, usePending, type Pending, type PendingStore } from './Comments'
 import s from './Gerrit.module.css'
 import { ReplyDialog } from './ReplyDialog'
@@ -116,6 +117,7 @@ export function ChangeDetail({ repo, number, me, onBack }: { repo: string; numbe
           <Button className="primary" onPress={() => setReplying(true)}>
             Reply…{pending.list.length ? ` (${pending.list.length} pending)` : ''}
           </Button>
+          <ChangeActions repo={repo} change={ch} current={current} />
         </div>
       </header>
 

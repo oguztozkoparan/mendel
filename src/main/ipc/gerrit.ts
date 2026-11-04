@@ -1,7 +1,7 @@
 import { net, shell } from 'electron'
-import { GERRIT_AUTH_ERROR, type GerritDraft } from '../../shared/gerrit'
+import { GERRIT_AUTH_ERROR, GERRIT_REBASE_CONFLICT, type GerritDraft } from '../../shared/gerrit'
 import log from '../log'
-import { gerritClient, normalizeBaseUrl, type Fetch } from '../providers/gerrit/client'
+import { gerritClient, GerritHttpError, normalizeBaseUrl, type Fetch } from '../providers/gerrit/client'
 import { getCredential, removeCredential, saveCredential } from '../providers/gerrit/credentials'
 import { activeState, allowLoopbackHttp, providerHandlers } from './provider'
 import type { Handlers } from '.'
@@ -26,7 +26,7 @@ export async function gerritFor(repo: string) {
   return gerritClient(base, auth, fetchFn)
 }
 
-export const gerritHandlers: Handlers<'gerrit:connect' | 'gerrit:disconnect' | 'gerrit:open' | 'gerrit:changes' | 'gerrit:change' | 'gerrit:files' | 'gerrit:diff' | 'gerrit:comments' | 'gerrit:review'> = {
+export const gerritHandlers: Handlers<'gerrit:connect' | 'gerrit:disconnect' | 'gerrit:open' | 'gerrit:changes' | 'gerrit:change' | 'gerrit:files' | 'gerrit:diff' | 'gerrit:comments' | 'gerrit:review' | 'gerrit:action'> = {
   'gerrit:change': async ({ repo, change }) => (await gerritFor(repo)).change(change),
   'gerrit:files': async ({ repo, change, revision, base }) => (await gerritFor(repo)).files(change, revision, base),
   'gerrit:comments': async ({ repo, change }) => (await gerritFor(repo)).comments(change),
@@ -42,6 +42,14 @@ export const gerritHandlers: Handlers<'gerrit:connect' | 'gerrit:disconnect' | '
     await client.review(change, patchSet, { message: message || undefined, labels, comments: toInput(comments.filter((c) => c.patch_set === patchSet)) })
     for (const ps of new Set(comments.map((c) => c.patch_set).filter((p) => p !== patchSet)))
       await client.review(change, ps, { comments: toInput(comments.filter((c) => c.patch_set === ps)) })
+  },
+  'gerrit:action': async ({ repo, change, action, message }) => {
+    try {
+      await (await gerritFor(repo)).action(change, action, message || undefined)
+    } catch (err) {
+      if (action === 'rebase' && err instanceof GerritHttpError && err.status === 409) throw new Error(GERRIT_REBASE_CONFLICT)
+      throw err
+    }
   },
   'gerrit:diff': async ({ repo, change, revision, path, base }) => (await gerritFor(repo)).diff(change, revision, path, base),
   'gerrit:changes': async ({ repo, projectOnly }) => {

@@ -4,6 +4,8 @@ import { z } from 'zod'
 
 /** Error text for HTTP 401; the renderer matches it to show "Connect to Gerrit" (PLAN.md §3.7, §4.9). */
 export const GERRIT_AUTH_ERROR = 'Wrong username or HTTP password / token'
+/** Error text for a server-side rebase that hit conflicts (HTTP 409). */
+export const GERRIT_REBASE_CONFLICT = 'Gerrit could not rebase this change because of conflicts. Rebase it locally instead.'
 
 export const accountSchema = z.object({
   _account_id: z.number().optional(),
