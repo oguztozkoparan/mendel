@@ -45,3 +45,40 @@ export async function getDiff(cwd: string, t: DiffTarget, env?: NodeJS.ProcessEn
       : [...base, '--', t.path]
   return (await git(args, { cwd, env, background: true, okExitCodes: t.untracked ? [1] : undefined })).stdout
 }
+
+const PATHSPEC_STDIN = ['--pathspec-from-file=-', '--pathspec-file-nul']
+
+/** `git add -A` for exactly these paths (pathspecs via stdin: no argv limits, literal, never options). */
+export async function stagePaths(cwd: string, paths: string[], env?: NodeJS.ProcessEnv): Promise<void> {
+  await git(['--literal-pathspecs', 'add', '-A', ...PATHSPEC_STDIN], { cwd, env, stdin: paths.join('\0') })
+}
+
+/** Index back to HEAD for these paths (also works before the first commit). */
+export async function unstagePaths(cwd: string, paths: string[], env?: NodeJS.ProcessEnv): Promise<void> {
+  await git(['--literal-pathspecs', 'reset', '-q', ...PATHSPEC_STDIN], { cwd, env, stdin: paths.join('\0') })
+}
+
+/** File header of `diff` plus only the hunk whose `@@` line equals `header`; null if that hunk is gone. */
+export function hunkPatch(diff: string, header: string): string | null {
+  const lines = diff.split('\n')
+  const first = lines.findIndex((l) => l.startsWith('@@'))
+  const start = lines.indexOf(header)
+  if (first < 0 || start < first) return null
+  const next = lines.findIndex((l, i) => i > start && l.startsWith('@@'))
+  const patch = [...lines.slice(0, first), ...lines.slice(start, next < 0 ? undefined : next)].join('\n')
+  return patch.endsWith('\n') ? patch : patch + '\n'
+}
+
+export type HunkAction = 'stage' | 'unstage'
+
+/**
+ * Re-diff the file in main, pick the hunk the user saw (by its `@@` line) and `git apply` it:
+ * stage = unstaged hunk -> index; unstage = staged hunk reversed out of the index.
+ */
+export async function applyHunk(cwd: string, t: Omit<DiffTarget, 'staged'>, header: string, action: HunkAction, env?: NodeJS.ProcessEnv): Promise<void> {
+  const staged = action === 'unstage'
+  const patch = hunkPatch(await getDiff(cwd, { ...t, staged, untracked: t.untracked && !staged }, env), header)
+  if (!patch) throw new Error('The file changed since the diff was shown; try again')
+  const args = ['apply', '--whitespace=nowarn', '--cached', ...(action === 'unstage' ? ['--reverse'] : []), '-']
+  await git(args, { cwd, env, stdin: patch })
+}

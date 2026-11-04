@@ -127,3 +127,42 @@
   gap: 8px;
   width: 100%;
 }
+
+.checkbox {
+  display: inline-flex;
+  -webkit-app-region: no-drag;
+}
+
+.box {
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--bg);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  line-height: 1;
+}
+
+.checkbox[data-selected] .box,
+.checkbox[data-indeterminate] .box {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+
+.checkbox[data-focus-visible] .box {
+  box-shadow: var(--focus);
+}
+
+.hunkText {
+  flex: 1;
+}
+
+.hunkHeader button {
+  min-height: 20px;
+  font-family: system-ui, sans-serif;
+  font-size: 11px;
+}

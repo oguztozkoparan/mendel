@@ -59,6 +59,7 @@ const byId = z.object({ id: repoId }).strict()
 /** Repo-relative path; main additionally checks it with resolveUnder (TECH.md §6.4). */
 const relPath = z.string().min(1).max(4096)
 const inRepo = z.object({ repo: repoId }).strict()
+const paths = z.object({ repo: repoId, paths: z.array(relPath).min(1).max(100_000) }).strict()
 
 export const invoke = {
   'app:info': res<AppInfo>()(z.undefined()),
@@ -82,6 +83,22 @@ export const invoke = {
   /** Unified diff text: staged = HEAD..index, else index..worktree (untracked: whole file as added). */
   'changes:diff': res<string>()(
     z.object({ repo: repoId, path: relPath, origPath: relPath.optional(), staged: z.boolean(), untracked: z.boolean() }).strict()
+  ),
+  /** Stage whole files (include a rename's origPath). */
+  'changes:stage': res<void>()(paths),
+  'changes:unstage': res<void>()(paths),
+  /** Apply one hunk, identified by its `@@ ... @@` header line as shown in the diff. */
+  'changes:applyHunk': res<void>()(
+    z
+      .object({
+        repo: repoId,
+        path: relPath,
+        origPath: relPath.optional(),
+        untracked: z.boolean(),
+        hunk: z.string().startsWith('@@').max(4096),
+        action: z.enum(['stage', 'unstage'])
+      })
+      .strict()
   )
 } as const
 

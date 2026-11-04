@@ -14,17 +14,19 @@ const visible = (hunks: HunkData[]): HunkData[] =>
   hunks.map((h) => ({ ...h, changes: h.changes.map((c) => ({ ...c, content: c.content.replace(INVISIBLE, mark) })) }))
 
 /** Diff of one file: unstaged and/or staged section, depending on where its changes are. */
-export function DiffView({ repo, file }: { repo: string; file: FileChange }) {
+type Act = (p: Promise<unknown>) => void
+
+export function DiffView({ repo, file, act }: { repo: string; file: FileChange; act: Act }) {
   return (
     <div className={s.diffPane}>
       <h2 className={s.fileHeader}>{file.origPath ? `${file.origPath} → ${file.path}` : file.path}</h2>
-      {file.unstaged && <DiffSection repo={repo} file={file} staged={false} title={file.staged ? 'Unstaged changes' : null} />}
-      {file.staged && <DiffSection repo={repo} file={file} staged title={file.unstaged ? 'Staged changes' : null} />}
+      {file.unstaged && <DiffSection repo={repo} file={file} act={act} staged={false} title={file.staged ? 'Unstaged changes' : null} />}
+      {file.staged && <DiffSection repo={repo} file={file} act={act} staged title={file.unstaged ? 'Staged changes' : null} />}
     </div>
   )
 }
 
-function DiffSection(p: { repo: string; file: FileChange; staged: boolean; title: string | null }) {
+function DiffSection(p: { repo: string; file: FileChange; act: Act; staged: boolean; title: string | null }) {
   const { file, staged } = p
   const q = useQuery({
     queryKey: ['diff', p.repo, file.path, staged],
@@ -33,6 +35,8 @@ function DiffSection(p: { repo: string; file: FileChange; staged: boolean; title
   })
   const parsed = useMemo(() => (q.data ? parseDiff(q.data)[0] : undefined), [q.data])
   const [showLarge, setShowLarge] = useState(false)
+  const hunkAction = (hunk: string, action: 'stage' | 'unstage') =>
+    p.act(window.gitdock['changes:applyHunk']({ repo: p.repo, path: file.path, origPath: file.origPath, untracked: file.unstaged === '?', hunk, action }))
   const lines = parsed?.hunks.reduce((n, h) => n + h.changes.length, 0) ?? 0
 
   let body
@@ -52,7 +56,14 @@ function DiffSection(p: { repo: string; file: FileChange; staged: boolean; title
         {(hunks) =>
           hunks.flatMap((h) => [
             <Decoration key={`d${h.content}`} className={s.hunkHeader}>
-              <span>{h.content}</span>
+              <span>
+                <span className={s.hunkText}>{h.content}</span>
+                {staged ? (
+                  <Button onPress={() => hunkAction(h.content, 'unstage')}>Unstage hunk</Button>
+                ) : (
+                  <Button onPress={() => hunkAction(h.content, 'stage')}>Stage hunk</Button>
+                )}
+              </span>
             </Decoration>,
             <Hunk key={h.content} hunk={h} />
           ])
