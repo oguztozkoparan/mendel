@@ -292,7 +292,8 @@ export const invoke = {
   /** Long ops below are cancellable with `sync:cancel`; git auth prompts arrive via `auth:prompt`. */
   /** `auto`: background auto-fetch; never prompts for credentials and is skipped while another op runs. */
   'sync:fetch': res<void>()(z.object({ repo: repoId, auto: z.boolean().optional() }).strict()),
-  'sync:pull': res<SyncResult>()(inRepo),
+  /** null = the user declined "Stash & pull". */
+  'sync:pull': res<SyncResult | null>()(inRepo),
   /** Push to upstream, or publish (`push -u`) when the branch has none. */
   /** null = the user declined the Gerrit direct-push confirm. */
   'sync:push': res<SyncResult | null>()(inRepo),

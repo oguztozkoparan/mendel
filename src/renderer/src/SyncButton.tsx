@@ -47,6 +47,11 @@ export function SyncButton(p: { repo: string; onError(msg: string): void; onNoti
     void window.gitdock[`sync:${op}`]({ repo: p.repo })
       .then((r: SyncResult | null | void) => {
         if (r === 'rejected') p.onNotice({ text: 'Remote has new commits. Pull first.', action: { label: 'Pull', run: () => run('pull') } })
+        // Conflict with no rebase/merge left in progress: re-applying the autostash conflicted.
+        else if (r === 'conflict')
+          void window.gitdock['conflict:state']({ repo: p.repo }).then(
+            (s) => !s && p.onNotice({ text: 'Your uncommitted changes conflict with the new commits. Resolve the conflicted files; your changes are also kept in the stash.' })
+          )
       }, (e: Error) => p.onError(e.message))
       .finally(() => (setBusy(null), refreshRepo(qc, p.repo)))
   }

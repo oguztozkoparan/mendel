@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { writeFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { startGerritMock, type GerritMock } from '../fixtures/gerrit-mock'
 import { commitForChange, connectGerrit, gerritPushOutput, launchGerrit, type GerritApp } from './gerrit'
 import { stubMessageBox } from './launch'
@@ -75,6 +75,25 @@ test('Gerrit pulls with rebase regardless of the merge setting', async () => {
   await expect(win.getByRole('button', { name: 'Send for review ↑1' })).toBeVisible()
   expect(fx.git(['rev-list', '--merges', '--count', 'HEAD'])).toBe('0')
   expect(fx.git(['log', '-1', '--format=%s', 'HEAD~1'])).toBe('remote r')
+})
+
+test('Gerrit pull with a dirty tree: Stash & pull confirm, then autostash keeps the edit', async () => {
+  g = await launchGerrit(mock)
+  const { app, win, fx } = g
+  const other = `${fx.dir}/other`
+  fx.git(['clone', '-q', fx.remote, other], fx.dir)
+  writeFileSync(`${other}/r.txt`, 'r\n')
+  fx.git(['add', 'r.txt'], other)
+  fx.git(['commit', '-q', '-m', 'remote r'], other)
+  fx.git(['push', '-q'], other)
+  writeFileSync(`${fx.work}/README.md`, 'local edit\n')
+  await stubMessageBox(app, 0)
+  await win.getByRole('button', { name: 'Sync options' }).click()
+  await win.getByRole('menuitem', { name: 'Fetch' }).click()
+  await win.getByRole('button', { name: 'Pull ↓1' }).click()
+  await expect(win.getByRole('button', { name: /^Fetch origin/ })).toBeVisible()
+  expect(fx.git(['log', '-1', '--format=%s'])).toBe('remote r')
+  expect(readFileSync(`${fx.work}/README.md`, 'utf8')).toBe('local edit\n')
 })
 
 test('HEAD with an open change: history badge, amend pre-ticked as new patchset, upload succeeds', async () => {

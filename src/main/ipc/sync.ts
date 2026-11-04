@@ -1,3 +1,4 @@
+import type { IpcMainInvokeEvent } from 'electron'
 import { fetch, hasLocalChanges, pull, push, rebaseOntoUpstream, syncState } from '../git/sync'
 import { repoRoot } from '../repos'
 import { getSettings } from '../settings'
@@ -26,16 +27,23 @@ export async function exclusive<T>(fn: (signal: AbortSignal) => Promise<T>, auto
   }
 }
 
+const confirmStash = (e: IpcMainInvokeEvent, button: string) =>
+  confirm(e, button, 'You have uncommitted changes.', 'They are stashed before the rebase and restored after it.')
+
 export const syncHandlers: Handlers<'sync:state' | 'sync:fetch' | 'sync:pull' | 'sync:push' | 'sync:rebase' | 'sync:cancel'> = {
   'sync:state': ({ repo }) => syncState(repoRoot(repo)),
   'sync:fetch': ({ repo, auto }) => {
     if (auto && running) return
     return exclusive((signal) => fetch(repoRoot(repo), { signal, noPrompt: auto, timeoutMs: auto ? AUTO_FETCH_TIMEOUT_MS : undefined }), auto)
   },
-  'sync:pull': async ({ repo }) => {
+  'sync:pull': async ({ repo }, e) => {
     // Gerrit: always rebase (PLAN.md §5.3), so a merged change's local commit is dropped instead of merged.
     const rebase = (await activeState(repo)).detection?.provider === 'gerrit' || getSettings().pullStrategy === 'rebase'
-    return exclusive((signal) => pull(repoRoot(repo), rebase, { signal }))
+    const root = repoRoot(repo)
+    // `pull --rebase` refuses a dirty tree: same "Stash & …" confirm as sync:rebase.
+    const dirty = rebase && (await hasLocalChanges(root))
+    if (dirty && !(await confirmStash(e, 'Stash & pull'))) return null
+    return exclusive((signal) => pull(root, rebase, { signal }, dirty))
   },
   'sync:push': async ({ repo }, e) => {
     const root = repoRoot(repo)
@@ -49,7 +57,7 @@ export const syncHandlers: Handlers<'sync:state' | 'sync:fetch' | 'sync:pull' | 
   'sync:rebase': async ({ repo }, e) => {
     const root = repoRoot(repo)
     const dirty = await hasLocalChanges(root)
-    if (dirty && !(await confirm(e, 'Stash & rebase', 'You have uncommitted changes.', 'They are stashed before the rebase and restored after it.'))) return null
+    if (dirty && !(await confirmStash(e, 'Stash & rebase'))) return null
     return exclusive((signal) => rebaseOntoUpstream(root, dirty, { signal }))
   },
   'sync:cancel': () => running?.ac.abort()

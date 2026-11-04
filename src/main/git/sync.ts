@@ -38,23 +38,26 @@ export async function fetch(cwd: string, o: Opts = {}): Promise<void> {
   await git([...NO_EXT, 'fetch', '--prune', ...endOfOptions(await remoteOf(cwd, o.env))], { cwd, ...o })
 }
 
-/** Turn a merge/rebase that stopped on conflicts into a result (git prints CONFLICT on stdout); the conflict banner takes over. */
+/**
+ * Turn a merge/rebase that stopped on conflicts into a result (git prints CONFLICT on stdout); the conflict banner takes over.
+ * Also after success: `--autostash` exits 0 when re-applying the stash conflicts (the stash is kept, files are unmerged).
+ */
 export async function conflictAware(cwd: string, run: Promise<unknown>, env?: NodeJS.ProcessEnv): Promise<SyncResult> {
+  const unmerged = () => git(['ls-files', '--unmerged'], { cwd, env }).then((r) => r.stdout.trim(), () => '')
   try {
     await run
-    return 'ok'
   } catch (err) {
-    const unmerged = await git(['ls-files', '--unmerged'], { cwd, env }).then((r) => r.stdout.trim(), () => '')
-    if (unmerged) return 'conflict'
+    if (await unmerged()) return 'conflict'
     throw err
   }
+  return (await unmerged()) ? 'conflict' : 'ok'
 }
 
-/** `git pull` from the upstream; `rebase` picks the strategy (settings / provider). */
-export async function pull(cwd: string, rebase: boolean, o: Opts = {}): Promise<SyncResult> {
+/** `git pull` from the upstream; `rebase` picks the strategy (settings / provider); `autostash` = "Stash & pull" for a dirty tree. */
+export async function pull(cwd: string, rebase: boolean, o: Opts = {}, autostash = false): Promise<SyncResult> {
   const s = await syncState(cwd, o.env)
   if (!s.upstream) throw new Error('The current branch has no upstream to pull from')
-  return conflictAware(cwd, git([...NO_EXT, 'pull', '--no-edit', rebase ? '--rebase' : '--no-rebase'], { cwd, ...o }), o.env)
+  return conflictAware(cwd, git([...NO_EXT, 'pull', '--no-edit', rebase ? '--rebase' : '--no-rebase', ...(autostash ? ['--autostash'] : [])], { cwd, ...o }), o.env)
 }
 
 /**
