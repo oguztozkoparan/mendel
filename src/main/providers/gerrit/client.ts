@@ -8,6 +8,8 @@ import { XSSI } from './detect'
 export type Fetch = (url: string, init: RequestInit) => Promise<Response>
 
 const MAX_BODY = 20 * 1024 * 1024
+/** Change-Id lookups only decorate UI (badges, hints): give up fast instead of holding the commit list back. */
+export const HINT_TIMEOUT_MS = 3000
 
 /** Read a response body as text, failing once it exceeds `max` bytes. */
 export async function readCapped(res: Response, max = MAX_BODY): Promise<string> {
@@ -52,7 +54,7 @@ export function parseGerritJson(body: string): unknown {
 export function gerritClient(baseUrl: string, auth: GerritAuth, fetchFn: Fetch) {
   const authHeader = 'Basic ' + Buffer.from(`${auth.username}:${auth.password}`).toString('base64')
 
-  async function call<T>(schema: z.ZodType<T>, method: 'GET' | 'POST', path: string, body?: unknown): Promise<T> {
+  async function call<T>(schema: z.ZodType<T>, method: 'GET' | 'POST', path: string, body?: unknown, timeoutMs = 30_000): Promise<T> {
     let res: Response
     try {
       res = await fetchFn(`${baseUrl}/a/${path}`, {
@@ -60,7 +62,7 @@ export function gerritClient(baseUrl: string, auth: GerritAuth, fetchFn: Fetch) 
         headers: { Authorization: authHeader, Accept: 'application/json', ...(body !== undefined ? { 'Content-Type': 'application/json; charset=utf-8' } : {}) },
         body: body !== undefined ? JSON.stringify(body) : undefined,
         redirect: 'error', // never replay the Authorization header elsewhere
-        signal: AbortSignal.timeout(30_000)
+        signal: AbortSignal.timeout(timeoutMs)
       })
     } catch (err) {
       throw new Error(`Cannot reach Gerrit at ${baseUrl}: ${err instanceof Error ? (err.cause instanceof Error ? err.cause.message : err.message) : String(err)}`)
@@ -89,7 +91,7 @@ export function gerritClient(baseUrl: string, auth: GerritAuth, fetchFn: Fetch) 
 
     /** Open changes whose Change-Id is one of `ids` (History badges, new-patchset hint), optionally in `project`. */
     openChanges: (ids: string[], project: string | null) =>
-      call(z.array(changeSchema), 'GET', `changes/?q=${encodeURIComponent(`status:open (${ids.map((i) => `change:${i}`).join(' OR ')})${project ? ` project:"${project}"` : ''}`)}`),
+      call(z.array(changeSchema), 'GET', `changes/?q=${encodeURIComponent(`status:open (${ids.map((i) => `change:${i}`).join(' OR ')})${project ? ` project:"${project}"` : ''}`)}`, undefined, HINT_TIMEOUT_MS),
 
     change: (n: number) =>
       call(changeSchema, 'GET', `changes/${enc(n)}/detail?o=CURRENT_REVISION&o=ALL_REVISIONS&o=DETAILED_LABELS&o=DETAILED_ACCOUNTS&o=CURRENT_ACTIONS&o=MESSAGES`),
