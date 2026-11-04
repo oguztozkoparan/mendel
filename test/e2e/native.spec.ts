@@ -57,7 +57,7 @@ test('menu accelerators match PLAN §7 and trigger their actions', async () => {
     await win.keyboard.press('Escape')
     await click(app, 'repo:clone')
     await expect(win.getByRole('dialog', { name: 'Clone repository' })).toBeVisible()
-    await win.getByRole('button', { name: 'Cancel' }).click()
+    await win.getByRole('dialog', { name: 'Clone repository' }).getByRole('button', { name: 'Cancel' }).click()
     await stubOpenDialog(app, null)
     await app.evaluate(({ dialog }) => {
       const orig = dialog.showOpenDialog
