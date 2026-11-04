@@ -7,6 +7,7 @@ import { AuthPromptDialog } from './AuthPromptDialog'
 import { CloneDialog } from './CloneDialog'
 import { RepoList, RepoSelector, type RepoActions } from './Repos'
 import { RepoView } from './RepoView'
+import { UpdatePill } from './UpdatePill'
 
 const INSTALL_HINT: Record<string, string> = {
   darwin: 'Install Git with Xcode Command Line Tools (xcode-select --install) or Homebrew (brew install git).',
@@ -45,6 +46,7 @@ export function App() {
     <div className={s.app}>
       <header className={s.toolbar} aria-label="Toolbar">
         {current && <RepoSelector repos={repos} current={current} actions={actions} />}
+        <UpdatePill />
       </header>
       {error && (
         <div role="alert" className={s.banner}>

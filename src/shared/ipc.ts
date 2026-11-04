@@ -69,6 +69,15 @@ const byId = z.object({ id: repoId }).strict()
 const relPath = z.string().min(1).max(4096)
 const inRepo = z.object({ repo: repoId }).strict()
 const paths = z.object({ repo: repoId, paths: z.array(relPath).min(1).max(100_000) }).strict()
+/** Update checker state (PLAN.md §3.12). `canInstall: false` = "Download" opens the download page instead. */
+export type UpdateState =
+  | { status: 'idle' }
+  | { status: 'checking' }
+  | { status: 'up-to-date'; version: string }
+  | { status: 'available'; version: string; notes: string; canInstall: boolean }
+  | { status: 'downloading'; version: string; percent: number }
+  | { status: 'downloaded'; version: string }
+  | { status: 'error'; message: string }
 
 export const invoke = {
   'app:info': res<AppInfo>()(z.undefined()),
@@ -117,14 +126,20 @@ export const invoke = {
     z
       .object({ repo: repoId, summary: z.string().trim().min(1).max(1000), description: z.string().max(100_000), amend: z.boolean() })
       .strict()
-  )
+  ),
+  'update:state': res<UpdateState>()(z.undefined()),
+  /** Manual "Check for updates"; resolves with the state after the check. */
+  'update:check': res<UpdateState>()(z.undefined()),
+  'update:download': res<void>()(z.undefined()),
+  'update:install': res<void>()(z.undefined())
 } as const
 
 export const events = {
   'auth:prompt': null as unknown as AuthPrompt,
   'repo:cloneProgress': null as unknown as CloneProgress,
   /** Files or index of the watched repo changed (debounced); refetch status/diffs. */
-  'repo:changed': null as unknown as { repo: string }
+  'repo:changed': null as unknown as { repo: string },
+  'update:state': null as unknown as UpdateState
 } as const
 
 export type InvokeChannel = keyof typeof invoke
