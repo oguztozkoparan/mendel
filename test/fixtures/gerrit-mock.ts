@@ -229,7 +229,10 @@ export async function startGerritMock(opts: GerritMockOptions = {}): Promise<Ger
     if (req.method === 'GET' && path === 'accounts/self') return json(SELF)
     if (req.method === 'GET' && path === 'changes/') {
       const qs = u.searchParams.getAll('q')
-      const results = qs.map((q) => query(q).map(summary))
+      // Without DETAILED_LABELS Gerrit sends no per-reviewer votes (`all`) or value descriptions.
+      const detailed = u.searchParams.getAll('o').includes('DETAILED_LABELS')
+      const labelsOnly = (c: Json) => (detailed ? c : { ...c, labels: Object.fromEntries(Object.entries<Json>(c.labels ?? {}).map(([k, { all: _a, values: _v, ...l }]) => [k, l])) })
+      const results = qs.map((q) => query(q).map(summary).map(labelsOnly))
       return json(qs.length === 1 ? results[0] : results)
     }
     // changes/<id>[/revisions/<rev>]/<rest>, segments URL-encoded (paths use %2F)

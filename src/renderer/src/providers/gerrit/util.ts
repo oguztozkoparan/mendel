@@ -9,14 +9,16 @@ export const fmtVote = (v: number): string => (v > 0 ? `+${v}` : v < 0 ? `−${-
 /** "Code-Review" → "CR". */
 export const abbrev = (label: string): string => label.split(/[-_ ]/).map((w) => w[0] ?? '').join('').toUpperCase()
 
-/** Per label: highest and lowest non-zero vote, e.g. "CR +2/−1", "V +1". */
+/**
+ * Per label: highest and lowest vote. DETAILED_LABELS (`all`, change detail): numbers, e.g. "CR +2/−1", "V +1".
+ * LABELS (lists, PLAN.md §5.5): like Gerrit's dashboard, ✓ approved / ✗ rejected (max/min vote), +1/−1 recommended/disliked.
+ */
 export function labelSummary(labels: Record<string, GerritLabel> | undefined): string[] {
   return Object.entries(labels ?? {}).flatMap(([name, l]) => {
-    const votes = (l.all ?? []).map((v) => v.value ?? 0).filter((v) => v !== 0)
-    if (!votes.length) return []
-    const max = Math.max(...votes)
-    const min = Math.min(...votes)
-    return [`${abbrev(name)} ${[max > 0 ? fmtVote(max) : '', min < 0 ? fmtVote(min) : ''].filter(Boolean).join('/')}`]
+    const votes = (l.all ?? []).map((v) => v.value ?? 0)
+    const up = l.all ? (Math.max(0, ...votes) > 0 ? fmtVote(Math.max(...votes)) : '') : l.approved ? '✓' : l.recommended ? '+1' : ''
+    const down = l.all ? (Math.min(0, ...votes) < 0 ? fmtVote(Math.min(...votes)) : '') : l.rejected ? '✗' : l.disliked ? '−1' : ''
+    return up || down ? [`${abbrev(name)} ${[up, down].filter(Boolean).join('/')}`] : []
   })
 }
 

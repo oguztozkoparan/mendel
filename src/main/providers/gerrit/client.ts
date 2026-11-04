@@ -85,7 +85,7 @@ export function gerritClient(baseUrl: string, auth: GerritAuth, fetchFn: Fetch) 
       const p = project ? ` project:"${project}"` : ''
       const qs = [`status:open owner:self${p}`, `status:open reviewer:self -owner:self${p}`, `owner:self -is:open limit:10${p}`]
       const q = qs.map((x) => 'q=' + encodeURIComponent(x)).join('&')
-      const [outgoing, incoming, closed] = await call(z.array(z.array(changeSchema)).length(3), 'GET', `changes/?${q}&o=DETAILED_LABELS&o=DETAILED_ACCOUNTS`)
+      const [outgoing, incoming, closed] = await call(z.array(z.array(changeSchema)).length(3), 'GET', `changes/?${q}&o=LABELS&o=DETAILED_ACCOUNTS`)
       return { outgoing, incoming, closed }
     },
 
