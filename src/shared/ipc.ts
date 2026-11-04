@@ -79,6 +79,18 @@ export interface Detection {
   user?: string
 }
 
+/** Per-repo provider override (PLAN.md §4.3 step 5). */
+export interface RepoOverride {
+  provider: 'auto' | 'gerrit' | 'none'
+  baseUrl?: string
+}
+
+export interface ProviderState {
+  /** null = no provider (none detected, or override 'none'). */
+  detection: Detection | null
+  override: RepoOverride
+}
+
 const repoId = z.string().min(1).max(64)
 const byId = z.object({ id: repoId }).strict()
 /** Repo-relative path; main additionally checks it with resolveUnder (TECH.md §6.4). */
@@ -142,6 +154,12 @@ export const invoke = {
     z
       .object({ repo: repoId, summary: z.string().trim().min(1).max(1000), description: z.string().max(100_000), amend: z.boolean() })
       .strict()
+  ),
+  /** Detect the repo's provider (cached per host; probes unknown hosts, 3 s timeout). */
+  'provider:get': res<ProviderState>()(inRepo),
+  /** Save the repo override; a base URL is probed first and rejected if it is not Gerrit. */
+  'provider:setOverride': res<ProviderState>()(
+    z.object({ repo: repoId, provider: z.enum(['auto', 'gerrit', 'none']), baseUrl: z.string().max(2048).nullable() }).strict()
   ),
   'update:state': res<UpdateState>()(z.undefined()),
   /** Manual "Check for updates"; resolves with the state after the check. */

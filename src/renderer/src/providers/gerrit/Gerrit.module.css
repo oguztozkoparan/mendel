@@ -1,0 +1,32 @@
+.sideHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+}
+
+.grow {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card {
+  max-width: 420px;
+  margin: 48px auto;
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  text-align: center;
+}
+
+.empty {
+  color: var(--muted);
+  padding: 24px;
+  margin: 0;
+  text-align: center;
+}
