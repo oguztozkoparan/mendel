@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { GitInfo } from '../../shared/ipc'
 import s from './App.module.css'
+import { AuthPromptDialog } from './AuthPromptDialog'
 
 const INSTALL_HINT: Record<string, string> = {
   darwin: 'Install Git with Xcode Command Line Tools (xcode-select --install) or Homebrew (brew install git).',
@@ -38,6 +39,7 @@ export function App() {
           </p>
         )}
       </main>
+      <AuthPromptDialog />
     </div>
   )
 }

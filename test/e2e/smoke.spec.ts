@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { invoke } from '../../src/shared/ipc'
 import { launchApp } from './launch'
 
 test('window opens hardened with welcome screen and typed api', async () => {
@@ -9,7 +10,7 @@ test('window opens hardened with welcome screen and typed api', async () => {
     expect(win.url()).toBe('app://gitdock/index.html')
     await expect(win.getByText(/^git \d+\.\d+.* found at .+/)).toBeVisible()
     expect(await win.evaluate(() => ['require', 'process'].map((k) => typeof (window as never as Record<string, unknown>)[k]))).toEqual(['undefined', 'undefined'])
-    expect(await win.evaluate(() => Object.keys(window.gitdock).sort())).toEqual(['app:info', 'git:info', 'on'])
+    expect(await win.evaluate(() => Object.keys(window.gitdock).sort())).toEqual([...Object.keys(invoke), 'on'].sort())
     // Navigation away from the app origin is blocked.
     await win.evaluate(() => (location.href = 'https://example.com/'))
     await win.waitForTimeout(300)

@@ -86,6 +86,12 @@ export function gitPath(recheck = false): string | null {
   return resolved
 }
 
+let extraEnv: Record<string, string> = {}
+/** Env added to every git run (the askpass bridge sets GIT_ASKPASS/SSH_ASKPASS here, not in process.env). */
+export function setGitEnv(env: Record<string, string>): void {
+  extraEnv = env
+}
+
 export interface GitOptions {
   /** Repo root (or any dir for repo-less commands like `clone`, `--version`). */
   cwd: string
@@ -111,6 +117,7 @@ export function git(args: string[], opts: GitOptions): Promise<GitResult> {
   if (!bin) return Promise.reject(new GitError('GitNotFound', 'Git was not found on PATH', args))
   const env = {
     ...(opts.env ?? process.env),
+    ...extraEnv,
     GIT_TERMINAL_PROMPT: '0',
     LC_ALL: 'C',
     LANG: 'C',

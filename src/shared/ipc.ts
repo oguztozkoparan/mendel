@@ -18,12 +18,24 @@ export type GitInfo =
   | { found: false }
   | { found: true; path: string; version: string; supported: boolean; outdated: boolean }
 
+/** A git/ssh credential prompt shown as an in-app modal; answer with `auth:respond`. */
+export interface AuthPrompt {
+  id: string
+  /** text: username; secret: password/passphrase; confirm: yes/no (unknown SSH host key). */
+  kind: 'text' | 'secret' | 'confirm'
+  prompt: string
+}
+
 export const invoke = {
   'app:info': res<AppInfo>()(z.undefined()),
-  'git:info': res<GitInfo>()(z.object({ recheck: z.boolean() }).strict().optional())
+  'git:info': res<GitInfo>()(z.object({ recheck: z.boolean() }).strict().optional()),
+  /** value null = cancel (git/ssh then fails with AuthFailed). For `confirm` prompts send 'yes'. */
+  'auth:respond': res<void>()(z.object({ id: z.string().max(64), value: z.string().max(4096).nullable() }).strict())
 } as const
 
-export const events = {} as const
+export const events = {
+  'auth:prompt': null as unknown as AuthPrompt
+} as const
 
 export type InvokeChannel = keyof typeof invoke
 export type EventChannel = keyof typeof events

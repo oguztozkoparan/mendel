@@ -25,7 +25,7 @@ export function createRepoFixture(): RepoFixture {
   const env = isolatedGitEnv(dir)
   const remote = path.join(dir, 'remote.git')
   const work = path.join(dir, 'work')
-  const git = (args: string[], cwd = work) => execFileSync('git', args, { cwd, env, encoding: 'utf8' }).trim()
+  const git = (args: string[], cwd = work) => execFileSync('git', args, { cwd, env, encoding: 'utf8', stdio: 'pipe' }).trim()
   const commitFile = (name: string, content: string, message = `add ${name}`) => {
     const file = path.join(work, name)
     mkdirSync(path.dirname(file), { recursive: true })
