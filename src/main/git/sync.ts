@@ -20,7 +20,12 @@ export async function syncState(cwd: string, env?: NodeJS.ProcessEnv): Promise<S
   const tracked = b.current ? await config(cwd, `branch.${b.current}.remote`, env) : null
   const remote = (tracked && remotes.includes(tracked) ? tracked : null) ?? (remotes.includes('origin') ? 'origin' : (remotes[0] ?? null))
   const lastFetched = await stat(path.resolve(cwd, fetchHead)).then((s) => s.mtimeMs, () => null)
-  return { branch: b.current, upstream: cur?.upstream ?? null, ahead: cur?.ahead ?? 0, behind: cur?.behind ?? 0, remote, lastFetched }
+  const ahead = cur?.ahead ?? 0
+  const unpushed =
+    cur?.upstream || !b.current
+      ? ahead
+      : await git(['rev-list', '--count', 'HEAD', '--not', '--remotes'], { cwd, env, background: true }).then((r) => Number(r.stdout.trim()) || 0, () => 0)
+  return { branch: b.current, upstream: cur?.upstream ?? null, ahead, behind: cur?.behind ?? 0, unpushed, remote, lastFetched }
 }
 
 async function remoteOf(cwd: string, env?: NodeJS.ProcessEnv): Promise<string> {

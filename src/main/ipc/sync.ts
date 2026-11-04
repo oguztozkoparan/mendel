@@ -2,6 +2,7 @@ import { fetch, hasLocalChanges, pull, push, rebaseOntoUpstream, syncState } fro
 import { repoRoot } from '../repos'
 import { getSettings } from '../settings'
 import { confirm } from './branch'
+import { upstreamBranch } from '../providers/gerrit/git'
 import { activeState } from './provider'
 import type { Handlers } from '.'
 
@@ -36,7 +37,15 @@ export const syncHandlers: Handlers<'sync:state' | 'sync:fetch' | 'sync:pull' | 
     const rebase = (await activeState(repo)).detection?.provider === 'gerrit' || getSettings().pullStrategy === 'rebase'
     return exclusive((signal) => pull(repoRoot(repo), rebase, { signal }))
   },
-  'sync:push': ({ repo }) => exclusive((signal) => push(repoRoot(repo), { signal })),
+  'sync:push': async ({ repo }, e) => {
+    const root = repoRoot(repo)
+    // PLAN.md §5.1: Gerrit keeps plain Push, behind a confirm (changes normally go through refs/for/*).
+    if ((await activeState(repo)).detection?.provider === 'gerrit') {
+      const b = (await upstreamBranch(root)) ?? (await syncState(root)).branch
+      if (!(await confirm(e, 'Push', `Push directly to refs/heads/${b}?`, 'This bypasses code review. Use Send for review to upload a change instead.'))) return null
+    }
+    return exclusive((signal) => push(root, { signal }))
+  },
   'sync:rebase': async ({ repo }, e) => {
     const root = repoRoot(repo)
     const dirty = await hasLocalChanges(root)

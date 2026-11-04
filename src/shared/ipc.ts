@@ -92,6 +92,8 @@ export interface SyncState {
   upstream: string | null
   ahead: number
   behind: number
+  /** Without an upstream: commits on HEAD that are on no remote-tracking branch (what Gerrit's Send for review pushes); else = ahead. */
+  unpushed: number
   /** Remote fetch/publish use (upstream's, else origin, else first); null = repo has no remote. */
   remote: string | null
   /** ms epoch of the last fetch (FETCH_HEAD mtime). */
@@ -292,7 +294,8 @@ export const invoke = {
   'sync:fetch': res<void>()(z.object({ repo: repoId, auto: z.boolean().optional() }).strict()),
   'sync:pull': res<SyncResult>()(inRepo),
   /** Push to upstream, or publish (`push -u`) when the branch has none. */
-  'sync:push': res<SyncResult>()(inRepo),
+  /** null = the user declined the Gerrit direct-push confirm. */
+  'sync:push': res<SyncResult | null>()(inRepo),
   /** Fetch + rebase the current branch onto its upstream; a dirty tree asks "Stash & rebase" (null = cancelled). */
   'sync:rebase': res<SyncResult | null>()(inRepo),
   'sync:cancel': res<void>()(z.undefined()),
