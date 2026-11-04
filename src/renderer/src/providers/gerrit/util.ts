@@ -1,4 +1,4 @@
-import type { GerritLabel } from '../../../../shared/gerrit'
+import type { GerritDiff, GerritLabel } from '../../../../shared/gerrit'
 
 /** Gerrit timestamps are UTC "2026-11-03 10:00:00.000000000". */
 export const gerritDate = (s: string): Date => new Date(s.replace(' ', 'T').slice(0, 23) + 'Z')
@@ -22,3 +22,34 @@ export function labelSummary(labels: Record<string, GerritLabel> | undefined): s
 
 export const initial = (a?: { name?: string; username?: string }): string => (a?.name ?? a?.username ?? '?').trim().charAt(0).toUpperCase()
 export const who = (a?: { name?: string; username?: string; email?: string }): string => a?.name ?? a?.username ?? a?.email ?? 'Unknown'
+
+/** Gerrit DiffInfo → unified diff text for react-diff-view's parseDiff (a new hunk after every `skip`). */
+export function diffText(d: GerritDiff): string {
+  const out = ['diff --git a/f b/f', d.meta_a ? '--- a/f' : '--- /dev/null', d.meta_b ? '+++ b/f' : '+++ /dev/null']
+  let a = 1
+  let b = 1
+  let start = [1, 1]
+  let hunk: string[] = []
+  let [na, nb] = [0, 0]
+  const flush = () => {
+    if (hunk.length) out.push(`@@ -${na ? start[0] : start[0] - 1},${na} +${nb ? start[1] : start[1] - 1},${nb} @@`, ...hunk)
+    hunk = []
+    start = [a, b]
+    na = nb = 0
+  }
+  for (const blk of d.content) {
+    if (blk.skip) {
+      flush()
+      a += blk.skip
+      b += blk.skip
+      start = [a, b]
+    }
+    for (const l of blk.ab ?? []) (hunk.push(' ' + l), a++, b++, na++, nb++)
+    for (const l of blk.a ?? []) (hunk.push('-' + l), a++, na++)
+    for (const l of blk.b ?? []) (hunk.push('+' + l), b++, nb++)
+  }
+  flush()
+  return out.join('\n') + '\n'
+}
+
+export const fileLabel = (path: string): string => ({ '/COMMIT_MSG': 'Commit Message', '/MERGE_LIST': 'Merge List' })[path] ?? path

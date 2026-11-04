@@ -4,6 +4,7 @@ import { Button, Checkbox, Header, ListBox, ListBoxItem, ListBoxSection } from '
 import { GERRIT_AUTH_ERROR, type GerritChange } from '../../../../shared/gerrit'
 import type { ProviderState, RepoEntry } from '../../../../shared/ipc'
 import a from '../../App.module.css'
+import { ChangeDetail } from './ChangeDetail'
 import c from '../../Changes.module.css'
 import { GerritConnectDialog } from './GerritConnectDialog'
 import s from './Gerrit.module.css'
@@ -59,7 +60,7 @@ export function Reviews({ repo, state }: { repo: RepoEntry; state: ProviderState
         <Button onPress={() => void lists.refetch()}>Retry</Button>
       </div>
     )
-  else main = <p className={s.empty}>{selected ? `#${selected}` : 'Select a change'}</p>
+  else main = selected ? <ChangeDetail key={selected} repo={repo.id} number={selected} onBack={() => setSelected(null)} /> : <p className={s.empty}>Select a change</p>
 
   const sections: [string, GerritChange[]][] = lists.data
     ? [

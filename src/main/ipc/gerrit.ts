@@ -26,7 +26,10 @@ export async function gerritFor(repo: string) {
   return gerritClient(base, auth, fetchFn)
 }
 
-export const gerritHandlers: Handlers<'gerrit:connect' | 'gerrit:disconnect' | 'gerrit:open' | 'gerrit:changes'> = {
+export const gerritHandlers: Handlers<'gerrit:connect' | 'gerrit:disconnect' | 'gerrit:open' | 'gerrit:changes' | 'gerrit:change' | 'gerrit:files' | 'gerrit:diff'> = {
+  'gerrit:change': async ({ repo, change }) => (await gerritFor(repo)).change(change),
+  'gerrit:files': async ({ repo, change, revision, base }) => (await gerritFor(repo)).files(change, revision, base),
+  'gerrit:diff': async ({ repo, change, revision, path, base }) => (await gerritFor(repo)).diff(change, revision, path, base),
   'gerrit:changes': async ({ repo, projectOnly }) => {
     const client = await gerritFor(repo)
     return client.listChanges(projectOnly ? (await activeState(repo)).detection?.project || null : null)

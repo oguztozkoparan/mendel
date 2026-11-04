@@ -97,3 +97,95 @@
   font-size: 11px;
   color: var(--muted);
 }
+
+.skeleton {
+  height: 120px;
+  margin: 12px;
+  border-radius: 6px;
+  background: var(--bg-hover);
+}
+
+.detail {
+  display: flex;
+  flex-direction: column;
+}
+
+.detailHeader {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.detailHeader h2 {
+  margin: 0 0 4px;
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+
+.toolbarRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+
+.block {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.labelRow {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: baseline;
+}
+
+.labelRow strong {
+  min-width: 110px;
+}
+
+.vote[data-vote='1'] {
+  color: #2da44e;
+}
+
+.vote[data-vote='-1'] {
+  color: var(--danger);
+}
+
+.files {
+  border-bottom: 1px solid var(--border);
+  outline: none;
+}
+
+.fileRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 12px;
+  outline: none;
+}
+
+.fileRow[data-selected] {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+.fileRow[data-focus-visible] {
+  box-shadow: var(--focus);
+}
+
+.added {
+  color: #2da44e;
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+.deleted {
+  color: var(--danger);
+  font-family: var(--mono);
+  font-size: 11px;
+}

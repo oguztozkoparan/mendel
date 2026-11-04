@@ -81,3 +81,23 @@ export interface GerritChangeLists {
   incoming: GerritChange[]
   closed: GerritChange[]
 }
+
+export const fileSchema = z.object({
+  status: z.string().optional(), // A | D | R | C | W | absent = M
+  old_path: z.string().optional(),
+  binary: z.boolean().optional(),
+  lines_inserted: z.number().optional(),
+  lines_deleted: z.number().optional()
+})
+/** path → file; includes the `/COMMIT_MSG` (and `/MERGE_LIST`) pseudo files. */
+export type GerritFiles = Record<string, z.infer<typeof fileSchema>>
+
+export const diffSchema = z.object({
+  meta_a: z.object({ name: z.string() }).optional(),
+  meta_b: z.object({ name: z.string() }).optional(),
+  change_type: z.string().optional(),
+  binary: z.boolean().optional(),
+  /** Blocks: `ab` common lines, `a` only old, `b` only new, `skip` = n common lines omitted. */
+  content: z.array(z.object({ ab: z.array(z.string()).optional(), a: z.array(z.string()).optional(), b: z.array(z.string()).optional(), skip: z.number().optional() }))
+})
+export type GerritDiff = z.infer<typeof diffSchema>

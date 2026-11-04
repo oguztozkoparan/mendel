@@ -5,7 +5,7 @@
 // Main must implement every `invoke` channel (see src/main/ipc/index.ts); preload exposes each one as
 // `window.gitdock['<channel>'](req)` and `window.gitdock.on('<event>', cb)`.
 import { z } from 'zod'
-import type { GerritChangeLists, GerritConnected } from './gerrit'
+import type { GerritChange, GerritChangeLists, GerritConnected, GerritDiff, GerritFiles } from './gerrit'
 
 const res = <Res>() => <Req extends z.ZodType>(req: Req) => ({ req, res: null as unknown as Res })
 
@@ -100,6 +100,8 @@ const byId = z.object({ id: repoId }).strict()
 const relPath = z.string().min(1).max(4096)
 const inRepo = z.object({ repo: repoId }).strict()
 const paths = z.object({ repo: repoId, paths: z.array(relPath).min(1).max(100_000) }).strict()
+const changeNum = z.number().int().positive().max(2 ** 31)
+const revision = z.string().regex(/^(?:[0-9a-f]{40}|\d{1,9}|current)$/)
 /** Update checker state (PLAN.md §3.12). `canInstall: false` = "Download" opens the download page instead. */
 export type UpdateState =
   | { status: 'idle' }
@@ -173,6 +175,11 @@ export const invoke = {
   'gerrit:open': res<void>()(z.object({ repo: repoId, path: z.string().min(1).max(4096) }).strict()),
   /** Reviews lists; `projectOnly` adds `project:"<p>"` to each query. */
   'gerrit:changes': res<GerritChangeLists>()(z.object({ repo: repoId, projectOnly: z.boolean() }).strict()),
+  /** Change detail: all revisions, detailed labels, permitted_labels, actions, messages. */
+  'gerrit:change': res<GerritChange>()(z.object({ repo: repoId, change: changeNum }).strict()),
+  /** Files of a patch set (`revision` = sha or number), optionally against patch set `base`. */
+  'gerrit:files': res<GerritFiles>()(z.object({ repo: repoId, change: changeNum, revision, base: changeNum.optional() }).strict()),
+  'gerrit:diff': res<GerritDiff>()(z.object({ repo: repoId, change: changeNum, revision, path: z.string().min(1).max(4096), base: changeNum.optional() }).strict()),
   'update:state': res<UpdateState>()(z.undefined()),
   /** Manual "Check for updates"; resolves with the state after the check. */
   'update:check': res<UpdateState>()(z.undefined()),

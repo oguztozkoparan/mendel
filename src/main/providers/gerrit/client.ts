@@ -1,7 +1,7 @@
 // Gerrit REST client (PLAN.md §5.5, TECH.md §6.6). Pure: the caller injects fetch (main passes electron's
 // net.fetch for the OS cert store + proxy; tests pass node's fetch against the mock server).
 import { z } from 'zod'
-import { accountSchema, changeSchema, GERRIT_AUTH_ERROR, type GerritChangeLists } from '../../../shared/gerrit'
+import { accountSchema, changeSchema, diffSchema, fileSchema, GERRIT_AUTH_ERROR, type GerritChangeLists } from '../../../shared/gerrit'
 import { urlAllowed } from '../../update/feed'
 import { XSSI } from './detect'
 
@@ -85,7 +85,17 @@ export function gerritClient(baseUrl: string, auth: GerritAuth, fetchFn: Fetch) 
       const q = qs.map((x) => 'q=' + encodeURIComponent(x)).join('&')
       const [outgoing, incoming, closed] = await call(z.array(z.array(changeSchema)).length(3), 'GET', `changes/?${q}&o=DETAILED_LABELS&o=DETAILED_ACCOUNTS`)
       return { outgoing, incoming, closed }
-    }
+    },
+
+    change: (n: number) =>
+      call(changeSchema, 'GET', `changes/${enc(n)}/detail?o=CURRENT_REVISION&o=ALL_REVISIONS&o=DETAILED_LABELS&o=DETAILED_ACCOUNTS&o=CURRENT_ACTIONS&o=MESSAGES`),
+
+    /** Files of `rev` (sha, patch set number or "current"), against patch set `base` or the parent. */
+    files: (n: number, rev: string, base?: number) =>
+      call(z.record(z.string(), fileSchema), 'GET', `changes/${enc(n)}/revisions/${enc(rev)}/files${base ? `?base=${enc(base)}` : ''}`),
+
+    diff: (n: number, rev: string, path: string, base?: number) =>
+      call(diffSchema, 'GET', `changes/${enc(n)}/revisions/${enc(rev)}/files/${enc(path)}/diff?intraline=false${base ? `&base=${enc(base)}` : ''}`)
   }
 }
 
