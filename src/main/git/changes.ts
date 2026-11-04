@@ -48,13 +48,15 @@ export async function getDiff(cwd: string, t: DiffTarget, env?: NodeJS.ProcessEn
 
 const PATHSPEC_STDIN = ['--pathspec-from-file=-', '--pathspec-file-nul']
 
-/** `git add -A` for exactly these paths (pathspecs via stdin: no argv limits, literal, never options). */
-export async function stagePaths(cwd: string, paths: string[], env?: NodeJS.ProcessEnv): Promise<void> {
+/** `git add -A` for exactly these paths (pathspecs via stdin: no argv limits, literal, never options); null = whole tree. */
+export async function stagePaths(cwd: string, paths: string[] | null, env?: NodeJS.ProcessEnv): Promise<void> {
+  if (!paths) return void (await git(['add', '-A'], { cwd, env }))
   await git(['--literal-pathspecs', 'add', '-A', ...PATHSPEC_STDIN], { cwd, env, stdin: paths.join('\0') })
 }
 
-/** Index back to HEAD for these paths (also works before the first commit). */
-export async function unstagePaths(cwd: string, paths: string[], env?: NodeJS.ProcessEnv): Promise<void> {
+/** Index back to HEAD for these paths, null = all (also works before the first commit). */
+export async function unstagePaths(cwd: string, paths: string[] | null, env?: NodeJS.ProcessEnv): Promise<void> {
+  if (!paths) return void (await git(['reset', '-q'], { cwd, env }))
   await git(['--literal-pathspecs', 'reset', '-q', ...PATHSPEC_STDIN], { cwd, env, stdin: paths.join('\0') })
 }
 

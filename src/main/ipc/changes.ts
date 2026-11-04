@@ -30,13 +30,13 @@ export const changesHandlers: Handlers<'changes:status' | 'changes:diff' | 'chan
     const root = repoRoot(repo)
     return getDiff(root, { path: checkPath(root, path), origPath: origPath && checkPath(root, origPath), staged, untracked })
   },
-  'changes:stage': ({ repo, paths }) => {
-    const root = repoRoot(repo)
-    return stagePaths(root, paths.map((p) => checkPath(root, p)))
+  'changes:stage': (req) => {
+    const root = repoRoot(req.repo)
+    return stagePaths(root, 'all' in req ? null : req.paths.map((p) => checkPath(root, p)))
   },
-  'changes:unstage': ({ repo, paths }) => {
-    const root = repoRoot(repo)
-    return unstagePaths(root, paths.map((p) => checkPath(root, p)))
+  'changes:unstage': (req) => {
+    const root = repoRoot(req.repo)
+    return unstagePaths(root, 'all' in req ? null : req.paths.map((p) => checkPath(root, p)))
   },
   'changes:applyHunk': async ({ repo, path, origPath, untracked, hunk, action }, e) => {
     const root = repoRoot(repo)

@@ -66,7 +66,7 @@ export function ChangesView({ repo }: { repo: RepoEntry }) {
               label="Stage all"
               selected={allStaged}
               indeterminate={!allStaged && files.some((f) => f.staged)}
-              onChange={(v) => setStaged(files, v)}
+              onChange={(v) => act(window.gitdock[v ? 'changes:stage' : 'changes:unstage']({ repo: repo.id, all: true }))}
             />
           )}
           {files.length === 1 ? '1 changed file' : `${files.length} changed files`}
