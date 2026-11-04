@@ -113,7 +113,7 @@ test('theme follows the OS by default', async () => {
 test('window bounds persist; a second launch focuses the first instance', async () => {
   const fx = createRepoFixture()
   const userData = path.join(fx.dir, 'userData')
-  const env = { ...fx.env, GITDOCK_E2E_USERDATA: userData }
+  const env = { ...fx.env, MENDEL_E2E_USERDATA: userData }
   let l = await launchApp(env)
   try {
     const set = { x: 50, y: 60, width: 1000, height: 700 }

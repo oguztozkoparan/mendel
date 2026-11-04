@@ -26,7 +26,7 @@ export function createMainWindow(): BrowserWindow {
     minWidth: MIN.width,
     minHeight: MIN.height,
     show: false,
-    title: 'gitdock',
+    title: 'Mendel',
     titleBarStyle: mac ? 'hiddenInset' : 'hidden',
     ...(mac ? {} : { titleBarOverlay: overlay() }),
     webPreferences: {

@@ -5,8 +5,8 @@ import { launchApp, type LaunchedApp } from './launch'
 // Real electron-updater against a mock generic feed; only download + install are stubbed (PLAN.md §8 Updates).
 let version = '99.0.0'
 const yml = () =>
-  `version: ${version}\nfiles:\n  - url: gitdock-${version}-arm64.dmg\n    sha512: AAAA\n    size: 1\n` +
-  `path: gitdock-${version}-arm64.dmg\nsha512: AAAA\nreleaseDate: '2026-01-01T00:00:00.000Z'\nreleaseNotes: '<p>New <b>stuff</b></p>'\n`
+  `version: ${version}\nfiles:\n  - url: mendel-${version}-arm64.dmg\n    sha512: AAAA\n    size: 1\n` +
+  `path: mendel-${version}-arm64.dmg\nsha512: AAAA\nreleaseDate: '2026-01-01T00:00:00.000Z'\nreleaseNotes: '<p>New <b>stuff</b></p>'\n`
 let feed: MockServer
 let launched: LaunchedApp | null = null
 
@@ -23,14 +23,14 @@ test.afterEach(async () => {
 })
 
 async function launch(feedUrl: string, selfInstall: boolean): Promise<LaunchedApp> {
-  launched = await launchApp({ GITDOCK_E2E_UPDATE_FEED: feedUrl, GITDOCK_E2E_SELF_INSTALL: selfInstall ? '1' : '0' })
+  launched = await launchApp({ MENDEL_E2E_UPDATE_FEED: feedUrl, MENDEL_E2E_SELF_INSTALL: selfInstall ? '1' : '0' })
   return launched
 }
 
 const stubInstall = (app: ElectronApplication) =>
   app.evaluate(() => {
-    const g = globalThis as unknown as { __gitdockUpdater: NodeJS.EventEmitter & Record<string, unknown>; __installed?: boolean }
-    const u = g.__gitdockUpdater
+    const g = globalThis as unknown as { __mendelUpdater: NodeJS.EventEmitter & Record<string, unknown>; __installed?: boolean }
+    const u = g.__mendelUpdater
     u.downloadUpdate = async () => {
       u.emit('download-progress', { percent: 42, bytesPerSecond: 1, total: 100, transferred: 42, delta: 42 })
       await new Promise((r) => setTimeout(r, 300))
@@ -46,7 +46,7 @@ test('newer version: pill, notes, download progress, restart to update', async (
   await stubInstall(app)
   await win.getByRole('button', { name: 'Check for updates' }).click()
   await win.getByRole('button', { name: 'Update v99.0.0 available' }).click()
-  await expect(win.getByRole('dialog', { name: 'gitdock 99.0.0' })).toContainText('New stuff')
+  await expect(win.getByRole('dialog', { name: 'mendel 99.0.0' })).toContainText('New stuff')
   await win.getByRole('button', { name: 'Download' }).click()
   await expect(win.getByRole('progressbar', { name: 'Downloading update' })).toBeVisible()
   await win.getByRole('button', { name: 'Restart to update' }).click()
@@ -58,11 +58,11 @@ test('restart to update asks first while a git operation is running', async () =
   const { app, win } = await launch(feed.url, true)
   await stubInstall(app)
   await app.evaluate(({ dialog }) => {
-    const g = globalThis as unknown as { __asked: string[]; __answer: number; __gitdockTest: { git(a: string[], o: { cwd: string }): Promise<unknown> } }
+    const g = globalThis as unknown as { __asked: string[]; __answer: number; __mendelTest: { git(a: string[], o: { cwd: string }): Promise<unknown> } }
     g.__asked = []
     g.__answer = 1 // Cancel
     dialog.showMessageBox = (async (_w: unknown, o: { message: string }) => (g.__asked.push(o.message), { response: g.__answer, checkboxChecked: false })) as never
-    void g.__gitdockTest.git(['-c', 'alias.slow=!sleep 30', 'slow'], { cwd: process.cwd() }).catch(() => undefined) // a long user op, e.g. a push
+    void g.__mendelTest.git(['-c', 'alias.slow=!sleep 30', 'slow'], { cwd: process.cwd() }).catch(() => undefined) // a long user op, e.g. a push
   })
   const state = () =>
     app.evaluate(() => {
@@ -89,7 +89,7 @@ test('newer version without self-install opens the download page', async () => {
   await win.getByRole('button', { name: 'Check for updates' }).click()
   await win.getByRole('button', { name: 'Update v99.0.0 available' }).click()
   await win.getByRole('button', { name: 'Download' }).click()
-  await expect.poll(() => app.evaluate(() => (globalThis as { __opened?: string }).__opened)).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/gitdock-99\.0\.0-arm64\.dmg$/)
+  await expect.poll(() => app.evaluate(() => (globalThis as { __opened?: string }).__opened)).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/mendel-99\.0\.0-arm64\.dmg$/)
 })
 
 test('same version: up to date', async () => {

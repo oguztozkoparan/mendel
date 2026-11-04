@@ -75,9 +75,9 @@ test('gerrit daily loop: connect → commit → send with topic → amend → ne
   try {
     await connectGerrit(win, mock)
     await win.getByRole('tab', { name: 'Changes' }).click()
-    await expect(box).toContainText('Change-Id will be added by gitdock')
+    await expect(box).toContainText('Change-Id will be added by mendel')
 
-    // Commit through the UI: gitdock adds the Change-Id (no commit-msg hook).
+    // Commit through the UI: mendel adds the Change-Id (no commit-msg hook).
     writeFileSync(path.join(fx.work, 'x.txt'), 'x\n')
     await toggle(win.getByRole('grid', { name: 'Changed files' }).getByRole('row', { name: 'x.txt' }).getByRole('checkbox', { name: 'Staged' }))
     await box.getByLabel('Summary').fill('Add feature X')
@@ -91,7 +91,7 @@ test('gerrit daily loop: connect → commit → send with topic → amend → ne
     await win.getByRole('button', { name: 'Send for review ↑1' }).click()
     await sendDialog.getByLabel('Topic').fill('feature-x')
     await expect(sendDialog.getByLabel('Push ref')).toHaveText('HEAD:refs/for/main%topic=feature-x')
-    mock.changes[0].change_id = changeId // the server knows the change once the push lands (before gitdock refreshes)
+    mock.changes[0].change_id = changeId // the server knows the change once the push lands (before mendel refreshes)
     await sendDialog.getByRole('button', { name: 'Send' }).click()
     await expect(win.getByRole('alert').filter({ hasText: 'Created change #101' })).toBeVisible()
     expect(pushedRefs()).toBe('refs/for/main%topic=feature-x')
@@ -182,15 +182,15 @@ test('conflict: commit → push rejected → pull conflicts → resolve → cont
 
 test('update: newer version in feed → pill → download (stubbed) → restart (stubbed), repo stays open', async () => {
   const fx = createRepoFixture()
-  const yml = `version: 99.0.0\nfiles:\n  - url: gitdock-99.0.0.zip\n    sha512: AAAA\n    size: 1\npath: gitdock-99.0.0.zip\nsha512: AAAA\nreleaseDate: '2026-01-01T00:00:00.000Z'\nreleaseNotes: 'Faster history'\n`
+  const yml = `version: 99.0.0\nfiles:\n  - url: mendel-99.0.0.zip\n    sha512: AAAA\n    size: 1\npath: mendel-99.0.0.zip\nsha512: AAAA\nreleaseDate: '2026-01-01T00:00:00.000Z'\nreleaseNotes: 'Faster history'\n`
   const feed = await startMockServer(Object.fromEntries(['latest.yml', 'latest-mac.yml', 'latest-linux.yml', 'latest-linux-arm64.yml'].map((f) => [`GET /${f}`, () => ({ body: yml })])))
-  const app = await launchApp({ ...fx.env, GITDOCK_E2E_UPDATE_FEED: feed.url, GITDOCK_E2E_SELF_INSTALL: '1' })
+  const app = await launchApp({ ...fx.env, MENDEL_E2E_UPDATE_FEED: feed.url, MENDEL_E2E_SELF_INSTALL: '1' })
   const { win } = app
   try {
     await openRepo(app, fx.work)
     await app.app.evaluate(() => {
-      const g = globalThis as unknown as { __gitdockUpdater: NodeJS.EventEmitter & Record<string, unknown>; __installed?: boolean }
-      const u = g.__gitdockUpdater
+      const g = globalThis as unknown as { __mendelUpdater: NodeJS.EventEmitter & Record<string, unknown>; __installed?: boolean }
+      const u = g.__mendelUpdater
       u.downloadUpdate = async () => {
         u.emit('download-progress', { percent: 50, bytesPerSecond: 1, total: 2, transferred: 1, delta: 1 })
         await new Promise((r) => setTimeout(r, 300))
@@ -202,7 +202,7 @@ test('update: newer version in feed → pill → download (stubbed) → restart 
     // Help/App menu → Check for Updates…
     await app.app.evaluate(({ Menu }) => Menu.getApplicationMenu()!.getMenuItemById('update:check')!.click())
     await win.getByRole('button', { name: 'Update v99.0.0 available' }).click()
-    await expect(win.getByRole('dialog', { name: 'gitdock 99.0.0' })).toContainText('Faster history')
+    await expect(win.getByRole('dialog', { name: 'mendel 99.0.0' })).toContainText('Faster history')
     await win.getByRole('button', { name: 'Download' }).click()
     await expect(win.getByRole('progressbar', { name: 'Downloading update' })).toBeVisible()
     await win.getByRole('button', { name: 'Restart to update' }).click()

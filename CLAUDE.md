@@ -1,4 +1,4 @@
-# gitdock (cross-platform desktop git client with per-host provider plugins)
+# Mendel (cross-platform desktop git client with per-host provider plugins)
 
 ## Stack
 - Electron + React + Vite + TypeScript. Git ops shell out to the system `git` CLI (hooks, SSH keys, credentials behave like the terminal).

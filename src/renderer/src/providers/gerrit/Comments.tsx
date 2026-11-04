@@ -15,7 +15,7 @@ export interface PendingStore {
 
 /** Pending (unsent) inline comments per change; kept in localStorage so they survive a restart (PLAN.md §4.5). */
 export function usePending(repo: string, change: number): PendingStore {
-  const storageKey = `gitdock.gerrit.pending.${repo}.${change}`
+  const storageKey = `mendel.gerrit.pending.${repo}.${change}`
   const [list, setList] = useState<Pending[]>(() => {
     try {
       return JSON.parse(localStorage.getItem(storageKey) ?? '[]') as Pending[]

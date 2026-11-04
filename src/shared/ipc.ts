@@ -3,7 +3,7 @@
 //   the response type is declared with `res<T>()` (main is trusted, so no runtime check).
 // - `events`: main -> renderer pushes, payload type only.
 // Main must implement every `invoke` channel (see src/main/ipc/index.ts); preload exposes each one as
-// `window.gitdock['<channel>'](req)` and `window.gitdock.on('<event>', cb)`.
+// `window.mendel['<channel>'](req)` and `window.mendel.on('<event>', cb)`.
 import { z } from 'zod'
 import { draftSchema, PUSH_OPTION_VALUE, type GerritChange, type GerritCommit, type GerritSent, type GerritChangeLists, type GerritComment, type GerritConnected, type GerritDiff, type GerritFiles } from './gerrit'
 
@@ -162,7 +162,7 @@ const prefs = z
 export type Settings = z.output<typeof prefs>
 export const settingsFields = prefs.shape
 
-/** An installed editor/terminal gitdock can launch. */
+/** An installed editor/terminal mendel can launch. */
 export interface ExternalTool {
   id: string
   name: string
@@ -212,7 +212,7 @@ export interface RepoOverride {
 
 /** Gerrit hints for the commit box (PLAN.md §4.6). */
 export interface GerritCommitHint {
-  /** A commit-msg hook exists, so it adds the Change-Id (else gitdock does). */
+  /** A commit-msg hook exists, so it adds the Change-Id (else mendel does). */
   hook: boolean
   /** HEAD is unpushed and has no Change-Id: offer "Add Change-Id to last commit". */
   headMissingChangeId: boolean
@@ -433,7 +433,7 @@ export const events = {
 } as const
 
 /**
- * Rejection value of a failed `window.gitdock[...]` call when git failed: `kind` = GitError kind, `details` = redacted
+ * Rejection value of a failed `window.mendel[...]` call when git failed: `kind` = GitError kind, `details` = redacted
  * stderr. Main encodes it after IPC_ERROR_PREFIX in the error message; preload decodes it. Other failures reject with an Error.
  */
 export interface IpcError {
@@ -441,7 +441,7 @@ export interface IpcError {
   kind?: string
   details?: string
 }
-export const IPC_ERROR_PREFIX = 'gitdock-error:'
+export const IPC_ERROR_PREFIX = 'mendel-error:'
 
 export type InvokeChannel = keyof typeof invoke
 export type EventChannel = keyof typeof events
@@ -453,7 +453,7 @@ type Args<C extends InvokeChannel> = undefined extends z.input<(typeof invoke)[C
   ? [req?: z.input<(typeof invoke)[C]['req']>]
   : [req: z.input<(typeof invoke)[C]['req']>]
 
-/** Shape of `window.gitdock` (built by src/preload/index.ts). */
-export type GitdockApi = { [C in InvokeChannel]: (...args: Args<C>) => Promise<Res<C>> } & {
+/** Shape of `window.mendel` (built by src/preload/index.ts). */
+export type MendelApi = { [C in InvokeChannel]: (...args: Args<C>) => Promise<Res<C>> } & {
   on<E extends EventChannel>(event: E, cb: (payload: EventPayload<E>) => void): () => void
 }

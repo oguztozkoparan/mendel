@@ -1,4 +1,4 @@
-# Releasing gitdock
+# Releasing mendel
 
 Before the first release replace `REPLACE_OWNER` / `REPLACE_REPO` under `publish:` in `electron-builder.yml`
 (public GitHub repo), or switch to the `generic` HTTPS feed shown there.
@@ -22,7 +22,7 @@ Unsigned builds still release. Add these repository secrets and the next tag bui
 | `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID` | macOS notarization |
 | `WIN_CSC_LINK`, `WIN_CSC_KEY_PASSWORD` | Windows code-signing certificate |
 
-With `CSC_LINK` and `APPLE_ID` set, the macOS build is made with `GITDOCK_MAC_AUTOINSTALL=true`, so the app downloads and installs updates itself. Without them, macOS shows the update and "Download" opens the release page (Squirrel.Mac refuses unsigned updates). Windows and Linux AppImage self-update either way; `.deb` always opens the download page.
+With `CSC_LINK` and `APPLE_ID` set, the macOS build is made with `MENDEL_MAC_AUTOINSTALL=true`, so the app downloads and installs updates itself. Without them, macOS shows the update and "Download" opens the release page (Squirrel.Mac refuses unsigned updates). Windows and Linux AppImage self-update either way; `.deb` always opens the download page.
 
 Unverified until the first signed run: that electron-builder 26 notarizes from the `APPLE_*` env alone; if it does not, add `mac.notarize: true` (and `mac.hardenedRuntime: true`) to `electron-builder.yml`.
 

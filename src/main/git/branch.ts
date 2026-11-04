@@ -1,11 +1,11 @@
 import type { BranchInfo, Branches } from '../../shared/ipc'
 import { endOfOptions, git, GitError } from './runner'
 
-/** Message of stashes made by "Stash & switch"; git stores the subject as `On <branch>: gitdock-stash`. */
-export const STASH_MSG = 'gitdock-stash'
+/** Message of stashes made by "Stash & switch"; git stores the subject as `On <branch>: mendel-stash`. */
+export const STASH_MSG = 'mendel-stash'
 const STASH_LIST = ['stash', 'list', '--format=%gd%x00%gs']
 
-/** `stash@{n}` of the newest gitdock stash made on `branch` in STASH_LIST output, or null. */
+/** `stash@{n}` of the newest mendel stash made on `branch` in STASH_LIST output, or null. */
 const stashOf = (list: string, branch: string): string | null =>
   list.split('\n').map((l) => l.split('\0')).find(([ref, subject]) => ref && subject === `On ${branch}: ${STASH_MSG}`)?.[0] ?? null
 
@@ -95,7 +95,7 @@ export async function stashAndSwitch(cwd: string, name: string, env?: NodeJS.Pro
   if (r === 'dirty') throw new Error('Could not switch branches even after stashing')
 }
 
-/** Restore (`pop`) or drop the gitdock stash of the current branch. A conflicting pop keeps the stash (git's behavior). */
+/** Restore (`pop`) or drop the mendel stash of the current branch. A conflicting pop keeps the stash (git's behavior). */
 export async function applyBranchStash(cwd: string, action: 'restore' | 'discard', env?: NodeJS.ProcessEnv): Promise<void> {
   const { current } = await listBranches(cwd, env)
   const ref = current && stashOf((await git(STASH_LIST, { cwd, env })).stdout, current)

@@ -55,7 +55,7 @@ describe('staging', () => {
   })
 
   it('unstages before the first commit', async () => {
-    const dir = realpathSync(mkdtempSync(path.join(tmpdir(), 'gitdock-unborn-')))
+    const dir = realpathSync(mkdtempSync(path.join(tmpdir(), 'mendel-unborn-')))
     const env = isolatedGitEnv(dir)
     execFileSync('git', ['init', '-q', dir], { env })
     writeFileSync(path.join(dir, 'a.txt'), 'a\n')

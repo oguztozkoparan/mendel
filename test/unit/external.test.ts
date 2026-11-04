@@ -24,7 +24,7 @@ describe('defaultOpener ("System default" editor never executes repo files)', ()
 
 describe.skipIf(process.platform === 'win32')('validCustomTool', () => {
   it('Windows accepts only .exe; elsewhere any executable file', () => {
-    const dir = mkdtempSync(path.join(tmpdir(), 'gitdock-tool-'))
+    const dir = mkdtempSync(path.join(tmpdir(), 'mendel-tool-'))
     try {
       const [exe, cmd] = ['tool.EXE', 'tool.cmd'].map((n) => path.join(dir, n))
       for (const f of [exe, cmd]) writeFileSync(f, ''), chmodSync(f, 0o755)

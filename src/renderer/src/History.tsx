@@ -22,7 +22,7 @@ export function HistoryView(p: { repo: string; decorate?: (c: CommitSummary) => 
   // Not stale on its own (no all-pages refetch on focus); refreshRepo trims it to page 1 before invalidating.
   const q = useInfiniteQuery({
     queryKey: ['history', p.repo, branches.data?.head],
-    queryFn: ({ pageParam }) => window.gitdock['history:log']({ repo: p.repo, skip: pageParam }),
+    queryFn: ({ pageParam }) => window.mendel['history:log']({ repo: p.repo, skip: pageParam }),
     initialPageParam: 0,
     getNextPageParam: (last, all) => (last.length === PAGE ? all.length * PAGE : undefined),
     enabled: !!branches.data,
@@ -80,7 +80,7 @@ export function HistoryView(p: { repo: string; decorate?: (c: CommitSummary) => 
 }
 
 function CommitView(p: { repo: string; sha: string; onAmend?: () => void }) {
-  const q = useQuery({ queryKey: ['commit', p.repo, p.sha], queryFn: () => window.gitdock['history:commit']({ repo: p.repo, sha: p.sha }) })
+  const q = useQuery({ queryKey: ['commit', p.repo, p.sha], queryFn: () => window.mendel['history:commit']({ repo: p.repo, sha: p.sha }) })
   const [file, setFile] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   if (q.error) return <p role="alert" className={c.empty}>{q.error.message}</p>
@@ -110,7 +110,7 @@ function CommitView(p: { repo: string; sha: string; onAmend?: () => void }) {
         <dt>SHA</dt>
         <dd>
           <code>{d.sha}</code>{' '}
-          <Button onPress={() => void window.gitdock['app:copy']({ text: d.sha }).then(() => setCopied(true))}>{copied ? 'Copied' : 'Copy'}</Button>
+          <Button onPress={() => void window.mendel['app:copy']({ text: d.sha }).then(() => setCopied(true))}>{copied ? 'Copied' : 'Copy'}</Button>
         </dd>
         {d.parents.length > 0 && (
           <>
@@ -149,7 +149,7 @@ function CommitView(p: { repo: string; sha: string; onAmend?: () => void }) {
 function CommitFileDiff(p: { repo: string; sha: string; file: CommitDetail['files'][number] }) {
   const q = useQuery({
     queryKey: ['commitDiff', p.repo, p.sha, p.file.path],
-    queryFn: () => window.gitdock['history:diff']({ repo: p.repo, sha: p.sha, path: p.file.path, origPath: p.file.origPath })
+    queryFn: () => window.mendel['history:diff']({ repo: p.repo, sha: p.sha, path: p.file.path, origPath: p.file.origPath })
   })
   const { parsed, gate } = useParsedDiff(q.data)
   if (q.error) return <p role="alert" className={c.empty}>{q.error.message}</p>

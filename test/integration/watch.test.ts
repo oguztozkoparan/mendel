@@ -12,7 +12,7 @@ describe('watchRepo', () => {
   afterEach(() => rmSync(dir, { recursive: true, force: true }))
 
   it('debounces, but still fires during constant churn (max wait)', async () => {
-    dir = realpathSync(mkdtempSync(path.join(tmpdir(), 'gitdock-watch-')))
+    dir = realpathSync(mkdtempSync(path.join(tmpdir(), 'mendel-watch-')))
     const calls: number[] = []
     watchRepo(dir, () => calls.push(Date.now()))
     const start = Date.now()

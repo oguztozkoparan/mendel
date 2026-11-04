@@ -26,7 +26,7 @@ const FRIENDLY: Record<string, string> = {
 /** Kinds where running the same op again can succeed. */
 const RETRYABLE = new Set(['AuthFailed', 'RemoteUnreachable', 'IndexLocked', 'Timeout'])
 
-/** `e` from a rejected `window.gitdock` call (an Error or an IpcError), with an optional retry. */
+/** `e` from a rejected `window.mendel` call (an Error or an IpcError), with an optional retry. */
 export const bannerError = (e: unknown, retry?: () => void): BannerError => {
   const { message, kind, details } = (e ?? {}) as IpcError
   return { message: message ?? String(e), kind, details, retry }
@@ -45,7 +45,7 @@ export function ErrorBanner({ error, onDismiss }: { error: BannerError; onDismis
         {open && details && <pre className={a.details}>{details}</pre>}
       </span>
       {details && <Button onPress={() => setOpen(!open)}>{open ? 'Hide details' : 'Show details'}</Button>}
-      <Button onPress={() => void window.gitdock['app:copy']({ text: details ? `${friendly}\n\n${details}` : friendly })}>Copy</Button>
+      <Button onPress={() => void window.mendel['app:copy']({ text: details ? `${friendly}\n\n${details}` : friendly })}>Copy</Button>
       {error.retry && error.kind && RETRYABLE.has(error.kind) && <Button onPress={() => (onDismiss(), error.retry!())}>Retry</Button>}
       <Button onPress={onDismiss}>Dismiss</Button>
     </div>

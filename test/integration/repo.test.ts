@@ -31,7 +31,7 @@ describe('repoTopLevel', () => {
 
   it('rejects non-repos and bare repos as NotARepository', async () => {
     fx = createRepoFixture()
-    const dir = mkdtempSync(path.join(tmpdir(), 'gitdock-norepo-'))
+    const dir = mkdtempSync(path.join(tmpdir(), 'mendel-norepo-'))
     try {
       await expect(repoTopLevel(dir, { ...fx.env, GIT_CEILING_DIRECTORIES: path.dirname(dir) })).rejects.toMatchObject({ kind: 'NotARepository', message: 'Not a git repository' })
       await expect(repoTopLevel(fx.remote, fx.env)).rejects.toMatchObject({ kind: 'NotARepository' })

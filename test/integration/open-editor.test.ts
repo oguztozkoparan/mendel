@@ -13,7 +13,7 @@ const { openInEditor } = await import('../../src/main/external')
 describe('openInEditor with "System default"', () => {
   const dirs: string[] = []
   afterEach(() => (dirs.splice(0).forEach((d) => rmSync(d, { recursive: true, force: true })), vi.clearAllMocks()))
-  const tmp = () => (dirs.push(mkdtempSync(path.join(tmpdir(), 'gitdock-open-'))), realpathSync(dirs.at(-1)!))
+  const tmp = () => (dirs.push(mkdtempSync(path.join(tmpdir(), 'mendel-open-'))), realpathSync(dirs.at(-1)!))
 
   it('never hands an executable repo file to the OS association', async () => {
     m.spawn.mockImplementation(() => {

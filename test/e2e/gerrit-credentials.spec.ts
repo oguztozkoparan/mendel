@@ -49,9 +49,9 @@ test('correct password → "Connected as …", secret stored encrypted, never in
   await win.getByRole('button', { name: 'Account…' }).click()
   await win.getByRole('button', { name: 'Get your HTTP password' }).click()
   await win.evaluate(async () => {
-    const { current } = await window.gitdock['repo:list']()
-    await window.gitdock['gerrit:open']({ repo: current!, path: 'https://evil.example.com/' })
-    await window.gitdock['gerrit:open']({ repo: current!, path: '//evil.example.com/x' })
+    const { current } = await window.mendel['repo:list']()
+    await window.mendel['gerrit:open']({ repo: current!, path: 'https://evil.example.com/' })
+    await window.mendel['gerrit:open']({ repo: current!, path: '//evil.example.com/x' })
   })
   await expect.poll(() => app.evaluate(() => (globalThis as unknown as { __opened: string[] }).__opened)).toEqual([`${mock.url}/settings/#HTTPCredentials`])
 

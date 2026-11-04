@@ -6,7 +6,7 @@ import path from 'node:path'
 import { launchApp } from './launch'
 
 test('welcome asks "Who are you?" when user.name/user.email are unset and writes the global config', async () => {
-  const dir = mkdtempSync(path.join(tmpdir(), 'gitdock-id-'))
+  const dir = mkdtempSync(path.join(tmpdir(), 'mendel-id-'))
   const gitconfig = path.join(dir, 'gitconfig')
   writeFileSync(gitconfig, '[user]\n\tname = Half Set\n') // email missing
   const l = await launchApp({ GIT_CONFIG_GLOBAL: gitconfig })
@@ -30,7 +30,7 @@ test('no identity form when both are set', async () => {
   const l = await launchApp()
   try {
     await expect(l.win.getByRole('button', { name: 'Open local repository…' })).toBeVisible()
-    expect(await l.win.evaluate(() => window.gitdock['settings:gitIdentity']())).toEqual({ name: 'Test User', email: 'test@example.com' })
+    expect(await l.win.evaluate(() => window.mendel['settings:gitIdentity']())).toEqual({ name: 'Test User', email: 'test@example.com' })
     await expect(l.win.getByRole('form', { name: 'Who are you?' })).toHaveCount(0)
   } finally {
     await l.close()

@@ -23,7 +23,7 @@ export function Reviews({ repo, state, focus }: { repo: RepoEntry; state: Provid
   const refreshMinutes = useSettings().data?.reviewsRefreshMinutes ?? 5
   const lists = useQuery({
     queryKey: ['gerrit', repo.id, 'changes', projectOnly],
-    queryFn: () => window.gitdock['gerrit:changes']({ repo: repo.id, projectOnly }),
+    queryFn: () => window.mendel['gerrit:changes']({ repo: repo.id, projectOnly }),
     enabled: ready,
     refetchInterval: refreshMinutes * 60_000
   })

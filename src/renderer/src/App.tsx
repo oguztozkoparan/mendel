@@ -35,21 +35,21 @@ export function App() {
   const [sending, setSending] = useState(false)
   /** "Open change #N" from the send toast: RepoView switches to Reviews and selects it. */
   const [focus, setFocus] = useState<{ change: number } | null>(null)
-  useEffect(() => window.gitdock.on('repo:changed', (e) => void refreshLocal(qc, e.repo)), [qc])
+  useEffect(() => window.mendel.on('repo:changed', (e) => void refreshLocal(qc, e.repo)), [qc])
   useEffect(
     () =>
-      window.gitdock.on('repo:watchOff', () =>
+      window.mendel.on('repo:watchOff', () =>
         setNotice({ text: 'Auto-refresh is off: too many folders to watch (raise fs.inotify.max_user_watches). Changes refresh when you return to the window or use View → Refresh.' })
       ),
     []
   )
-  const check = (recheck = false) => void window.gitdock['git:info']({ recheck }).then(setGit)
+  const check = (recheck = false) => void window.mendel['git:info']({ recheck }).then(setGit)
   useEffect(() => check(), [])
   const usable = git?.found === true && git.supported
-  const list = useQuery({ queryKey: ['repos'], queryFn: () => window.gitdock['repo:list'](), enabled: usable })
+  const list = useQuery({ queryKey: ['repos'], queryFn: () => window.mendel['repo:list'](), enabled: usable })
   const repos = list.data?.repos ?? []
   const current = repos.find((r) => r.id === list.data?.current)
-  const provider = useQuery({ queryKey: ['provider', current?.id], queryFn: () => window.gitdock['provider:get']({ repo: current!.id }), enabled: !!current })
+  const provider = useQuery({ queryKey: ['provider', current?.id], queryFn: () => window.mendel['provider:get']({ repo: current!.id }), enabled: !!current })
   const gerrit = provider.data?.detection?.provider === 'gerrit'
   const sent = (r: GerritSent) => {
     setSending(false)
@@ -67,12 +67,12 @@ export function App() {
     )
   }
   const actions: RepoActions = {
-    add: (locate) => run(window.gitdock['repo:add'](locate ? { locate } : undefined)),
-    open: (id) => run(window.gitdock['repo:open']({ id })),
-    remove: (id) => run(window.gitdock['repo:remove']({ id })),
-    reveal: (id) => run(window.gitdock['repo:reveal']({ id })),
-    editor: (repo) => run(window.gitdock['repo:openEditor']({ repo })),
-    terminal: (repo) => run(window.gitdock['repo:openTerminal']({ repo })),
+    add: (locate) => run(window.mendel['repo:add'](locate ? { locate } : undefined)),
+    open: (id) => run(window.mendel['repo:open']({ id })),
+    remove: (id) => run(window.mendel['repo:remove']({ id })),
+    reveal: (id) => run(window.mendel['repo:reveal']({ id })),
+    editor: (repo) => run(window.mendel['repo:openEditor']({ repo })),
+    terminal: (repo) => run(window.mendel['repo:openTerminal']({ repo })),
     clone: () => setCloning(true)
   }
   useMenuCommand((cmd) => {
@@ -119,7 +119,7 @@ export function App() {
         <RepoView key={current.id} repo={current} focus={focus} />
       ) : (
         <main className={s.welcome}>
-          <h1>gitdock</h1>
+          <h1>Mendel</h1>
           {git && !usable && (
             <div role="alert" className={s.card}>
               <strong>{git.found ? `Git ${git.version} is too old (2.30 or newer required)` : 'Git not found'}</strong>

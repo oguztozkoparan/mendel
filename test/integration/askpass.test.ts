@@ -27,11 +27,11 @@ describe('askpass bridge', () => {
     const origins: string[] = []
     srv = await startAskpassServer({ command: helper, onPrompt: async (p, o) => (origins.push(promptContext(o)), `got:${p}`) })
     const op = srv.issue({ cwd: '/r', args: ['-c', 'x=y', 'fetch', 'origin'] })
-    const { GITDOCK_ASKPASS_SOCKET: sock, GITDOCK_ASKPASS_TOKEN: token } = op.env
+    const { MENDEL_ASKPASS_SOCKET: sock, MENDEL_ASKPASS_TOKEN: token } = op.env
     expect(await requestAnswer(sock, token, 'Q')).toBe('got:Q')
     expect(origins).toEqual(['git fetch in /r'])
     expect(await requestAnswer(sock, 'wrong', 'Q')).toBeNull()
-    expect(srv.issue({ cwd: '/r', args: [] }).env.GITDOCK_ASKPASS_TOKEN).not.toBe(token)
+    expect(srv.issue({ cwd: '/r', args: [] }).env.MENDEL_ASKPASS_TOKEN).not.toBe(token)
     op.revoke()
     expect(await requestAnswer(sock, token, 'Q')).toBeNull()
   })
@@ -43,7 +43,7 @@ describe('askpass bridge', () => {
       onPrompt: (_p, _o, signal) => new Promise((resolve) => signal.addEventListener('abort', () => ((aborted = true), resolve(null))))
     })
     const op = srv.issue({ cwd: '/r', args: ['push'] })
-    const answer = requestAnswer(op.env.GITDOCK_ASKPASS_SOCKET, op.env.GITDOCK_ASKPASS_TOKEN, 'Password: ')
+    const answer = requestAnswer(op.env.MENDEL_ASKPASS_SOCKET, op.env.MENDEL_ASKPASS_TOKEN, 'Password: ')
     await new Promise((r) => setTimeout(r, 100))
     op.revoke()
     expect(await answer).toBeNull()
@@ -56,13 +56,13 @@ describe('askpass bridge', () => {
     const tokens: string[] = []
     setGitEnv((o) => {
       const op = srv!.issue(o)
-      tokens.push(op.env.GITDOCK_ASKPASS_TOKEN)
+      tokens.push(op.env.MENDEL_ASKPASS_TOKEN)
       return op
     })
     await git(['--version'], { cwd: fx.work, env: fx.env })
     await git(['--version'], { cwd: fx.work, env: fx.env })
     expect(new Set(tokens).size).toBe(2)
-    expect(await requestAnswer(srv.issue({ cwd: '', args: [] }).env.GITDOCK_ASKPASS_SOCKET, tokens[0], 'Q')).toBeNull()
+    expect(await requestAnswer(srv.issue({ cwd: '', args: [] }).env.MENDEL_ASKPASS_SOCKET, tokens[0], 'Q')).toBeNull()
   })
 
   it('feeds git credentials from the prompt handler', async () => {

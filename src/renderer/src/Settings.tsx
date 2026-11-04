@@ -8,7 +8,7 @@ import { GerritConnectDialog } from './providers/gerrit/GerritConnectDialog'
 import { RepoProviderDialog } from './providers/gerrit/RepoProviderDialog'
 import s from './Settings.module.css'
 
-export const useSettings = () => useQuery({ queryKey: ['settings'], queryFn: () => window.gitdock['settings:get']() })
+export const useSettings = () => useQuery({ queryKey: ['settings'], queryFn: () => window.mendel['settings:get']() })
 
 export function Toggle(p: { label: string; value: boolean; onChange(v: boolean): void }) {
   return (
@@ -40,7 +40,7 @@ export function SettingsDialog(p: { repo?: string; onClose(): void }) {
   const q = useSettings()
   const [error, setError] = useState<string | null>(null)
   const set = (patch: Partial<Settings>) =>
-    void window.gitdock['settings:set'](patch).then((v) => qc.setQueryData(['settings'], v), (e: Error) => setError(e.message))
+    void window.mendel['settings:set'](patch).then((v) => qc.setQueryData(['settings'], v), (e: Error) => setError(e.message))
   const st = q.data
   if (!st) return null
   return (
@@ -102,7 +102,7 @@ export function SettingsDialog(p: { repo?: string; onClose(): void }) {
               <UpdatesSection />
             </TabPanel>
             <TabPanel id="Advanced" className={s.panel}>
-              <Button onPress={() => void window.gitdock['settings:openLogs']().catch((e: Error) => setError(e.message))}>Open logs folder</Button>
+              <Button onPress={() => void window.mendel['settings:openLogs']().catch((e: Error) => setError(e.message))}>Open logs folder</Button>
             </TabPanel>
           </Tabs>
           {error && (
@@ -131,7 +131,7 @@ function Row(p: { label: string; children: ReactNode }) {
 /** Editor / terminal (PLAN.md §6): System default, detected apps, or a custom executable picked natively in main. */
 function ToolChoice(p: { kind: 'editor' | 'terminal'; st: Settings; set(patch: Partial<Settings>): void; onError(msg: string): void }) {
   const qc = useQueryClient()
-  const tools = useQuery({ queryKey: ['tools'], queryFn: () => window.gitdock['settings:tools']() }).data
+  const tools = useQuery({ queryKey: ['tools'], queryFn: () => window.mendel['settings:tools']() }).data
   const editor = p.kind === 'editor'
   const custom = editor ? p.st.editorPath : p.st.terminalPath
   const options: [string, string][] = [
@@ -140,7 +140,7 @@ function ToolChoice(p: { kind: 'editor' | 'terminal'; st: Settings; set(patch: P
     ...(custom ? [['custom', `Custom: ${custom}`] as [string, string]] : [])
   ]
   const pick = () =>
-    void window.gitdock['settings:pickTool']({ kind: p.kind }).then((v) => qc.setQueryData(['settings'], v), (e: Error) => p.onError(e.message))
+    void window.mendel['settings:pickTool']({ kind: p.kind }).then((v) => qc.setQueryData(['settings'], v), (e: Error) => p.onError(e.message))
   return (
     <>
       <Choice label={editor ? 'External editor' : 'Terminal'} value={editor ? p.st.editor : p.st.terminal} options={options} onChange={(v) => p.set(editor ? { editor: v } : { terminal: v })} />
@@ -152,18 +152,18 @@ function ToolChoice(p: { kind: 'editor' | 'terminal'; st: Settings; set(patch: P
 }
 
 function CloneFolder() {
-  const q = useQuery({ queryKey: ['cloneParent'], queryFn: () => window.gitdock['repo:cloneParent']({ pick: false }) })
+  const q = useQuery({ queryKey: ['cloneParent'], queryFn: () => window.mendel['repo:cloneParent']({ pick: false }) })
   return (
     <Row label="Default clone folder">
       <code className={a.path}>{q.data ?? '…'}</code>
-      <Button onPress={() => void window.gitdock['repo:cloneParent']({ pick: true }).then(() => q.refetch())}>Choose…</Button>
+      <Button onPress={() => void window.mendel['repo:cloneParent']({ pick: true }).then(() => q.refetch())}>Choose…</Button>
     </Row>
   )
 }
 
 function GitSection() {
-  const info = useQuery({ queryKey: ['gitInfo'], queryFn: () => window.gitdock['git:info']() }).data
-  const id = useQuery({ queryKey: ['gitIdentity'], queryFn: () => window.gitdock['settings:gitIdentity']() })
+  const info = useQuery({ queryKey: ['gitInfo'], queryFn: () => window.mendel['git:info']() }).data
+  const id = useQuery({ queryKey: ['gitIdentity'], queryFn: () => window.mendel['settings:gitIdentity']() })
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [msg, setMsg] = useState<string | null>(null)
@@ -171,7 +171,7 @@ function GitSection() {
     if (id.data) (setName(id.data.name), setEmail(id.data.email))
   }, [id.data])
   const save = () =>
-    void window.gitdock['settings:setGitIdentity']({ name, email }).then(() => (setMsg('Saved'), id.refetch()), (e: Error) => setMsg(e.message))
+    void window.mendel['settings:setGitIdentity']({ name, email }).then(() => (setMsg('Saved'), id.refetch()), (e: Error) => setMsg(e.message))
   return (
     <>
       <Row label="Git">
@@ -197,7 +197,7 @@ function GitSection() {
 
 /** Welcome "Who are you?" (PLAN.md §4.1 step 2): shown only while the global user.name or user.email is unset. */
 export function IdentityForm() {
-  const id = useQuery({ queryKey: ['gitIdentity'], queryFn: () => window.gitdock['settings:gitIdentity']() })
+  const id = useQuery({ queryKey: ['gitIdentity'], queryFn: () => window.mendel['settings:gitIdentity']() })
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -208,7 +208,7 @@ export function IdentityForm() {
   const save = (e: FormEvent) => {
     e.preventDefault()
     setError(null)
-    window.gitdock['settings:setGitIdentity']({ name, email }).then(() => id.refetch(), (err: Error) => setError(err.message))
+    window.mendel['settings:setGitIdentity']({ name, email }).then(() => id.refetch(), (err: Error) => setError(err.message))
   }
   return (
     <form className={`${a.card} ${a.form}`} aria-label="Who are you?" onSubmit={save}>
@@ -235,7 +235,7 @@ export function IdentityForm() {
 
 /** Current repo's provider override and Gerrit account (PLAN.md §6), reusing the Reviews tab dialogs. */
 function GerritSection({ repo }: { repo?: string }) {
-  const q = useQuery({ queryKey: ['provider', repo], queryFn: () => window.gitdock['provider:get']({ repo: repo! }), enabled: !!repo })
+  const q = useQuery({ queryKey: ['provider', repo], queryFn: () => window.mendel['provider:get']({ repo: repo! }), enabled: !!repo })
   const [dialog, setDialog] = useState<'provider' | 'connect' | null>(null)
   const st = q.data
   const d = st?.detection
@@ -265,9 +265,9 @@ function GerritSection({ repo }: { repo?: string }) {
 }
 
 function UpdatesSection() {
-  const version = useQuery({ queryKey: ['appInfo'], queryFn: () => window.gitdock['app:info']() }).data?.version
+  const version = useQuery({ queryKey: ['appInfo'], queryFn: () => window.mendel['app:info']() }).data?.version
   const [state, setState] = useState<UpdateState | null>(null)
-  useEffect(() => window.gitdock.on('update:state', setState), [])
+  useEffect(() => window.mendel.on('update:state', setState), [])
   const text: Partial<Record<UpdateState['status'], string>> = { checking: 'Checking…', 'up-to-date': "You're up to date", available: 'An update is available (see the toolbar)' }
   return (
     <>
@@ -275,7 +275,7 @@ function UpdatesSection() {
         <span>v{version}</span>
       </Row>
       <div className={a.row}>
-        <Button onPress={() => void window.gitdock['update:check']().then(setState)}>Check now</Button>
+        <Button onPress={() => void window.mendel['update:check']().then(setState)}>Check now</Button>
         {state && <span role="status">{state.status === 'error' ? state.message : (text[state.status] ?? '')}</span>}
       </div>
     </>

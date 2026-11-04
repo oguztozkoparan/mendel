@@ -26,7 +26,7 @@ const BUSY: Record<Op, string> = { fetch: 'Fetching…', pull: 'Pulling…', pus
 /** Toolbar sync button (PLAN.md 3.4): label follows ahead/behind; menu has every op; busy ops are cancellable. */
 export function SyncButton(p: { repo: string; onError(e: unknown, retry?: () => void): void; onNotice(n: Notice | null): void; primary?: PrimaryOverride | null }) {
   const qc = useQueryClient()
-  const q = useQuery({ queryKey: ['sync', p.repo], queryFn: () => window.gitdock['sync:state']({ repo: p.repo }) })
+  const q = useQuery({ queryKey: ['sync', p.repo], queryFn: () => window.mendel['sync:state']({ repo: p.repo }) })
   const [busy, setBusy] = useState<Op | null>(null)
   const st = q.data
   const every = useSettings().data?.autoFetchMinutes ?? 0
@@ -34,7 +34,7 @@ export function SyncButton(p: { repo: string; onError(e: unknown, retry?: () => 
   useEffect(() => {
     if (!every || !hasRemote) return
     const t = setInterval(
-      () => void window.gitdock['sync:fetch']({ repo: p.repo, auto: true }).then(() => refreshRepo(qc, p.repo), () => undefined),
+      () => void window.mendel['sync:fetch']({ repo: p.repo, auto: true }).then(() => refreshRepo(qc, p.repo), () => undefined),
       every * 60_000
     )
     return () => clearInterval(t)
@@ -44,12 +44,12 @@ export function SyncButton(p: { repo: string; onError(e: unknown, retry?: () => 
     if (busy) return
     setBusy(op)
     p.onNotice(null)
-    void window.gitdock[`sync:${op}`]({ repo: p.repo })
+    void window.mendel[`sync:${op}`]({ repo: p.repo })
       .then((r: SyncResult | null | void) => {
         if (r === 'rejected') p.onNotice({ text: 'Remote has new commits. Pull first.', action: { label: 'Pull', run: () => run('pull') } })
         // Conflict with no rebase/merge left in progress: re-applying the autostash conflicted.
         else if (r === 'conflict')
-          void window.gitdock['conflict:state']({ repo: p.repo }).then(
+          void window.mendel['conflict:state']({ repo: p.repo }).then(
             (s) => !s && p.onNotice({ text: 'Your uncommitted changes conflict with the new commits. Resolve the conflicted files; your changes are also kept in the stash.' })
           )
       }, (e) => p.onError(e, () => run(op)))
@@ -81,7 +81,7 @@ export function SyncButton(p: { repo: string; onError(e: unknown, retry?: () => 
           <span role="status" className={s.syncLabel}>
             {BUSY[busy]}
           </span>
-          <Button onPress={() => void window.gitdock['sync:cancel']()}>Cancel</Button>
+          <Button onPress={() => void window.mendel['sync:cancel']()}>Cancel</Button>
         </>
       ) : (
         <Button

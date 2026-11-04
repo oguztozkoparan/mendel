@@ -50,15 +50,15 @@ type Act = (p: Promise<unknown>) => void
 export function DiffView({ repo, file, act }: { repo: string; file: FileChange; act: Act }) {
   const qc = useQueryClient()
   const whitespace = useSettings().data?.showWhitespace ?? false
-  const setWhitespace = (showWhitespace: boolean) => void window.gitdock['settings:set']({ showWhitespace }).then((v) => qc.setQueryData(['settings'], v))
+  const setWhitespace = (showWhitespace: boolean) => void window.mendel['settings:set']({ showWhitespace }).then((v) => qc.setQueryData(['settings'], v))
   // git prints a combined (`diff --cc`) diff for unmerged files, which react-diff-view cannot parse.
   if (file.conflicted)
     return (
       <div className={s.diffPane}>
         <div className={s.fileHeader}>
           <h2>{file.path}</h2>
-          <Button onPress={() => act(window.gitdock['repo:openEditor']({ repo, path: file.path }))}>Open in editor</Button>
-          <Button onPress={() => act(window.gitdock['changes:stage']({ repo, paths: [file.path] }))}>Mark resolved</Button>
+          <Button onPress={() => act(window.mendel['repo:openEditor']({ repo, path: file.path }))}>Open in editor</Button>
+          <Button onPress={() => act(window.mendel['changes:stage']({ repo, paths: [file.path] }))}>Mark resolved</Button>
         </div>
         <p className={s.empty}>Conflicted file. Resolve the conflict markers in your editor, then mark it resolved.</p>
       </div>
@@ -68,7 +68,7 @@ export function DiffView({ repo, file, act }: { repo: string; file: FileChange; 
       <div className={s.fileHeader}>
         <h2>{file.origPath ? `${file.origPath} → ${file.path}` : file.path}</h2>
         <Toggle label="Show whitespace" value={whitespace} onChange={setWhitespace} />
-        <Button onPress={() => act(window.gitdock['changes:discard']({ repo, paths: file.origPath ? [file.origPath, file.path] : [file.path] }))}>
+        <Button onPress={() => act(window.mendel['changes:discard']({ repo, paths: file.origPath ? [file.origPath, file.path] : [file.path] }))}>
           Discard file…
         </Button>
       </div>
@@ -83,11 +83,11 @@ function DiffSection(p: { repo: string; file: FileChange; act: Act; staged: bool
   const q = useQuery({
     queryKey: ['diff', p.repo, file.path, staged],
     queryFn: () =>
-      window.gitdock['changes:diff']({ repo: p.repo, path: file.path, origPath: file.origPath, staged, untracked: file.unstaged === '?' && !staged })
+      window.mendel['changes:diff']({ repo: p.repo, path: file.path, origPath: file.origPath, staged, untracked: file.unstaged === '?' && !staged })
   })
   const { parsed, gate } = useParsedDiff(q.data)
   const hunkAction = (hunk: string, action: 'stage' | 'unstage' | 'discard') =>
-    p.act(window.gitdock['changes:applyHunk']({ repo: p.repo, path: file.path, origPath: file.origPath, untracked: file.unstaged === '?', hunk, action }))
+    p.act(window.mendel['changes:applyHunk']({ repo: p.repo, path: file.path, origPath: file.origPath, untracked: file.unstaged === '?', hunk, action }))
 
   let body
   if (q.error) body = <p role="alert" className={s.empty}>{q.error.message}</p>

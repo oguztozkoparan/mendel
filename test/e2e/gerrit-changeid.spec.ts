@@ -13,12 +13,12 @@ test.afterEach(async () => {
   await mock.close()
 })
 
-test('no hook: commit gets a Change-Id from gitdock; unpushed HEAD without one gets the fix action', async () => {
+test('no hook: commit gets a Change-Id from mendel; unpushed HEAD without one gets the fix action', async () => {
   g = await launchGerrit(mock)
   const { win, fx } = g
   const hooks = readdirSync(path.join(fx.work, '.git/hooks'))
   const box = win.getByRole('form', { name: 'Commit' })
-  await expect(box).toContainText('Change-Id will be added by gitdock')
+  await expect(box).toContainText('Change-Id will be added by mendel')
 
   writeFileSync(path.join(fx.work, 'a.txt'), 'a\n')
   fx.git(['add', 'a.txt'])

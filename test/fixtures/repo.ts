@@ -21,7 +21,7 @@ export interface RepoFixture {
 }
 
 export function createRepoFixture(): RepoFixture {
-  const dir = realpathSync(mkdtempSync(path.join(tmpdir(), 'gitdock-repo-')))
+  const dir = realpathSync(mkdtempSync(path.join(tmpdir(), 'mendel-repo-')))
   const env = isolatedGitEnv(dir)
   const remote = path.join(dir, 'remote.git')
   const work = path.join(dir, 'work')

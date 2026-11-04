@@ -30,7 +30,7 @@ async function runAskpass(): Promise<void> {
 }
 
 function startApp(): void {
-  const e2e = testSeams && process.env.GITDOCK_E2E_USERDATA
+  const e2e = testSeams && process.env.MENDEL_E2E_USERDATA
   // Test-only userData dir, compiled out of release builds (S13, TECH.md §5).
   if (e2e) app.setPath('userData', e2e)
   // e2e: safeStorage must not touch (or prompt for) the developer's real macOS keychain.
@@ -67,7 +67,7 @@ function startApp(): void {
       app.on('will-quit', () => askpass.close())
     }
     // e2e-only seam: lets Playwright drive the real git runner from the main process.
-    if (e2e) Object.assign(globalThis, { __gitdockTest: { git } })
+    if (e2e) Object.assign(globalThis, { __mendelTest: { git } })
     buildMenu()
     createMainWindow()
     startUpdater()

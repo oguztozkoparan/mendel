@@ -1,15 +1,15 @@
 // Askpass bridge (PLAN.md MVP "Auth"): git/ssh prompts go to the app instead of a terminal.
 // git/ssh run GIT_ASKPASS/SSH_ASKPASS = this app's own executable (via a wrapper script outside packaged
-// builds). That process detects GITDOCK_ASKPASS_TOKEN, sends the prompt over a local socket/pipe to the
-// running app, prints the answer and exits (non-zero = cancelled). gitdock stores nothing.
+// builds). That process detects MENDEL_ASKPASS_TOKEN, sends the prompt over a local socket/pipe to the
+// running app, prints the answer and exits (non-zero = cancelled). mendel stores nothing.
 import { createHash, randomBytes } from 'node:crypto'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { createConnection, createServer } from 'node:net'
 import os from 'node:os'
 import path from 'node:path'
 
-export const ASKPASS_TOKEN_ENV = 'GITDOCK_ASKPASS_TOKEN'
-export const ASKPASS_SOCKET_ENV = 'GITDOCK_ASKPASS_SOCKET'
+export const ASKPASS_TOKEN_ENV = 'MENDEL_ASKPASS_TOKEN'
+export const ASKPASS_SOCKET_ENV = 'MENDEL_ASKPASS_SOCKET'
 const MAX_REQUEST = 64 * 1024
 
 /** The git run a prompt belongs to (shown to the user). */
@@ -21,7 +21,7 @@ export interface PromptOrigin {
 export interface AskpassServer {
   /**
    * Env for one git run (see setGitEnv in git/runner), with a token accepted only until `revoke` (S5):
-   * prompts from anything but a git op gitdock is running are refused. Revoking also cancels its open prompt.
+   * prompts from anything but a git op mendel is running are refused. Revoking also cancels its open prompt.
    */
   issue(origin: PromptOrigin): { env: Record<string, string>; revoke(): void }
   close(): void
@@ -38,8 +38,8 @@ const shQuote = (s: string) => `'${s.replace(/'/g, `'\\''`)}'`
 
 export async function startAskpassServer({ command, onPrompt }: AskpassOptions): Promise<AskpassServer> {
   const win = process.platform === 'win32'
-  const dir = mkdtempSync(path.join(os.tmpdir(), 'gitdock-askpass-')) // mode 0700
-  const socket = win ? `\\\\.\\pipe\\gitdock-askpass-${randomBytes(16).toString('hex')}` : path.join(dir, 's')
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'mendel-askpass-')) // mode 0700
+  const socket = win ? `\\\\.\\pipe\\mendel-askpass-${randomBytes(16).toString('hex')}` : path.join(dir, 's')
 
   let program = command[0]
   if (command.length > 1 || !win) {

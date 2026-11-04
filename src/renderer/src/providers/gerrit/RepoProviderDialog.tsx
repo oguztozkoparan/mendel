@@ -17,7 +17,7 @@ export function RepoProviderDialog(p: { repo: string; state: ProviderState; onCl
     setBusy(true)
     setError(null)
     const baseUrl = provider === 'none' ? null : url.trim() || null
-    window.gitdock['provider:setOverride']({ repo: p.repo, provider, baseUrl }).then(
+    window.mendel['provider:setOverride']({ repo: p.repo, provider, baseUrl }).then(
       (state) => (qc.setQueryData(['provider', p.repo], state), p.onClose()),
       (err: Error) => (setBusy(false), setError(err.message))
     )

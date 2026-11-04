@@ -80,7 +80,7 @@ test('reply sends one review POST with message, labels and pending comments; fai
 
   // Drafts are local and survive a restart.
   await g.app.close()
-  const relaunched = await launchApp({ ...g.fx.env, GITDOCK_E2E_USERDATA: g.userData })
+  const relaunched = await launchApp({ ...g.fx.env, MENDEL_E2E_USERDATA: g.userData })
   const { fx, userData } = g
   g = { ...g, ...relaunched, close: async () => (await relaunched.close(), fx.cleanup(), rmSync(path.dirname(userData), { recursive: true, force: true })) }
   win = g.win
@@ -124,12 +124,12 @@ test('reply across patch sets: older ones first, current last; drafts dropped pe
   g = await launchGerrit(mock)
   const { win } = g
   await connectGerrit(win, mock)
-  const repo = await win.evaluate(() => window.gitdock['repo:list']().then((r) => r.current!))
+  const repo = await win.evaluate(() => window.mendel['repo:list']().then((r) => r.current!))
   const drafts = [
     { key: 'k1', path: 'src/a.ts', patch_set: 1, line: 1, in_reply_to: 'old1', message: 'Fixed in PS2', unresolved: false },
     { key: 'k2', path: 'src/a.ts', patch_set: 2, line: 2, message: 'New note', unresolved: true }
   ]
-  await win.evaluate(([k, v]) => localStorage.setItem(k, v), [`gitdock.gerrit.pending.${repo}.101`, JSON.stringify(drafts)])
+  await win.evaluate(([k, v]) => localStorage.setItem(k, v), [`mendel.gerrit.pending.${repo}.101`, JSON.stringify(drafts)])
   await openFile(win)
 
   let fail = true

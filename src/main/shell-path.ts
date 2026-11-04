@@ -4,7 +4,7 @@ import { execFile } from 'node:child_process'
 import os from 'node:os'
 import path from 'node:path'
 
-const MARK = '__GITDOCK_PATH__'
+const MARK = '__MENDEL_PATH__'
 
 /** Login-shell entries first (terminal order), then current entries it lacks; empty and duplicate dirs dropped. */
 export function mergePath(current: string | undefined, login: string | null): string {

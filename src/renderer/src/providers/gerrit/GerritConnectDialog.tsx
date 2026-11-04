@@ -25,12 +25,12 @@ export function GerritConnectDialog(p: { repo: string; state: ProviderState; exp
     e.preventDefault()
     setBusy(true)
     setError(null)
-    window.gitdock['gerrit:connect']({ repo: p.repo, baseUrl, username, password }).then(
+    window.mendel['gerrit:connect']({ repo: p.repo, baseUrl, username, password }).then(
       (r) => (setBusy(false), setPassword(''), setDone(r), void refresh(), void qc.invalidateQueries({ queryKey: ['gerrit', p.repo] })),
       (err: Error) => (setBusy(false), setError(err.message))
     )
   }
-  const remove = () => void window.gitdock['gerrit:disconnect']({ repo: p.repo }).then(() => (void refresh(), p.onClose()))
+  const remove = () => void window.mendel['gerrit:disconnect']({ repo: p.repo }).then(() => (void refresh(), p.onClose()))
 
   return (
     <ModalOverlay isOpen isDismissable={!busy} className={a.backdrop} onOpenChange={(o) => !o && p.onClose()}>
@@ -62,7 +62,7 @@ export function GerritConnectDialog(p: { repo: string; state: ProviderState; exp
               />
             </label>
             {d?.baseUrl && (
-              <button type="button" className={s.link} onClick={() => void window.gitdock['gerrit:open']({ repo: p.repo, path: 'settings/#HTTPCredentials' })}>
+              <button type="button" className={s.link} onClick={() => void window.mendel['gerrit:open']({ repo: p.repo, path: 'settings/#HTTPCredentials' })}>
                 Get your HTTP password
               </button>
             )}

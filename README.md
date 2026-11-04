@@ -1,4 +1,4 @@
-# gitdock
+# Mendel
 
 Desktop git client (macOS, Windows, Linux) in the spirit of GitHub Desktop, with host-specific **providers** that switch on automatically from a repo's remote. First provider: **Gerrit** (any server ≥ 2.15; tested against a 3.1-shaped mock).
 

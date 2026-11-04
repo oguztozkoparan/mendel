@@ -24,14 +24,14 @@ export function ChangeActions({ repo, change, current, ps }: { repo: string; cha
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState<{ error: boolean; text: string } | null>(null)
-  const remote = useQuery({ queryKey: ['provider', repo], queryFn: () => window.gitdock['provider:get']({ repo }) }).data?.detection?.remote
+  const remote = useQuery({ queryKey: ['provider', repo], queryFn: () => window.mendel['provider:get']({ repo }) }).data?.detection?.remote
   const ra = current?.actions ?? {}
   const ca = change.actions ?? {}
 
   const run = (action: Action) => {
     setBusy(true)
     setNotice(null)
-    window.gitdock['gerrit:action']({ repo, change: change._number, action, message: action === 'abandon' ? message.trim() : undefined }).then(
+    window.mendel['gerrit:action']({ repo, change: change._number, action, message: action === 'abandon' ? message.trim() : undefined }).then(
       () => (setNotice({ error: false, text: DONE[action] }), void qc.invalidateQueries({ queryKey: ['gerrit', repo] })),
       (err: Error) => setNotice({ error: true, text: err.message })
     ).finally(() => (setBusy(false), setConfirm(null), setMessage('')))
@@ -47,10 +47,10 @@ export function ChangeActions({ repo, change, current, ps }: { repo: string; cha
     ).finally(() => (setBusy(false), void refreshRepo(qc, repo)))
   }
   const checkout = () =>
-    local(window.gitdock['gerrit:checkout']({ repo, change: change._number, patchSet: ps, branch: change.branch }).then((b) => b && `Checked out #${change._number} PS${ps} on ${b}`))
+    local(window.mendel['gerrit:checkout']({ repo, change: change._number, patchSet: ps, branch: change.branch }).then((b) => b && `Checked out #${change._number} PS${ps} on ${b}`))
   const rebaseLocally = () =>
     local(
-      window.gitdock['sync:rebase']({ repo }).then((r) =>
+      window.mendel['sync:rebase']({ repo }).then((r) =>
         r === 'conflict' ? 'Rebase stopped on conflicts: resolve them, then continue.' : r && 'Rebased locally. Send for review to upload the rebased patch set.'
       )
     )
@@ -74,7 +74,7 @@ export function ChangeActions({ repo, change, current, ps }: { repo: string; cha
         <Button
           isDisabled={busy}
           onPress={() =>
-            void window.gitdock['app:copy']({ text: fetchCommand(remote, change._number, ps) }).then(
+            void window.mendel['app:copy']({ text: fetchCommand(remote, change._number, ps) }).then(
               () => setNotice({ error: false, text: 'Fetch command copied' }),
               (err: Error) => setNotice({ error: true, text: err.message })
             )

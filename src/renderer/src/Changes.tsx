@@ -29,7 +29,7 @@ function Box(p: { label: string; selected: boolean; indeterminate: boolean; onCh
 
 export function ChangesView({ repo, amend, onAmendDone }: { repo: RepoEntry; amend?: boolean; onAmendDone?: () => void }) {
   const qc = useQueryClient()
-  const status = useQuery({ queryKey: ['status', repo.id], queryFn: () => window.gitdock['changes:status']({ repo: repo.id }) })
+  const status = useQuery({ queryKey: ['status', repo.id], queryFn: () => window.mendel['changes:status']({ repo: repo.id }) })
   const files = status.data ?? []
   const hint = useGerritCommitHint(repo.id)
   const [picked, setPicked] = useState<string | null>(null)
@@ -46,13 +46,13 @@ export function ChangesView({ repo, amend, onAmendDone }: { repo: RepoEntry; ame
       })
   }
   const setStaged = (fs: FileChange[], stage: boolean) =>
-    act(window.gitdock[stage ? 'changes:stage' : 'changes:unstage']({ repo: repo.id, paths: pathsOf(fs) }))
+    act(window.mendel[stage ? 'changes:stage' : 'changes:unstage']({ repo: repo.id, paths: pathsOf(fs) }))
   const allStaged = files.length > 0 && files.every(fullyStaged)
   /** PLAN.md §7: Space stages/unstages and Mod+Backspace discards the selected file while the file list has focus. */
   const onListKey = (e: KeyboardEvent) => {
     if (!selected || !(e.target as HTMLElement).closest('[aria-label="Changed files"]')) return
     if (e.key === ' ') setStaged([selected], !fullyStaged(selected))
-    else if (e.key === 'Backspace' && (e.metaKey || e.ctrlKey)) act(window.gitdock['changes:discard']({ repo: repo.id, paths: pathsOf([selected]) }))
+    else if (e.key === 'Backspace' && (e.metaKey || e.ctrlKey)) act(window.mendel['changes:discard']({ repo: repo.id, paths: pathsOf([selected]) }))
     else return
     e.preventDefault()
     e.stopPropagation()
@@ -67,7 +67,7 @@ export function ChangesView({ repo, amend, onAmendDone }: { repo: RepoEntry; ame
               label="Stage all"
               selected={allStaged}
               indeterminate={!allStaged && files.some((f) => f.staged)}
-              onChange={(v) => act(window.gitdock[v ? 'changes:stage' : 'changes:unstage']({ repo: repo.id, all: true }))}
+              onChange={(v) => act(window.mendel[v ? 'changes:stage' : 'changes:unstage']({ repo: repo.id, all: true }))}
             />
           )}
           {files.length === 1 ? '1 changed file' : `${files.length} changed files`}
@@ -88,7 +88,7 @@ export function ChangesView({ repo, amend, onAmendDone }: { repo: RepoEntry; ame
                 id={f.path}
                 textValue={f.path}
                 className={s.row}
-                onContextMenu={(e) => (e.preventDefault(), act(window.gitdock['changes:menu']({ repo: repo.id, path: f.path, origPath: f.origPath, untracked: f.unstaged === '?' })))}
+                onContextMenu={(e) => (e.preventDefault(), act(window.mendel['changes:menu']({ repo: repo.id, path: f.path, origPath: f.origPath, untracked: f.unstaged === '?' })))}
               >
                 <Box label="Staged" selected={fullyStaged(f)} indeterminate={!!f.staged && !!f.unstaged} onChange={(v) => setStaged([f], v)} />
                 <span className={s.path} title={f.origPath ? `${f.origPath} → ${f.path}` : f.path}>
@@ -116,8 +116,8 @@ export function ChangesView({ repo, amend, onAmendDone }: { repo: RepoEntry; ame
             <div className={s.empty}>
               <p>No local changes</p>
               <div className={a.row}>
-                <Button onPress={() => act(window.gitdock['repo:openEditor']({ repo: repo.id }))}>Open in editor</Button>
-                <Button onPress={() => act(window.gitdock['repo:reveal']({ id: repo.id }))}>Reveal</Button>
+                <Button onPress={() => act(window.mendel['repo:openEditor']({ repo: repo.id }))}>Open in editor</Button>
+                <Button onPress={() => act(window.mendel['repo:reveal']({ id: repo.id }))}>Reveal</Button>
               </div>
             </div>
           )

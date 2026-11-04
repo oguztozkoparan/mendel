@@ -15,10 +15,10 @@ export function RepoView({ repo, focus }: { repo: RepoEntry; focus?: { change: n
   /** History "Amend": Changes opens with "Amend last commit" ticked. */
   const [amend, setAmend] = useState(false)
   useEffect(() => void (focus && setTab('reviews')), [focus])
-  const provider = useQuery({ queryKey: ['provider', repo.id], queryFn: () => window.gitdock['provider:get']({ repo: repo.id }) })
+  const provider = useQuery({ queryKey: ['provider', repo.id], queryFn: () => window.mendel['provider:get']({ repo: repo.id }) })
   const gerrit = provider.data?.detection?.provider === 'gerrit' ? provider.data : null
   const head = useBranches(repo.id).data?.head
-  const badges = useQuery({ queryKey: ['gerritBadges', repo.id, head], queryFn: () => window.gitdock['gerrit:badges']({ repo: repo.id }), enabled: !!gerrit })
+  const badges = useQuery({ queryKey: ['gerritBadges', repo.id, head], queryFn: () => window.mendel['gerrit:badges']({ repo: repo.id }), enabled: !!gerrit })
   // Stable per badge data: History's Collection re-renders every row when `decorate` changes.
   const isGerrit = !!gerrit
   const decorate = useMemo(

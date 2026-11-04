@@ -13,7 +13,7 @@ vi.mock('node:fs', async (orig) => ({
 const { watchRepo } = await import('../../src/main/watch')
 
 it('watcher failure (inotify limit) turns auto-refresh off once instead of failing status', async () => {
-  const dir = mkdtempSync(path.join(tmpdir(), 'gitdock-watchoff-'))
+  const dir = mkdtempSync(path.join(tmpdir(), 'mendel-watchoff-'))
   try {
     const off = vi.fn()
     expect(() => watchRepo(dir, () => {}, off)).not.toThrow()

@@ -31,7 +31,7 @@ const statusText = (st: string) => (st === 'NEW' ? 'Open' : st.charAt(0) + st.sl
 
 /** Change detail (PLAN.md §3.8): header, labels, reviewers, files, side-by-side diff with comment threads. */
 export function ChangeDetail({ repo, number, me, onBack }: { repo: string; number: number; me: string | null; onBack(): void }) {
-  const q = useQuery({ queryKey: ['gerrit', repo, 'change', number], queryFn: () => window.gitdock['gerrit:change']({ repo, change: number }) })
+  const q = useQuery({ queryKey: ['gerrit', repo, 'change', number], queryFn: () => window.mendel['gerrit:change']({ repo, change: number }) })
   const [psSel, setPs] = useState<number | null>(null)
   const [base, setBase] = useState<number | undefined>(undefined)
   const [picked, setPicked] = useState<string | null>(null)
@@ -41,10 +41,10 @@ export function ChangeDetail({ repo, number, me, onBack }: { repo: string; numbe
   const ps = revs.find((r) => r._number === psSel) ?? current
   const files = useQuery({
     queryKey: ['gerrit', repo, 'files', number, ps?.sha, base],
-    queryFn: () => window.gitdock['gerrit:files']({ repo, change: number, revision: ps!.sha, base }),
+    queryFn: () => window.mendel['gerrit:files']({ repo, change: number, revision: ps!.sha, base }),
     enabled: !!ps
   })
-  const comments = useQuery({ queryKey: ['gerrit', repo, 'comments', number], queryFn: () => window.gitdock['gerrit:comments']({ repo, change: number }) })
+  const comments = useQuery({ queryKey: ['gerrit', repo, 'comments', number], queryFn: () => window.mendel['gerrit:comments']({ repo, change: number }) })
   const pending = usePending(repo, number)
   const [replying, setReplying] = useState(false)
 
@@ -71,7 +71,7 @@ export function ChangeDetail({ repo, number, me, onBack }: { repo: string; numbe
       <header className={s.detailHeader}>
         <h2>{ch.subject}</h2>
         <div className={s.meta}>
-          <Button className={s.link} aria-label={`Open #${ch._number} in browser`} onPress={() => void window.gitdock['gerrit:open']({ repo, path: `c/${projectPath}/+/${ch._number}` })}>
+          <Button className={s.link} aria-label={`Open #${ch._number} in browser`} onPress={() => void window.mendel['gerrit:open']({ repo, path: `c/${projectPath}/+/${ch._number}` })}>
             #{ch._number}
           </Button>{' '}
           · <span aria-label="Status">{statusText(ch.status)}</span>
@@ -194,7 +194,7 @@ type FileDiffProps = {
 function FileDiff(p: FileDiffProps) {
   const q = useQuery({
     queryKey: ['gerrit', p.repo, 'diff', p.number, p.rev, p.base, p.path],
-    queryFn: () => window.gitdock['gerrit:diff']({ repo: p.repo, change: p.number, revision: p.rev, path: p.path, base: p.base }),
+    queryFn: () => window.mendel['gerrit:diff']({ repo: p.repo, change: p.number, revision: p.rev, path: p.path, base: p.base }),
     enabled: !p.binary
   })
   const raw = useMemo(() => (q.data && !q.data.binary ? diffText(q.data) : undefined), [q.data])

@@ -9,7 +9,7 @@ import s from './Gerrit.module.css'
 /** Send for review (PLAN.md §3.9): target, commits that will be pushed, topic, reviewers, WIP and the final ref. */
 export function SendForReview(p: { repo: string; onClose(): void; onSent(r: GerritSent): void }) {
   const qc = useQueryClient()
-  const q = useQuery({ queryKey: ['gerritPending', p.repo], queryFn: () => window.gitdock['gerrit:pending']({ repo: p.repo }) })
+  const q = useQuery({ queryKey: ['gerritPending', p.repo], queryFn: () => window.mendel['gerrit:pending']({ repo: p.repo }) })
   const [target, setTarget] = useState<string | null>(null)
   const [topic, setTopic] = useState('')
   const [reviewers, setReviewers] = useState('')
@@ -33,7 +33,7 @@ export function SendForReview(p: { repo: string; onClose(): void; onSent(r: Gerr
   }
   const submit = (e: FormEvent) => {
     e.preventDefault()
-    if (canSend) void run(window.gitdock['gerrit:send']({ repo: p.repo, target: tgt, ...opts }).then(p.onSent))
+    if (canSend) void run(window.mendel['gerrit:send']({ repo: p.repo, target: tgt, ...opts }).then(p.onSent))
   }
 
   return (
@@ -64,7 +64,7 @@ export function SendForReview(p: { repo: string; onClose(): void; onSent(r: Gerr
                 {missing.length === 1 && missing[0] === commits[0] ? (
                   <>
                     The last commit has no Change-Id.{' '}
-                    <button type="button" disabled={busy} onClick={() => void run(window.gitdock['gerrit:addChangeId']({ repo: p.repo }))}>
+                    <button type="button" disabled={busy} onClick={() => void run(window.mendel['gerrit:addChangeId']({ repo: p.repo }))}>
                       Add Change-Id to last commit
                     </button>
                   </>

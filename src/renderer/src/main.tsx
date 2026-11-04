@@ -4,7 +4,7 @@ import { createRoot } from 'react-dom/client'
 import { App } from './App'
 import './global.css'
 
-void window.gitdock['app:info']().then((info) => (document.documentElement.dataset.platform = info.platform))
+void window.mendel['app:info']().then((info) => (document.documentElement.dataset.platform = info.platform))
 
 // Local IPC: failures are real errors, not flaky network; show them instead of retrying.
 // Refetch stale queries when the window regains focus (app switch), not only on visibilitychange.

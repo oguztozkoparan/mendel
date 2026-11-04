@@ -51,7 +51,7 @@ jobs:
       - run: npm run build
         env:
           # macOS self-install only when the build is signed + notarized; otherwise "Download" opens the release page.
-          GITDOCK_MAC_AUTOINSTALL: ${{ secrets.CSC_LINK != '' && secrets.APPLE_ID != '' }}
+          MENDEL_MAC_AUTOINSTALL: ${{ secrets.CSC_LINK != '' && secrets.APPLE_ID != '' }}
       - run: npx electron-builder --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -70,9 +70,9 @@ jobs:
         run: |
           set -euo pipefail
           case "$RUNNER_OS" in
-            macOS) apps=(release/mac*/gitdock.app) ;;
-            Windows) apps=(release/win-unpacked/gitdock.exe) ;;
-            *) apps=(release/linux-unpacked/gitdock) ;;
+            macOS) apps=(release/mac*/mendel.app) ;;
+            Windows) apps=(release/win-unpacked/mendel.exe) ;;
+            *) apps=(release/linux-unpacked/mendel) ;;
           esac
           for app in "${apps[@]}"; do
             out=$(npx --no-install @electron/fuses read --app "$app")

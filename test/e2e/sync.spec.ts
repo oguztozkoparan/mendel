@@ -69,7 +69,7 @@ test('auth prompt names the op and repo, and closes when that op is cancelled (S
     const dialog = win.getByRole('dialog', { name: 'Authentication required' })
     await expect(dialog).toContainText(`git fetch in ${fx.work}`)
     // The modal covers the toolbar's Cancel; call the same IPC it uses.
-    await win.evaluate(() => (window as unknown as { gitdock: Record<string, () => Promise<void>> }).gitdock['sync:cancel']())
+    await win.evaluate(() => (window as unknown as { mendel: Record<string, () => Promise<void>> }).mendel['sync:cancel']())
     await expect(dialog).toHaveCount(0)
     await expect(win.getByLabel('Toolbar').getByRole('button', { name: 'Fetch origin' })).toBeVisible()
   } finally {

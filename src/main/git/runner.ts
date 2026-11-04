@@ -12,7 +12,7 @@ const MAX_OUTPUT = 64 * 1024 * 1024
 const BACKGROUND_TIMEOUT_MS = 30_000
 /** Running git children -> whether they are background reads. */
 const live = new Map<ReturnType<typeof spawn>, boolean>()
-/** Kill every running git child (app quit), so none outlives gitdock. */
+/** Kill every running git child (app quit), so none outlives mendel. */
 export const killAllGit = () => live.forEach((_, c) => c.kill())
 /** A git op other than a background read is running (e.g. push, commit, rebase): restarting would interrupt it. */
 export const gitBusy = () => [...live.values()].some((background) => !background)

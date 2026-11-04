@@ -13,7 +13,7 @@ describe('login shell PATH', () => {
   })
 
   it.skipIf(process.platform === 'win32')('reads PATH from a login shell despite rc-file noise', async () => {
-    const home = mkdtempSync(path.join(tmpdir(), 'gitdock-shell-'))
+    const home = mkdtempSync(path.join(tmpdir(), 'mendel-shell-'))
     try {
       writeFileSync(path.join(home, '.profile'), 'echo welcome banner\nexport PATH="/from/profile:$PATH"\n')
       const got = await loginShellPath('/bin/sh', { HOME: home, PATH: '/usr/bin:/bin', ENV: '' })

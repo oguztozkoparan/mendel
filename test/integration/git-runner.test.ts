@@ -23,7 +23,7 @@ describe('git runner against real git', () => {
   })
 
   it('maps failures to GitError kinds', async () => {
-    const dir = mkdtempSync(path.join(tmpdir(), 'gitdock-norepo-'))
+    const dir = mkdtempSync(path.join(tmpdir(), 'mendel-norepo-'))
     try {
       const err = await git(['status'], { cwd: dir, env: { ...process.env, GIT_CEILING_DIRECTORIES: path.dirname(dir) } }).catch((e: unknown) => e)
       expect(err).toBeInstanceOf(GitError)
@@ -62,7 +62,7 @@ describe('git runner against real git', () => {
   })
 
   it('a spawn failure (missing cwd) does not leave gitBusy stuck', async () => {
-    await expect(git(['status'], { cwd: path.join(tmpdir(), 'gitdock-no-such-dir-' + Date.now()) })).rejects.toBeInstanceOf(GitError)
+    await expect(git(['status'], { cwd: path.join(tmpdir(), 'mendel-no-such-dir-' + Date.now()) })).rejects.toBeInstanceOf(GitError)
     expect(gitBusy()).toBe(false)
   })
 

@@ -8,14 +8,14 @@ Sources: read-only code review (R#) and security review (S#), 2026-11-04. Spot-v
 - **S1** Untrusted repo config runs code on open. Background reads (status, diff, log, ls-files, for-each-ref, rev-parse…) pass `-c core.fsmonitor=false`. Run `interpret-trailers` with a cwd outside any repo (temp dir) so `trailer.*.cmd` from the repo's config is never read. Filters/hooks/sshCommand stay (terminal parity, LFS) — document in TECH §6.3.
 - **S16** `DubiousOwnership`: show an explanation + "Trust this folder" (native confirm in main → `git config --global --add safe.directory <exact path>`; never `*`).
 - **S4** Reject `%` (and `,`/`=`) in the review target branch in `reviewRef`.
-- **S5 + R15** Askpass: accept prompts only while a gitdock git op is running (per-op token, revoked when the child exits); dismiss the modal and settle `null` when the askpass socket closes; show which repo/op asked.
+- **S5 + R15** Askpass: accept prompts only while a mendel git op is running (per-op token, revoked when the child exits); dismiss the modal and settle `null` when the askpass socket closes; show which repo/op asked.
 - **S6** Realpath re-check after `resolveUnder` for paths read outside git's own path handling (untracked `diff --no-index`).
 - **S7 + R8** `timeoutMs` for background reads and auto-fetch (e.g. 120 s for network, 30 s for local reads); a manual op aborts a running auto-fetch; checkout-change honours the abort signal; abort all git children on `will-quit`.
 - **S8 + R4** Probe only the remote(s) actually used (origin / upstream of current branch); in-memory negative cache per host, cleared when remotes or override change.
 - **S9** Write userData JSON files with mode `0o600`.
 - **S10** Escape `"` and `\` in Gerrit `project:"…"` queries.
 - **S11** `redact`: handle `@` inside the password part (match up to the last `@` before host); redact nested strings in log objects.
-- **S13** Gate all e2e/dev seams (`__gitdockTest`, `GITDOCK_E2E_*`, `use-mock-keychain`, dev origin) behind a build-time `define`, not `app.isPackaged`.
+- **S13** Gate all e2e/dev seams (`__mendelTest`, `MENDEL_E2E_*`, `use-mock-keychain`, dev origin) behind a build-time `define`, not `app.isPackaged`.
 - **S2 + R24 + S14 + S15** Release/CI: `persist-credentials: false`; `.npmrc` `ignore-scripts=true` + explicit electron binary install step; create the draft release once before the matrix (`gh release create --draft --verify-tag`); `npx @electron/fuses read` check on the built app; `npm audit --omit=dev --audit-level=high` step; `.github/dependabot.yml` (npm + actions, weekly). Splitting sign/publish into separate jobs: defer, note in RELEASE.md.
 - **R26** `release.mjs`: fetch and require `HEAD == origin/main`.
 

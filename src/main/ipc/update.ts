@@ -15,8 +15,8 @@ import { emit, type Handlers } from '.'
 const FIRST_CHECK_MS = 10_000
 const CHECK_EVERY_MS = 6 * 60 * 60_000
 
-// Test-only feed, honored only in e2e builds (S13, like GITDOCK_E2E_USERDATA); loopback http allowed there.
-const e2e = testSeams && !!process.env.GITDOCK_E2E_USERDATA
+// Test-only feed, honored only in e2e builds (S13, like MENDEL_E2E_USERDATA); loopback http allowed there.
+const e2e = testSeams && !!process.env.MENDEL_E2E_USERDATA
 let state: UpdateState = { status: 'idle' }
 let feed: Feed | null = null
 let info: UpdateInfo | null = null
@@ -31,7 +31,7 @@ function set(next: UpdateState): void {
 /** The feed comes only from the packaged app-update.yml (or the e2e env); the renderer can never set it. */
 function loadFeed(): Feed | null {
   if (e2e) {
-    const url = process.env.GITDOCK_E2E_UPDATE_FEED ?? ''
+    const url = process.env.MENDEL_E2E_UPDATE_FEED ?? ''
     return urlAllowed(url, true) ? { provider: 'generic', url } : null
   }
   if (!app.isPackaged) return null
@@ -75,10 +75,10 @@ export function startUpdater(): void {
   feed = loadFeed()
   if (!feed) return log.info('[update] disabled: no valid feed')
   selfInstall = e2e
-    ? process.env.GITDOCK_E2E_SELF_INSTALL === '1'
+    ? process.env.MENDEL_E2E_SELF_INSTALL === '1'
     : canSelfInstall(process.platform, {
         appImage: !!process.env.APPIMAGE,
-        macAutoInstall: process.env.GITDOCK_MAC_AUTOINSTALL === 'true'
+        macAutoInstall: process.env.MENDEL_MAC_AUTOINSTALL === 'true'
       })
   autoUpdater.logger = log
   autoUpdater.autoDownload = false
@@ -101,7 +101,7 @@ export function startUpdater(): void {
   })
 
   // e2e-only seam: lets Playwright stub download/install on the real updater.
-  if (e2e) Object.assign(globalThis, { __gitdockUpdater: autoUpdater })
+  if (e2e) Object.assign(globalThis, { __mendelUpdater: autoUpdater })
   if (app.isPackaged) {
     const auto = () => getSettings().autoUpdateCheck && void check(false)
     setTimeout(auto, FIRST_CHECK_MS)

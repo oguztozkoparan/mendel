@@ -21,7 +21,7 @@ const LOCAL = new Set(['status', 'diff', 'commitInfo', 'sync', 'branches', 'conf
 export const refreshLocal = (qc: QueryClient, repo: string) =>
   qc.invalidateQueries({ predicate: (q) => q.queryKey[1] === repo && LOCAL.has(q.queryKey[0] as string) && q.queryKey[2] !== 'gerrit' })
 
-export const useBranches = (repo: string) => useQuery({ queryKey: ['branches', repo], queryFn: () => window.gitdock['branch:list']({ repo }) })
+export const useBranches = (repo: string) => useQuery({ queryKey: ['branches', repo], queryFn: () => window.mendel['branch:list']({ repo }) })
 
 /** Run a branch write; refresh the repo afterwards and report errors. */
 function useRun(repo: string, onError: (e: unknown) => void) {
@@ -72,7 +72,7 @@ export function BranchSelector(p: { repo: string; onError(e: unknown): void }) {
                     aria-label="Local branches"
                     items={local}
                     className={s.list}
-                    onAction={(name) => act(() => window.gitdock['branch:switch']({ repo: p.repo, name: String(name) }))}
+                    onAction={(name) => act(() => window.mendel['branch:switch']({ repo: p.repo, name: String(name) }))}
                     renderEmptyState={() =>
                       filter.trim() ? (
                         <Button className={s.empty} onPress={() => (close(), setCreating({ name: filter.trim() }))}>
@@ -96,7 +96,7 @@ export function BranchSelector(p: { repo: string; onError(e: unknown): void }) {
                           <GitBranchPlus size={14} />
                         </Button>
                         {x.name !== b?.current && (
-                          <Button className="icon" aria-label={`Delete ${x.name}`} onPress={() => act(() => window.gitdock['branch:delete']({ repo: p.repo, name: x.name }))}>
+                          <Button className="icon" aria-label={`Delete ${x.name}`} onPress={() => act(() => window.mendel['branch:delete']({ repo: p.repo, name: x.name }))}>
                             <X size={14} />
                           </Button>
                         )}
@@ -113,7 +113,7 @@ export function BranchSelector(p: { repo: string; onError(e: unknown): void }) {
                       aria-label="Remote branches"
                       items={remote.map((name) => ({ name }))}
                       className={s.list}
-                      onAction={(name) => act(() => window.gitdock['branch:switch']({ repo: p.repo, name: String(name) }))}
+                      onAction={(name) => act(() => window.mendel['branch:switch']({ repo: p.repo, name: String(name) }))}
                     >
                       {(x) => (
                         <GridListItem id={x.name} textValue={x.name} className={s.item}>
@@ -139,7 +139,7 @@ export function BranchSelector(p: { repo: string; onError(e: unknown): void }) {
           initial={creating.name}
           from={creating.from ?? label}
           onClose={() => setCreating(null)}
-          create={(name) => window.gitdock['branch:create']({ repo: p.repo, name, from: creating.from }).then(() => refreshRepo(qc, p.repo))}
+          create={(name) => window.mendel['branch:create']({ repo: p.repo, name, from: creating.from }).then(() => refreshRepo(qc, p.repo))}
         />
       )}
     </>
@@ -193,8 +193,8 @@ export function StashBanner(p: { repo: string; onError(e: unknown): void }) {
   return (
     <div role="status" className={`${a.banner} ${a.notice}`}>
       <span>You have stashed changes on {b.current}</span>
-      <Button onPress={() => run(window.gitdock['branch:stash']({ repo: p.repo, action: 'restore' }))}>Restore</Button>
-      <Button onPress={() => run(window.gitdock['branch:stash']({ repo: p.repo, action: 'discard' }))}>Discard…</Button>
+      <Button onPress={() => run(window.mendel['branch:stash']({ repo: p.repo, action: 'restore' }))}>Restore</Button>
+      <Button onPress={() => run(window.mendel['branch:stash']({ repo: p.repo, action: 'discard' }))}>Discard…</Button>
     </div>
   )
 }

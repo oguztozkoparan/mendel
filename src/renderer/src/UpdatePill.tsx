@@ -7,10 +7,10 @@ export function UpdatePill() {
   const [state, setState] = useState<UpdateState>({ status: 'idle' })
   const [open, setOpen] = useState(false)
   useEffect(() => {
-    void window.gitdock['update:state']().then(setState)
-    return window.gitdock.on('update:state', setState)
+    void window.mendel['update:state']().then(setState)
+    return window.mendel.on('update:state', setState)
   }, [])
-  const check = () => void window.gitdock['update:check']().then(setState)
+  const check = () => void window.mendel['update:check']().then(setState)
 
   return (
     <div className={s.root}>
@@ -35,11 +35,11 @@ export function UpdatePill() {
             Update v{state.version} available
           </button>
           {open && (
-            <div className={s.panel} role="dialog" aria-label={`gitdock ${state.version}`}>
-              <strong>gitdock {state.version}</strong>
+            <div className={s.panel} role="dialog" aria-label={`mendel ${state.version}`}>
+              <strong>mendel {state.version}</strong>
               {state.notes && <pre className={s.notes}>{state.notes}</pre>}
               {!state.canInstall && <p className={s.hint}>Opens the download page; install the new version by hand.</p>}
-              <button type="button" onClick={() => void window.gitdock['update:download']()}>
+              <button type="button" onClick={() => void window.mendel['update:download']()}>
                 Download
               </button>
             </div>
@@ -53,7 +53,7 @@ export function UpdatePill() {
         </span>
       )}
       {state.status === 'downloaded' && (
-        <button type="button" className={s.pill} onClick={() => void window.gitdock['update:install']()}>
+        <button type="button" className={s.pill} onClick={() => void window.mendel['update:install']()}>
           Restart to update
         </button>
       )}

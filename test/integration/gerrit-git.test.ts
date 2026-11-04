@@ -181,7 +181,7 @@ describe('gerrit checkout change', () => {
     expect(fx.git(['branch', '--show-current'])).toBe('main')
     expect(await checkoutChange(fx.work, 'origin', 101, 1, null, async () => true, fx.env)).toBe('change/101-ps1')
     expect(fx.git(['rev-parse', 'HEAD'])).toBe(sha)
-    expect(fx.git(['stash', 'list', '--format=%gs'])).toBe('On main: gitdock-stash')
+    expect(fx.git(['stash', 'list', '--format=%gs'])).toBe('On main: mendel-stash')
   })
 
   it('honours the abort signal: cancelled while asking, nothing is switched', async () => {

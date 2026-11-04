@@ -38,7 +38,7 @@ describe('git runner helpers', () => {
   })
 
   it('finds git only in absolute PATH dirs', () => {
-    const dir = mkdtempSync(path.join(tmpdir(), 'gitdock-path-'))
+    const dir = mkdtempSync(path.join(tmpdir(), 'mendel-path-'))
     try {
       const bin = path.join(dir, 'bin')
       mkdirSync(bin)

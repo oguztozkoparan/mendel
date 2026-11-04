@@ -14,7 +14,7 @@ const dark = async (win: import('@playwright/test').Page) => {
 test('preferences persist across restart and drive the app', async () => {
   const fx = createRepoFixture()
   const userData = path.join(fx.dir, 'userData')
-  let app = await launchApp({ ...fx.env, GITDOCK_E2E_USERDATA: userData })
+  let app = await launchApp({ ...fx.env, MENDEL_E2E_USERDATA: userData })
   try {
     await openRepo(app, fx.work)
     await app.win.getByRole('button', { name: 'Settings' }).click()
@@ -56,7 +56,7 @@ test('preferences persist across restart and drive the app', async () => {
     const json = readdirSync(userData).filter((f) => f.endsWith('.json'))
     expect(json).toEqual(expect.arrayContaining(['settings.json', 'repos.json']))
     if (process.platform !== 'win32') for (const f of json) expect([f, statSync(path.join(userData, f)).mode & 0o777]).toEqual([f, 0o600])
-    app = await launchApp({ ...fx.env, GITDOCK_E2E_USERDATA: userData })
+    app = await launchApp({ ...fx.env, MENDEL_E2E_USERDATA: userData })
     await expect.poll(() => dark(app.win)).toBe(true)
   } finally {
     await app.close()
@@ -67,13 +67,13 @@ test('preferences persist across restart and drive the app', async () => {
 test('reopen last repo off starts on the welcome screen', async () => {
   const fx = createRepoFixture()
   const userData = path.join(fx.dir, 'userData')
-  let app = await launchApp({ ...fx.env, GITDOCK_E2E_USERDATA: userData })
+  let app = await launchApp({ ...fx.env, MENDEL_E2E_USERDATA: userData })
   try {
     await openRepo(app, fx.work)
     await app.win.getByRole('button', { name: 'Settings' }).click()
     await app.win.getByText('Reopen last repository on start').click()
     await app.close()
-    app = await launchApp({ ...fx.env, GITDOCK_E2E_USERDATA: userData })
+    app = await launchApp({ ...fx.env, MENDEL_E2E_USERDATA: userData })
     await expect(app.win.getByRole('button', { name: 'Open local repository…' })).toBeVisible()
   } finally {
     await app.close()

@@ -6,8 +6,8 @@ import { refreshRepo } from './Branches'
 /** Banner while a merge/rebase is stopped (PLAN.md §4.8): conflicted files with Mark resolved, Continue, Abort. */
 export function ConflictBanner(p: { repo: string; onError(e: unknown): void }) {
   const qc = useQueryClient()
-  const op = useQuery({ queryKey: ['conflict', p.repo], queryFn: () => window.gitdock['conflict:state']({ repo: p.repo }) }).data
-  const status = useQuery({ queryKey: ['status', p.repo], queryFn: () => window.gitdock['changes:status']({ repo: p.repo }), enabled: !!op })
+  const op = useQuery({ queryKey: ['conflict', p.repo], queryFn: () => window.mendel['conflict:state']({ repo: p.repo }) }).data
+  const status = useQuery({ queryKey: ['status', p.repo], queryFn: () => window.mendel['changes:status']({ repo: p.repo }), enabled: !!op })
   if (!op) return null
   const conflicted = (status.data ?? []).filter((f) => f.conflicted)
   const run = (pr: Promise<unknown>) => void pr.catch(p.onError).finally(() => refreshRepo(qc, p.repo))
@@ -19,16 +19,16 @@ export function ConflictBanner(p: { repo: string; onError(e: unknown): void }) {
         <ul>
           {conflicted.map((f) => (
             <li key={f.path}>
-              <code>{f.path}</code> <Button onPress={() => run(window.gitdock['repo:openEditor']({ repo: p.repo, path: f.path }))}>Open in editor</Button>{' '}
-              <Button onPress={() => run(window.gitdock['changes:stage']({ repo: p.repo, paths: [f.path] }))}>Mark resolved</Button>
+              <code>{f.path}</code> <Button onPress={() => run(window.mendel['repo:openEditor']({ repo: p.repo, path: f.path }))}>Open in editor</Button>{' '}
+              <Button onPress={() => run(window.mendel['changes:stage']({ repo: p.repo, paths: [f.path] }))}>Mark resolved</Button>
             </li>
           ))}
         </ul>
       </span>
-      <Button className="primary" isDisabled={conflicted.length > 0 || !status.data} onPress={() => run(window.gitdock['conflict:continue']({ repo: p.repo }))}>
+      <Button className="primary" isDisabled={conflicted.length > 0 || !status.data} onPress={() => run(window.mendel['conflict:continue']({ repo: p.repo }))}>
         Continue {op}
       </Button>
-      <Button onPress={() => run(window.gitdock['conflict:abort']({ repo: p.repo }))}>Abort…</Button>
+      <Button onPress={() => run(window.mendel['conflict:abort']({ repo: p.repo }))}>Abort…</Button>
     </div>
   )
 }

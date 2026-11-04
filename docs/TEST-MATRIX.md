@@ -70,7 +70,7 @@ Status: 49 bullets, 48 covered by automation, 1 partly manual (OS theme switch),
 | Probe fails + 29418 → "Set Gerrit URL"; override fixes it | e2e/gerrit-setup.spec.ts; unit/gerrit-detect.test.ts |
 | Override "None" → tab disappears | e2e/gerrit-setup.spec.ts; e2e/gerrit-settings.spec.ts |
 | Credentials: right → "Connected as", stored encrypted; wrong → 401, nothing stored | e2e/gerrit-credentials.spec.ts (both) |
-| Change-Id by gitdock without hook; hook respected; amend keeps it; nothing downloaded/written | integration/gerrit-git.test.ts; e2e/gerrit-changeid.spec.ts (asserts hooks dir unchanged and no `/tools/hooks` request) |
+| Change-Id by mendel without hook; hook respected; amend keeps it; nothing downloaded/written | integration/gerrit-git.test.ts; e2e/gerrit-changeid.spec.ts (asserts hooks dir unchanged and no `/tools/hooks` request) |
 
 ## Gerrit review loop
 | Bullet | Test |
@@ -114,8 +114,8 @@ Status: 49 bullets, 48 covered by automation, 1 partly manual (OS theme switch),
 | Feed unreachable → error with retry | e2e/update.spec.ts: unreachable feed… |
 
 ## Packaged build
-`npm run dist`, then `node scripts/smoke-packaged.mjs --refuses release/mac-arm64/gitdock.app/Contents/MacOS/gitdock` (the release build quits on `--remote-debugging-*` / `--inspect`, P2) and `npx @electron/fuses read --app release/mac-arm64/gitdock.app`.
-`npm run dist:smoke` (same packaging, e2e-mode main so CDP is allowed, S13), then `node scripts/smoke-packaged.mjs release-smoke/mac-arm64/gitdock.app/Contents/MacOS/gitdock` (launches over CDP, asserts the hardened welcome screen).
+`npm run dist`, then `node scripts/smoke-packaged.mjs --refuses release/mac-arm64/Mendel.app/Contents/MacOS/Mendel` (the release build quits on `--remote-debugging-*` / `--inspect`, P2) and `npx @electron/fuses read --app release/mac-arm64/Mendel.app`.
+`npm run dist:smoke` (same packaging, e2e-mode main so CDP is allowed, S13), then `node scripts/smoke-packaged.mjs release-smoke/mac-arm64/Mendel.app/Contents/MacOS/Mendel` (launches over CDP, asserts the hardened welcome screen).
 
 ## Manual checklist
 Automation can't cover these; run before a release.

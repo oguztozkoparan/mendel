@@ -5,19 +5,19 @@ import type { CommitHint } from '../../CommitBox'
 /** Gerrit's commit-box hint (PLAN.md §4.6): who adds the Change-Id, and a fix for an unpushed HEAD without one. */
 export function useGerritCommitHint(repo: string): CommitHint | null {
   const qc = useQueryClient()
-  const provider = useQuery({ queryKey: ['provider', repo], queryFn: () => window.gitdock['provider:get']({ repo }) })
+  const provider = useQuery({ queryKey: ['provider', repo], queryFn: () => window.mendel['provider:get']({ repo }) })
   const gerrit = provider.data?.detection?.provider === 'gerrit'
   // Under 'commitInfo' so commits refresh it; keyed by HEAD so a terminal commit does too (disk saves don't: REST lookup).
   const head = useBranches(repo).data?.head
-  const q = useQuery({ queryKey: ['commitInfo', repo, 'gerrit', head], queryFn: () => window.gitdock['gerrit:commitHint']({ repo }), enabled: gerrit })
+  const q = useQuery({ queryKey: ['commitInfo', repo, 'gerrit', head], queryFn: () => window.mendel['gerrit:commitHint']({ repo }), enabled: gerrit })
   if (!gerrit || !q.data) return null
   return {
-    note: q.data.hook ? 'Change-Id: will be added by commit-msg hook' : 'Change-Id will be added by gitdock',
+    note: q.data.hook ? 'Change-Id: will be added by commit-msg hook' : 'Change-Id will be added by mendel',
     amend: q.data.patchsetOf ? `Will upload a new patchset of #${q.data.patchsetOf}` : undefined,
     fix: q.data.headMissingChangeId
       ? {
           label: 'Add Change-Id to last commit',
-          run: () => window.gitdock['gerrit:addChangeId']({ repo }).then(() => qc.invalidateQueries({ predicate: (x) => x.queryKey[1] === repo }))
+          run: () => window.mendel['gerrit:addChangeId']({ repo }).then(() => qc.invalidateQueries({ predicate: (x) => x.queryKey[1] === repo }))
         }
       : undefined
   }

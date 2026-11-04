@@ -1,4 +1,4 @@
-# gitdock — Product Plan
+# mendel — Product Plan
 
 Cross-platform desktop git client (Electron + React + Vite + TypeScript), GitHub Desktop-style, with **provider plugins** that auto-activate from a repo's remote. First provider: **Gerrit** (any Gerrit server). Library and security choices live in `docs/TECH.md`; this doc is the *what* and the *done when*.
 
@@ -37,7 +37,7 @@ Cross-platform desktop git client (Electron + React + Vite + TypeScript), GitHub
 | Sync      | Fetch, pull (provider picks merge/rebase), push (provider may override), ahead/behind counts, "Rebase onto upstream"                                                                                                                                                                                                                                 |
 | History   | Commit list for current branch, commit detail (message, author, date, files, per-file diff)                                                                                                                                                                                                                                                          |
 | Conflicts | Minimal: banner when merge/rebase in progress, list conflicted files, "open in editor", "mark resolved", Continue / Abort                                                                                                                                                                                                                            |
-| Auth      | Askpass bridge: git/ssh prompts (username, password, passphrase, unknown host key) shown as an in-app modal; nothing stored by gitdock                                                                                                                                                                                                               |
+| Auth      | Askpass bridge: git/ssh prompts (username, password, passphrase, unknown host key) shown as an in-app modal; nothing stored by mendel                                                                                                                                                                                                               |
 | Gerrit    | Detection, base-URL resolution + override, HTTP-password credentials in keychain, Change-Id trailer when hook missing, Send for review (topic/reviewers/WIP), amend → new patchset, Reviews list (mine/incoming/recently closed), change detail (files, side-by-side diff, threads, reply, votes, submit, abandon, server rebase), checkout change locally |
 | App       | Settings page, native menus, shortcuts, theme follows OS, window state, update checker + download/restart, release pipeline                                                                                                                                                                                                                          |
 
@@ -45,11 +45,11 @@ Cross-platform desktop git client (Electron + React + Vite + TypeScript), GitHub
 - **Conflict UI: minimal in MVP.** "Rebase onto latest" and pull are in MVP, so conflicts *will* happen; leaving the user stuck mid-rebase is unacceptable. A 3-way editor is large; users already have an editor. So: detect, list, open-in-editor, mark resolved, continue/abort.
 - **Stash: only stash-and-switch in MVP.** `git switch` refuses on a dirty tree; offering "Stash & switch" + a "You have stashed changes on <branch> — Restore / Discard" banner covers 90% of use. Stash list UI → later.
 - **Line-level staging → later.** Hunk staging is cheap (build a patch from the hunk, `git apply --cached`); line selection needs patch re-synthesis and more tests.
-- **Multi-account → later.** One credential per Gerrit host. Git auth is owned by system git (SSH agent / credential helper), so gitdock needs no account system for git itself.
+- **Multi-account → later.** One credential per Gerrit host. Git auth is owned by system git (SSH agent / credential helper), so mendel needs no account system for git itself.
 - **Review notifications (new incoming review) → later.** MVP refreshes on focus and on an interval.
 
 ### Later
-Line staging, stash list, 3-way merge editor, multiple accounts per host, review notifications, Gerrit attention set / hashtags / drafts sync / edit commit message on server / related changes / cherry-pick to branch, history search & file history, blame, tags, cherry-pick/revert UI, interactive rebase, `gitdock` CLI launcher (`gitdock .`), jump lists / dock recent items, beta update channel, GitHub provider (PRs), Bitbucket provider (PRs), i18n (Turkish), SSH setup in Gerrit settings (connection check via `ssh -p 29418 <user>@<host> gerrit version`, show key from `ssh -G`, generate key, upload via `POST /a/accounts/self/sshkeys`; never write `~/.ssh/config`).
+Line staging, stash list, 3-way merge editor, multiple accounts per host, review notifications, Gerrit attention set / hashtags / drafts sync / edit commit message on server / related changes / cherry-pick to branch, history search & file history, blame, tags, cherry-pick/revert UI, interactive rebase, `mendel` CLI launcher (`mendel .`), jump lists / dock recent items, beta update channel, GitHub provider (PRs), Bitbucket provider (PRs), i18n (Turkish), SSH setup in Gerrit settings (connection check via `ssh -p 29418 <user>@<host> gerrit version`, show key from `ssh -G`, generate key, upload via `POST /a/accounts/self/sshkeys`; never write `~/.ssh/config`).
 
 ---
 
@@ -95,7 +95,7 @@ Common states: **loading** = skeleton rows (no spinners blocking the whole windo
 ### 3.5 Changes tab
 - Left: file list with status letter and checkbox (staged), header checkbox for all; right-click: discard, ignore (append to `.gitignore`), reveal, open in editor, copy path.
 - Main: diff of selected file. Unified view; each hunk has "Stage hunk"/"Unstage hunk" and "Discard hunk". Toggle "Show whitespace". Binary → "Binary file changed". Large (> 5k lines) → "Large diff hidden — Show anyway". New file → full content. Rename → `old → new`.
-- Commit box (bottom left): Summary (single line, counter, warning > 72 chars), Description (multi-line textarea, monospace, optional 72-col ruler), "Amend last commit" checkbox (prefills message from HEAD), provider check messages (e.g. "Change-Id will be added by hook/gitdock"), button `Commit to <branch>` (disabled when nothing staged unless amend).
+- Commit box (bottom left): Summary (single line, counter, warning > 72 chars), Description (multi-line textarea, monospace, optional 72-col ruler), "Amend last commit" checkbox (prefills message from HEAD), provider check messages (e.g. "Change-Id will be added by hook/mendel"), button `Commit to <branch>` (disabled when nothing staged unless amend).
 - Empty: "No local changes" + shortcuts: Open in editor, Reveal, and (if ahead) the push/send-for-review hint.
 - Conflicted files: shown at top with "Open in editor" and "Mark resolved".
 
@@ -179,8 +179,8 @@ See section 6. Modal window/page with left sections.
 
 ### 4.6 Change-Id missing → app adds it (no server code is downloaded)
 1. Triggered when: Gerrit active and no `commit-msg` hook in the hooks dir (respect `core.hooksPath`), or a commit to be sent lacks `Change-Id: I[0-9a-f]{40}`.
-2. If a `commit-msg` hook exists, gitdock does nothing extra (the hook adds Change-Id as in the terminal).
-3. If no hook: the Gerrit provider's commit-message transform appends `Change-Id: I<sha1>` itself before commit (same algorithm as Gerrit's hook: sha1 over tree, parent, author, committer and message; added via `git interpret-trailers --if-exists doNothing`). Commit box note: "Change-Id will be added by gitdock". Rationale (TECH.md §6): downloading `<base>/tools/hooks/commit-msg` means executing code served by the network.
+2. If a `commit-msg` hook exists, mendel does nothing extra (the hook adds Change-Id as in the terminal).
+3. If no hook: the Gerrit provider's commit-message transform appends `Change-Id: I<sha1>` itself before commit (same algorithm as Gerrit's hook: sha1 over tree, parent, author, committer and message; added via `git interpret-trailers --if-exists doNothing`). Commit box note: "Change-Id will be added by mendel". Rationale (TECH.md §6): downloading `<base>/tools/hooks/commit-msg` means executing code served by the network.
 4. If unpushed commits lack Change-Id: offer "Add Change-Id to last commit" → amend with the computed trailer. More than one such commit → explain and point to terminal (interactive rebase is a non-goal).
 
 ### 4.7 Checkout a change locally
@@ -388,7 +388,7 @@ Test setup: e2e fixtures create temp repos + a local bare remote; a **mock Gerri
 - Probe failure + port 29418 → provider active, Reviews shows "Set Gerrit URL"; saving override fixes it.
 - Repo override "None" disables provider; tab disappears.
 - Credentials: correct password → "Connected as …", secret stored encrypted (not in plain-text settings file); wrong → 401 message, nothing stored.
-- No hook → commit gets `Change-Id: I…` added by gitdock; existing hook → message left to the hook; amend keeps the same Change-Id; nothing is downloaded or written to the hooks dir.
+- No hook → commit gets `Change-Id: I…` added by mendel; existing hook → message left to the hook; amend keeps the same Change-Id; nothing is downloaded or written to the hooks dir.
 
 **Gerrit review loop**
 - Send for review with topic `t`, reviewer `a@b.c`, WIP → pushed ref is `refs/for/master%topic=t,r=a@b.c,wip`; success toast parses change URL from remote output.

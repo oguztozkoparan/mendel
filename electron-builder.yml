@@ -1,5 +1,5 @@
-appId: dev.gitdock.app
-productName: gitdock
+appId: dev.mendel.desktop
+productName: Mendel
 directories:
   output: release
 files:
@@ -36,7 +36,7 @@ publish:
   repo: REPLACE_REPO
   releaseType: draft
 # Alternative: any HTTPS static host (upload latest*.yml, installers, .blockmap there). Use instead of the block
-# above, or switch in CI without editing: -c.publish.provider=generic -c.publish.url=https://downloads.example.com/gitdock/
+# above, or switch in CI without editing: -c.publish.provider=generic -c.publish.url=https://downloads.example.com/mendel/
 # publish:
 #   provider: generic
-#   url: https://downloads.example.com/gitdock/
+#   url: https://downloads.example.com/mendel/

@@ -7,5 +7,5 @@ export function useMenuCommand(handler: (cmd: MenuCommand) => void): void {
   useLayoutEffect(() => {
     ref.current = handler
   })
-  useEffect(() => window.gitdock.on('menu:command', (c) => ref.current(c)), [])
+  useEffect(() => window.mendel.on('menu:command', (c) => ref.current(c)), [])
 }

@@ -1,4 +1,4 @@
-# gitdock: technology & security decisions
+# mendel: technology & security decisions
 
 Status: decided 2026-11-04. Versions verified with `npm view <pkg> version` on that date (pin exact in `package.json`, update via PR).
 Marked **[unverified]** = from memory or secondary source; check before relying on it.
@@ -26,7 +26,7 @@ src/
     git/           # execFile wrapper, arg builders, porcelain parsers
     providers/     # <name>/ provider plugins (gerrit first), matched by remote URL
     ipc/           # one file per channel group; zod schemas live in src/shared
-  preload/         # contextBridge: exposes typed `window.gitdock` only
+  preload/         # contextBridge: exposes typed `window.mendel` only
   renderer/        # React app (no Node, no Electron imports)
   shared/          # types + zod IPC schemas + channel names (no runtime deps on main/renderer)
 test/              # unit + integration (vitest), e2e/ (playwright), fixtures/ (gerrit mock)
@@ -85,17 +85,17 @@ Native Electron features to use (no deps):
 
 ## 4. Auto-update and release
 
-**Runtime: `electron-updater` 6.8.11**, `autoDownload = false`, `autoInstallOnAppQuit = true` (win/linux). Check on start (+30 s), every 6 h, and from menu "Check for Updates…". UI: banner "gitdock X.Y.Z available" → [Download] → progress → [Restart to update] (`quitAndInstall`).
+**Runtime: `electron-updater` 6.8.11**, `autoDownload = false`, `autoInstallOnAppQuit = true` (win/linux). Check on start (+30 s), every 6 h, and from menu "Check for Updates…". UI: banner "mendel X.Y.Z available" → [Download] → progress → [Restart to update] (`quitAndInstall`).
 
 Providers (in `electron-builder.yml`, `publish:`):
 - GitHub: `{ provider: github, owner, repo }`. Public repo only (private needs a token in the app: do not).
-- Generic static URL: `{ provider: generic, url: https://downloads.example.com/gitdock/ }`; upload `latest*.yml`, installers, `.blockmap` to that path (any HTTPS static host / S3 / R2). Switch provider via `-c.publish.provider=generic` in CI, no code change.
+- Generic static URL: `{ provider: generic, url: https://downloads.example.com/mendel/ }`; upload `latest*.yml`, installers, `.blockmap` to that path (any HTTPS static host / S3 / R2). Switch provider via `-c.publish.provider=generic` in CI, no code change.
 
 What works **unsigned**:
 
-| OS | Behavior | gitdock UX |
+| OS | Behavior | mendel UX |
 |---|---|---|
-| macOS | Squirrel.Mac **refuses to install unsigned updates** (electron-builder docs: "macOS application must be signed in order for auto updating to work"). Check works (reads `latest-mac.yml`). | Build flag `GITDOCK_MAC_AUTOINSTALL=false` (until signed): on `update-available` show [Open download page] → `shell.openExternal` of the release page (GitHub: `releases/tag/vX.Y.Z`; generic: `<url>/gitdock-X.Y.Z-<arch>.dmg`). Help text: first launch needs System Settings → Privacy & Security → "Open Anyway" (ctrl-click bypass removed in macOS 15 **[unverified for 26]**). Keychain may re-prompt after each update (no stable signature). |
+| macOS | Squirrel.Mac **refuses to install unsigned updates** (electron-builder docs: "macOS application must be signed in order for auto updating to work"). Check works (reads `latest-mac.yml`). | Build flag `MENDEL_MAC_AUTOINSTALL=false` (until signed): on `update-available` show [Open download page] → `shell.openExternal` of the release page (GitHub: `releases/tag/vX.Y.Z`; generic: `<url>/mendel-X.Y.Z-<arch>.dmg`). Help text: first launch needs System Settings → Privacy & Security → "Open Anyway" (ctrl-click bypass removed in macOS 15 **[unverified for 26]**). Keychain may re-prompt after each update (no stable signature). |
 | Windows | NSIS install/update works. SmartScreen "Windows protected your PC" on first install (More info → Run anyway). Updater signature check is skipped when unsigned. | Normal auto-update flow. |
 | Linux | AppImage self-updates. `.deb` cannot (needs root). | AppImage: auto. deb: notify + open download page. |
 
@@ -112,7 +112,7 @@ Release process (in repo):
 Changelog: `scripts/changelog.mjs` (~30 lines, no dep): `git log --format=%s%x1f%h prev..tag`, group `feat(...)` → "Features", `bug(...)` → "Fixes", skip `feat(release)`. Rejected `git-cliff` 2.14.2 (extra binary for a 30-line script), `conventional-changelog-cli` 5.0.0 (does not know the `bug` type without a custom preset).
 
 Once certificates exist:
-- macOS: `CSC_LINK`, `CSC_KEY_PASSWORD`, `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID` secrets; `mac.hardenedRuntime: true`, `mac.notarize: true`; drop `GITDOCK_MAC_AUTOINSTALL=false` → full Squirrel.Mac auto-install; Gatekeeper and Keychain prompts go away.
+- macOS: `CSC_LINK`, `CSC_KEY_PASSWORD`, `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID` secrets; `mac.hardenedRuntime: true`, `mac.notarize: true`; drop `MENDEL_MAC_AUTOINSTALL=false` → full Squirrel.Mac auto-install; Gatekeeper and Keychain prompts go away.
 - Windows: Azure Trusted Signing (`win.azureSignOptions`) or an OV/EV cert; set the publisher name so electron-updater verifies Authenticode of the update against the running app's publisher; SmartScreen reputation builds.
 - Linux: optionally GPG-sign deb/AppImage; set `allowUnverifiedLinuxPackages: false`.
 
@@ -122,7 +122,7 @@ Once certificates exist:
 |---|---|---|---|
 | Unit | `vitest` | 5.1.0 | git arg builders, porcelain v2 / `-z` parsers (fixture strings), zod schemas, ref-name validation, URL redaction, Gerrit client (against mock), changelog script. `environment: node`. |
 | Git integration | `vitest` + real system git | — | `fs.mkdtemp` → `git init --bare remote.git` + work clone; run our wrapper end to end (commit, branch, fetch, pull --rebase, push, conflicts). Isolate from dev config: `HOME=<tmp>`, `GIT_CONFIG_NOSYSTEM=1`, `GIT_CONFIG_GLOBAL=<tmp>/gitconfig` with `user.name/email`, `init.defaultBranch=main`. |
-| E2E | `@playwright/test` (`_electron`) | 1.64.1 | `_electron.launch({ args: ['out/main/index.js'], env })` against the built app; same temp-repo fixtures; test-only userData dir via `GITDOCK_E2E_USERDATA` honored **only when `!app.isPackaged`**. Note `_electron` is marked experimental by Playwright. |
+| E2E | `@playwright/test` (`_electron`) | 1.64.1 | `_electron.launch({ args: ['out/main/index.js'], env })` against the built app; same temp-repo fixtures; test-only userData dir via `MENDEL_E2E_USERDATA` honored **only when `!app.isPackaged`**. Note `_electron` is marked experimental by Playwright. |
 | Gerrit (default) | mock server, `node:http`, no dep | — | `test/fixtures/gerrit-mock.ts`: `/a/accounts/self`, `/a/changes/?q=…`, `/a/changes/{id}/revisions/current/review`, comments; prefixes `)]}'\n`; checks Basic auth; records requests for assertions. Push to `refs/for/main`: remote URL is `https://gerrit.test/project` (so provider auto-activates), test gitconfig maps it to a local bare repo with `url."<tmp>/remote.git".insteadOf=https://gerrit.test/project`; bare repo has `receive.advertisePushOptions=true`; assert ref `refs/for/main` and push options (`%topic=`, `-o topic=`). |
 | Gerrit (optional) | `docker run -p 8080:8080 -p 29418:29418 gerritcodereview/gerrit:3.1.3` (also 3.14.5) | 3.1.3 = older 3.x servers still common; 3.14.5 = latest stable | Feasible: dev-mode auth (`DEVELOPMENT_BECOME_ANY_ACCOUNT`) is the image default; script creates admin token, project, user via REST. Boot ~1–2 min **[unverified]**, whole job ~5–10 min. Run nightly / manual `workflow_dispatch` on ubuntu, not on PRs. Also covers Gerrit 3.13+ auth tokens (see §6). |
 
@@ -137,11 +137,11 @@ Sources: [Electron security checklist](https://www.electronjs.org/docs/latest/tu
 
 ### 6.1 Electron hardening
 - [ ] `webPreferences`: `contextIsolation: true`, `sandbox: true`, `nodeIntegration: false`, `nodeIntegrationInWorker: false`, `webSecurity: true`, `allowRunningInsecureContent: false`, `experimentalFeatures: false`, no `enableBlinkFeatures`, `webviewTag: false`, `spellcheck` ok. Call `app.enableSandbox()` before ready.
-- [ ] Prod renderer served from a custom protocol `app://gitdock/` via `protocol.handle` (not `file://`); handler resolves under `out/renderer` and rejects paths escaping it. Register scheme as `standard, secure`.
+- [ ] Prod renderer served from a custom protocol `app://mendel/` via `protocol.handle` (not `file://`); handler resolves under `out/renderer` and rejects paths escaping it. Register scheme as `standard, secure`.
 - [ ] CSP as response header from the protocol handler (meta tag in dev): `default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; object-src 'none'`. Dev adds `ws://localhost:*` + Vite origin. No `unsafe-eval`, no `unsafe-inline` scripts (if a lib needs inline `<style>`, allow `'unsafe-inline'` for `style-src` only). Remote images (Gerrit avatars) are fetched in main and returned as data/blob, not loaded from remote origins.
 - [ ] `app.on('web-contents-created')`: `will-navigate` → `preventDefault()` unless same app origin; `will-redirect` same; `setWindowOpenHandler(() => ({ action: 'deny' }))` (send allowlisted URLs to `openExternal` instead); `will-attach-webview` → `preventDefault()`.
 - [ ] `session.defaultSession.setPermissionRequestHandler((_wc, _perm, cb) => cb(false))` and `setPermissionCheckHandler(() => false)`; `setDevicePermissionHandler(() => false)`.
-- [ ] No `@electron/remote`; preload exposes only `contextBridge.exposeInMainWorld('gitdock', {...})` with fixed functions, never `ipcRenderer` itself or generic `invoke(channel, …)`.
+- [ ] No `@electron/remote`; preload exposes only `contextBridge.exposeInMainWorld('mendel', {...})` with fixed functions, never `ipcRenderer` itself or generic `invoke(channel, …)`.
 - [ ] DevTools disabled in packaged builds (`devTools: !app.isPackaged`).
 - [ ] Fuses via electron-builder `electronFuses` (uses `@electron/fuses` internally, no extra dep): `runAsNode: false`, `enableCookieEncryption: true`, `enableNodeOptionsEnvironmentVariable: false`, `enableNodeCliInspectArguments: false`, `enableEmbeddedAsarIntegrityValidation: true` (mac ≥16, win ≥30), `onlyLoadAppFromAsar: true`, `grantFileProtocolExtraPrivileges: false`, `loadBrowserProcessSpecificV8Snapshot: false`. Verify in CI: `npx @electron/fuses read --app <built app>`.
 - [ ] `shell.openExternal(url)` only after `new URL(url)`: protocol `https:` (or `http:` only for a user-configured provider host), no credentials in URL; anything else is dropped and logged.
@@ -149,7 +149,7 @@ Sources: [Electron security checklist](https://www.electronjs.org/docs/latest/tu
 
 ### 6.2 IPC design
 - [ ] One `ipcMain.handle` per narrow operation (`repo:status`, `git:commit`, `gerrit:listChanges`…); channel names + zod schemas in `src/shared/ipc.ts`.
-- [ ] Every handler: (1) check `event.senderFrame` exists and `new URL(event.senderFrame.url).origin` (prefer `senderFrame.origin`) equals the app origin (`app://gitdock` / dev server), and the frame is the top frame of our window; (2) `schema.parse(payload)`; (3) only then act.
+- [ ] Every handler: (1) check `event.senderFrame` exists and `new URL(event.senderFrame.url).origin` (prefer `senderFrame.origin`) equals the app origin (`app://mendel` / dev server), and the frame is the top frame of our window; (2) `schema.parse(payload)`; (3) only then act.
 - [ ] Renderer never sends commands, argv, file paths outside a repo, or URLs to fetch. It sends ids (`repoId`, `changeId`, `path` relative to repo) that main resolves.
 - [ ] Repos the renderer can address = repos the user added via native dialog (stored list); `repoId` → absolute path lookup in main.
 - [ ] Errors returned to renderer are sanitized (no env, no credentials, no full argv with secrets); a `GitError` additionally carries its `kind` and redacted stderr (encoded after `IPC_ERROR_PREFIX`, decoded in preload) for the error banner.

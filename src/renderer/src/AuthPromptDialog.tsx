@@ -10,10 +10,10 @@ import s from './App.module.css'
 export function AuthPromptDialog() {
   const [queue, setQueue] = useState<AuthPrompt[]>([])
   const [value, setValue] = useState('')
-  useEffect(() => window.gitdock.on('auth:prompt', (p) => setQueue((q) => [...q, p])), [])
+  useEffect(() => window.mendel.on('auth:prompt', (p) => setQueue((q) => [...q, p])), [])
   useEffect(
     () =>
-      window.gitdock.on('auth:dismiss', ({ id }) =>
+      window.mendel.on('auth:dismiss', ({ id }) =>
         setQueue((q) => {
           if (q[0]?.id === id) setValue('')
           return q.filter((p) => p.id !== id)
@@ -25,7 +25,7 @@ export function AuthPromptDialog() {
   const current = queue[0]
   if (!current) return null
   const answer = (v: string | null) => {
-    void window.gitdock['auth:respond']({ id: current.id, value: v })
+    void window.mendel['auth:respond']({ id: current.id, value: v })
     setQueue((q) => q.slice(1))
     setValue('')
   }

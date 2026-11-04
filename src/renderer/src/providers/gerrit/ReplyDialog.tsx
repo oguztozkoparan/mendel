@@ -34,7 +34,7 @@ export function ReplyDialog(p: { repo: string; change: GerritChange; patchSet: n
         const drafts = p.pending.list.filter((d) => d.patch_set === ps)
         const last = ps === p.patchSet
         const comments = drafts.map(({ key: _k, ...d }) => d)
-        await window.gitdock['gerrit:review']({ repo: p.repo, change: ch._number, patchSet: ps, message: last ? message.trim() : '', labels: last ? labels : {}, comments })
+        await window.mendel['gerrit:review']({ repo: p.repo, change: ch._number, patchSet: ps, message: last ? message.trim() : '', labels: last ? labels : {}, comments })
         drafts.forEach((d) => p.pending.remove(d.key))
       }
     }

@@ -1,5 +1,5 @@
 // Packaged-app smoke test: node scripts/smoke-packaged.mjs [--refuses] <app executable>
-// e.g. release-smoke/mac-arm64/gitdock.app/Contents/MacOS/gitdock (from `npm run dist:smoke`). Fuses forbid --inspect,
+// e.g. release-smoke/mac-arm64/Mendel.app/Contents/MacOS/Mendel (from `npm run dist:smoke`). Fuses forbid --inspect,
 // so Playwright's _electron can't attach; drive the window over CDP (--remote-debugging-port) instead, which only an
 // e2e-mode build allows (S13/P2). Exit 0 = welcome renders.
 // --refuses <release build exe> (from `npm run dist`): exit 0 = it quits at once on debugger switches (P2).
@@ -12,7 +12,7 @@ import path from 'node:path'
 const refuses = process.argv[2] === '--refuses'
 const bin = process.argv[refuses ? 3 : 2]
 if (!bin) throw new Error('usage: node scripts/smoke-packaged.mjs [--refuses] <app executable>')
-const userData = mkdtempSync(path.join(tmpdir(), 'gitdock-pkg-')) // never the user's real app state
+const userData = mkdtempSync(path.join(tmpdir(), 'mendel-pkg-')) // never the user's real app state
 
 if (refuses) {
   let ok = true
@@ -49,7 +49,7 @@ try {
   await page.getByText(/^git \d+\.\d+.* found at /).waitFor({ timeout: 10_000 })
   const info = await page.evaluate(() => ({ url: location.href, require: typeof window.require, process: typeof window.process }))
   console.log(`welcome rendered after ${ms} ms`, info)
-  ok = info.url === 'app://gitdock/index.html' && info.require === 'undefined' && info.process === 'undefined'
+  ok = info.url === 'app://mendel/index.html' && info.require === 'undefined' && info.process === 'undefined'
   await browser.close().catch(() => {})
 } catch (err) {
   console.error('FAIL', err.message, output.slice(-2000))

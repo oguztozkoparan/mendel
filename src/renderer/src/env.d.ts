@@ -1,7 +1,7 @@
-import type { GitdockApi } from '../../shared/ipc'
+import type { MendelApi } from '../../shared/ipc'
 
 declare global {
   interface Window {
-    gitdock: GitdockApi
+    mendel: MendelApi
   }
 }

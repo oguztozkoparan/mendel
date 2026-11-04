@@ -9,7 +9,7 @@ test('open a repo subfolder opens the top level, adds to recents and reopens on 
   const fx = createRepoFixture()
   const userData = path.join(fx.dir, 'userData')
   mkdirSync(path.join(fx.work, 'sub'))
-  let { app, win, close } = await launchApp({ ...fx.env, GITDOCK_E2E_USERDATA: userData })
+  let { app, win, close } = await launchApp({ ...fx.env, MENDEL_E2E_USERDATA: userData })
   try {
     await stubOpenDialog(app, path.join(fx.work, 'sub'))
     await win.getByRole('button', { name: 'Open local repository…' }).click()
@@ -19,7 +19,7 @@ test('open a repo subfolder opens the top level, adds to recents and reopens on 
     await toolbar.getByRole('button').first().click()
     await expect(win.getByRole('dialog', { name: 'Repositories' }).getByRole('row')).toHaveText([/work.*\/work/])
     await close()
-    ;({ app, win, close } = await launchApp({ ...fx.env, GITDOCK_E2E_USERDATA: userData }))
+    ;({ app, win, close } = await launchApp({ ...fx.env, MENDEL_E2E_USERDATA: userData }))
     await expect(win.getByLabel('Toolbar')).toContainText('work')
   } finally {
     await close()
@@ -28,7 +28,7 @@ test('open a repo subfolder opens the top level, adds to recents and reopens on 
 })
 
 test('non-repo folder shows "Not a git repository" and leaves recents unchanged', async () => {
-  const dir = mkdtempSync(path.join(tmpdir(), 'gitdock-norepo-'))
+  const dir = mkdtempSync(path.join(tmpdir(), 'mendel-norepo-'))
   const { app, win, close } = await launchApp()
   try {
     await stubOpenDialog(app, dir)
@@ -46,14 +46,14 @@ test('recent entry with deleted path is greyed with Locate and Remove', async ()
   const userData = path.join(fx.dir, 'userData')
   const other = path.join(fx.dir, 'other')
   fx.git(['clone', '-q', fx.remote, other], fx.dir)
-  let { app, win, close } = await launchApp({ ...fx.env, GITDOCK_E2E_USERDATA: userData })
+  let { app, win, close } = await launchApp({ ...fx.env, MENDEL_E2E_USERDATA: userData })
   try {
     await stubOpenDialog(app, other)
     await win.getByRole('button', { name: 'Open local repository…' }).click()
     await expect(win.getByLabel('Toolbar')).toContainText('other')
     await close()
     rmSync(other, { recursive: true, force: true })
-    ;({ app, win, close } = await launchApp({ ...fx.env, GITDOCK_E2E_USERDATA: userData }))
+    ;({ app, win, close } = await launchApp({ ...fx.env, MENDEL_E2E_USERDATA: userData }))
     const row = win.getByRole('row', { name: 'other' })
     await expect(row).toContainText('Missing:')
     // Locate re-points the entry to an existing clone.

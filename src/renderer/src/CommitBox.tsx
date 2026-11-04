@@ -17,7 +17,7 @@ export interface CommitHint {
 export function CommitBox(p: { repo: string; hasStaged: boolean; hint?: CommitHint | null; amend?: boolean; onAmendDone?: () => void }) {
   const { repo, hasStaged, hint } = p
   const qc = useQueryClient()
-  const info = useQuery({ queryKey: ['commitInfo', repo], queryFn: () => window.gitdock['commit:info']({ repo }) })
+  const info = useQuery({ queryKey: ['commitInfo', repo], queryFn: () => window.mendel['commit:info']({ repo }) })
   const settings = useSettings().data
   const limit = settings?.summaryLimit ?? 72
   const [summary, setSummary] = useState('')
@@ -52,7 +52,7 @@ export function CommitBox(p: { repo: string; hasStaged: boolean; hint?: CommitHi
     if (!canCommit) return
     setBusy(true)
     setError(null)
-    window.gitdock['commit:create']({ repo, summary, description, amend }).then(
+    window.mendel['commit:create']({ repo, summary, description, amend }).then(
       () => {
         setSummary('')
         setDescription('')

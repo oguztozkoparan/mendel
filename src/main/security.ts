@@ -4,9 +4,9 @@ import path from 'node:path'
 import { resolveUnder } from './safe-path'
 
 export const APP_SCHEME = 'app'
-const PROD_ORIGIN = 'app://gitdock'
+const PROD_ORIGIN = 'app://mendel'
 /** S13: build-time flag (electron.vite.config.ts), true only in dev and e2e builds; never read from the runtime env. */
-export const testSeams = process.env.GITDOCK_TEST_SEAMS === 'true'
+export const testSeams = process.env.MENDEL_TEST_SEAMS === 'true'
 const devUrl = testSeams ? process.env.ELECTRON_RENDERER_URL : undefined
 
 /** Origin the renderer is served from; IPC and navigation are only trusted from it. */
@@ -47,7 +47,7 @@ export function hardenSession(): void {
     } catch {
       return new Response('Bad request', { status: 400 })
     }
-    const file = url.host === 'gitdock' ? resolveUnder(root, rel) : null
+    const file = url.host === 'mendel' ? resolveUnder(root, rel) : null
     if (!file) return new Response('Not found', { status: 404 })
     try {
       const body = await readFile(file)

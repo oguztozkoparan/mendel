@@ -3,13 +3,13 @@ import { basic, startAuthRemote } from '../fixtures/auth-remote'
 import { createRepoFixture } from '../fixtures/repo'
 import { launchApp } from './launch'
 
-type TestGlobal = { __gitdockTest: { git(args: string[], o: { cwd: string }): Promise<unknown> } }
+type TestGlobal = { __mendelTest: { git(args: string[], o: { cwd: string }): Promise<unknown> } }
 
 /** Run git through the app's real runner in main (e2e seam); resolves to the error kind or 'ok'. */
 const runGit = (app: Awaited<ReturnType<typeof launchApp>>['app'], args: string[], cwd: string) =>
   app.evaluate(
     (_e, [a, c]) =>
-      (globalThis as unknown as TestGlobal).__gitdockTest.git(a, { cwd: c }).then(
+      (globalThis as unknown as TestGlobal).__mendelTest.git(a, { cwd: c }).then(
         () => 'ok',
         (err: { kind: string }) => err.kind
       ),

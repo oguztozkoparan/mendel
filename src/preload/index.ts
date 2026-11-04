@@ -23,4 +23,4 @@ api.on = (event: string, cb: (payload: unknown) => void) => {
   return () => void ipcRenderer.removeListener(event, listener)
 }
 
-contextBridge.exposeInMainWorld('gitdock', api)
+contextBridge.exposeInMainWorld('mendel', api)

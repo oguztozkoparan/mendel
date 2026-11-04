@@ -79,7 +79,7 @@ export function validCustomTool(p: string, platform: NodeJS.Platform = process.p
 function launch(t: Tool, target: string, cwd: string, withTarget: boolean): Promise<void> {
   const [exe, args] = t.app ? ['/usr/bin/open', ['-a', t.exe, target]] : [t.exe, withTarget ? (t.args?.(target) ?? [target]) : (t.args?.(target) ?? [])]
   return new Promise((resolve, reject) => {
-    // detached: the tool outlives gitdock and (Windows) gets its own console window.
+    // detached: the tool outlives mendel and (Windows) gets its own console window.
     const child = spawn(exe, args, { cwd, detached: true, stdio: 'ignore', shell: false })
     child.once('error', (e) => reject(new Error(`Could not start ${t.name}: ${e.message}`)))
     child.once('spawn', () => (child.unref(), resolve()))

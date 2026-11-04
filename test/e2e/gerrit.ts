@@ -21,10 +21,10 @@ export async function launchGerrit(mock: GerritMock): Promise<GerritApp> {
   fx.git(['remote', 'set-url', 'origin', 'ssh://test@gerrit.test:29418/p/q'])
   // TECH.md §5: git traffic to the Gerrit URL goes to the local bare repo; detection still sees the Gerrit remote.
   fx.git(['config', '--global', `url.${fx.remote}.insteadOf`, 'ssh://test@gerrit.test:29418/p/q'])
-  const userData = path.join(mkdtempSync(path.join(tmpdir(), 'gitdock-ud-')), 'userData')
+  const userData = path.join(mkdtempSync(path.join(tmpdir(), 'mendel-ud-')), 'userData')
   mkdirSync(userData)
   writeFileSync(path.join(userData, 'providers.json'), JSON.stringify({ hosts: { 'gerrit.test': { baseUrl: mock.url, version: '3.1.3' } } }))
-  const app = await launchApp({ ...fx.env, GITDOCK_E2E_USERDATA: userData })
+  const app = await launchApp({ ...fx.env, MENDEL_E2E_USERDATA: userData })
   await openRepo(app, fx.work)
   return {
     ...app,

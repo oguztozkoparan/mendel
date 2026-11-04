@@ -12,7 +12,7 @@ export function Markdown({ repo, text }: { repo: string; text: string }) {
             href={href}
             onClick={(e) => {
               e.preventDefault()
-              if (href) void window.gitdock['gerrit:open']({ repo, path: href })
+              if (href) void window.mendel['gerrit:open']({ repo, path: href })
             }}
           >
             {children}
