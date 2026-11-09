@@ -1,5 +1,5 @@
 import { BrowserWindow, dialog, type IpcMainInvokeEvent } from 'electron'
-import { applyBranchStash, createBranch, deleteBranch, listBranches, stashAndSwitch, switchBranch } from '../git/branch'
+import { applyBranchStash, createBranch, deleteBranch, listBranches, listStashes, stashAction, stashAndSwitch, switchBranch } from '../git/branch'
 import { repoRoot } from '../repos'
 import type { Handlers } from '.'
 
@@ -10,7 +10,7 @@ export async function confirm(e: IpcMainInvokeEvent, button: string, message: st
   return r.response === 0
 }
 
-export const branchHandlers: Handlers<'branch:list' | 'branch:create' | 'branch:switch' | 'branch:delete' | 'branch:stash'> = {
+export const branchHandlers: Handlers<'branch:list' | 'branch:create' | 'branch:switch' | 'branch:delete' | 'branch:stash' | 'stash:list' | 'stash:action'> = {
   'branch:list': ({ repo }) => listBranches(repoRoot(repo)),
   'branch:create': ({ repo, name, from }) => createBranch(repoRoot(repo), name, from),
   'branch:switch': async ({ repo, name }, e) => {
@@ -31,6 +31,12 @@ export const branchHandlers: Handlers<'branch:list' | 'branch:create' | 'branch:
   'branch:stash': async ({ repo, action }, e) => {
     if (action === 'discard' && !(await confirm(e, 'Discard', 'Discard the stashed changes?', 'This cannot be undone.'))) return false
     await applyBranchStash(repoRoot(repo), action)
+    return true
+  },
+  'stash:list': ({ repo }) => listStashes(repoRoot(repo)),
+  'stash:action': async ({ repo, sha, action }, e) => {
+    if (action === 'drop' && !(await confirm(e, 'Drop', 'Drop this stash?', 'Its changes will be lost.'))) return false
+    await stashAction(repoRoot(repo), sha, action)
     return true
   }
 }

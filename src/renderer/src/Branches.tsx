@@ -13,7 +13,7 @@ export const refreshRepo = (qc: QueryClient, repo: string) => {
   return qc.invalidateQueries({ predicate: (q) => q.queryKey[1] === repo })
 }
 
-const LOCAL = new Set(['status', 'diff', 'commitInfo', 'sync', 'branches', 'conflict'])
+const LOCAL = new Set(['status', 'diff', 'commitInfo', 'sync', 'branches', 'conflict', 'stashes'])
 /**
  * Files, index or refs changed on disk: refetch local git state only. Provider/Gerrit queries (incl. the commit hint)
  * refresh on interval, focus, HEAD change or explicit ops instead of every save.

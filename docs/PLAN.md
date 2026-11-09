@@ -43,13 +43,13 @@ Cross-platform desktop git client (Electron + React + Vite + TypeScript), GitHub
 
 ### Decisions on borderline features
 - **Conflict UI: minimal in MVP.** "Rebase onto latest" and pull are in MVP, so conflicts *will* happen; leaving the user stuck mid-rebase is unacceptable. A 3-way editor is large; users already have an editor. So: detect, list, open-in-editor, mark resolved, continue/abort.
-- **Stash: only stash-and-switch in MVP.** `git switch` refuses on a dirty tree; offering "Stash & switch" + a "You have stashed changes on <branch> — Restore / Discard" banner covers 90% of use. Stash list UI → later.
+- **Stash: only stash-and-switch in MVP.** `git switch` refuses on a dirty tree; offering "Stash & switch" + a "You have stashed changes on <branch> — Restore / Discard" banner covers 90% of use. Stash list (post-MVP): a Stashes tab lists all stashes (`git stash list`), shows the selected one's diff (History's commit detail on the stash commit, vs. the commit it was made on; untracked files not shown), and Apply / Pop / Drop (native confirm). Main resolves the renderer's stash sha to `stash@{n}` at action time, so a shifted list cannot hit the wrong entry.
 - **Line-level staging → later.** Hunk staging is cheap (build a patch from the hunk, `git apply --cached`); line selection needs patch re-synthesis and more tests.
 - **Multi-account → later.** One credential per Gerrit host. Git auth is owned by system git (SSH agent / credential helper), so mendel needs no account system for git itself.
 - **Review notifications (new incoming review) → later.** MVP refreshes on focus and on an interval.
 
 ### Later
-Line staging, stash list, 3-way merge editor, multiple accounts per host, review notifications, Gerrit attention set / hashtags / drafts sync / edit commit message on server / related changes / cherry-pick to branch, history search & file history, blame, tags, cherry-pick/revert UI, interactive rebase, jump lists / dock recent items, beta update channel, GitHub provider (PRs), Bitbucket provider (PRs), i18n (Turkish), SSH setup in Gerrit settings (connection check via `ssh -p 29418 <user>@<host> gerrit version`, show key from `ssh -G`, generate key, upload via `POST /a/accounts/self/sshkeys`; never write `~/.ssh/config`).
+Line staging, 3-way merge editor, multiple accounts per host, review notifications, Gerrit attention set / hashtags / drafts sync / edit commit message on server / related changes / cherry-pick to branch, history search & file history, blame, tags, cherry-pick/revert UI, interactive rebase, jump lists / dock recent items, beta update channel, GitHub provider (PRs), Bitbucket provider (PRs), i18n (Turkish), SSH setup in Gerrit settings (connection check via `ssh -p 29418 <user>@<host> gerrit version`, show key from `ssh -G`, generate key, upload via `POST /a/accounts/self/sshkeys`; never write `~/.ssh/config`).
 
 ---
 

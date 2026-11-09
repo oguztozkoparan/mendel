@@ -91,3 +91,42 @@ test('New branch from a selected local or remote branch starts there, not at HEA
     fx.cleanup()
   }
 })
+
+test('Stashes tab: list, show diff, apply, pop, drop with confirm', async () => {
+  const fx = createRepoFixture()
+  writeFileSync(path.join(fx.work, 'README.md'), 'one\n')
+  fx.git(['stash', 'push', '-q', '-m', 'first'])
+  writeFileSync(path.join(fx.work, 'README.md'), 'two\n')
+  fx.git(['stash', 'push', '-q', '-m', 'second'])
+  const app = await launchApp(fx.env)
+  const { win } = app
+  const list = win.getByRole('grid', { name: 'Stashes' })
+  const readme = () => readFileSync(path.join(fx.work, 'README.md'), 'utf8')
+  try {
+    await openRepo(app, fx.work)
+    await win.getByRole('tab', { name: 'Stashes' }).click()
+    await expect(list.getByRole('row')).toHaveCount(2)
+    await list.getByRole('row', { name: /first/ }).click()
+    await expect(win.getByLabel('Commit detail').getByRole('listbox', { name: 'Changed files' })).toContainText('README.md')
+    await expect(win.getByLabel('Commit diff')).toContainText('one')
+
+    await win.getByRole('button', { name: 'Apply' }).click()
+    await expect.poll(readme).toBe('one\n')
+    fx.git(['checkout', '-q', '--', 'README.md'])
+    await win.getByRole('button', { name: 'Pop' }).click()
+    await expect(list.getByRole('row')).toHaveCount(1)
+    expect(readme()).toBe('one\n')
+
+    // Drop asks first: Cancel keeps it, Drop removes it.
+    await stubMessageBox(app.app, 1)
+    await win.getByRole('button', { name: 'Drop…' }).click()
+    await expect(list.getByRole('row')).toHaveCount(1)
+    await stubMessageBox(app.app, 0)
+    await win.getByRole('button', { name: 'Drop…' }).click()
+    await expect(win.getByText('No stashes')).toBeVisible()
+    expect(fx.git(['stash', 'list'])).toBe('')
+  } finally {
+    await app.close()
+    fx.cleanup()
+  }
+})

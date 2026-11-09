@@ -1,12 +1,13 @@
-import { keepPreviousData, useInfiniteQuery, useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useMemo, useState, type ReactNode } from 'react'
 import { Button, Collection, GridList, GridListItem, GridListLoadMoreItem, ListBox, ListBoxItem, ListLayout, Virtualizer } from 'react-aria-components'
 import { Diff, Hunk } from 'react-diff-view'
 import type { CommitDetail, CommitSummary } from '../../shared/ipc'
 import a from './App.module.css'
-import { useBranches } from './Branches'
+import { refreshRepo, useBranches } from './Branches'
 import c from './Changes.module.css'
 import { useParsedDiff, visible } from './DiffView'
+import { bannerError, ErrorBanner, type BannerError } from './ErrorBanner'
 import s from './History.module.css'
 import { ago } from './time'
 
@@ -72,6 +73,66 @@ export function HistoryView(p: { repo: string; decorate?: (c: CommitSummary) => 
           selected && (
             // Amend only HEAD, and only while it is unpushed (PLAN.md 3.6).
             <CommitView key={selected.sha} repo={p.repo} sha={selected.sha} onAmend={selected === commits[0] && selected.unpushed ? p.onAmend : undefined} />
+          )
+        )}
+      </section>
+    </>
+  )
+}
+
+/** Stashes tab: all stashes; the selected one's diff (vs. the commit it was made on; untracked files not shown), Apply / Pop / Drop…. */
+export function StashesView(p: { repo: string }) {
+  const qc = useQueryClient()
+  const q = useQuery({ queryKey: ['stashes', p.repo], queryFn: () => window.mendel['stash:list']({ repo: p.repo }) })
+  const [picked, setPicked] = useState<string | null>(null)
+  const [error, setError] = useState<BannerError | null>(null)
+  const stashes = q.data ?? []
+  const selected = stashes.find((x) => x.sha === picked) ?? stashes[0]
+  const act = (action: 'apply' | 'pop' | 'drop') => {
+    if (!selected) return
+    setError(null)
+    void window.mendel['stash:action']({ repo: p.repo, sha: selected.sha, action })
+      .catch((e) => setError(bannerError(e)))
+      .finally(() => refreshRepo(qc, p.repo))
+  }
+  return (
+    <>
+      <aside className={a.side}>
+        <GridList
+          aria-label="Stashes"
+          items={stashes}
+          selectionMode="single"
+          selectionBehavior="replace"
+          disallowEmptySelection
+          selectedKeys={selected ? [selected.sha] : []}
+          onSelectionChange={(keys) => keys !== 'all' && keys.size && setPicked(String([...keys][0]))}
+          className={c.list}
+          renderEmptyState={() => (q.data ? <p className={c.empty}>No stashes</p> : null)}
+        >
+          {(x) => (
+            <GridListItem id={x.sha} textValue={x.message} className={s.row}>
+              <span className={s.summary}>{x.message}</span>
+              <small className={s.meta}>{ago(x.date)}</small>
+            </GridListItem>
+          )}
+        </GridList>
+      </aside>
+      <section className={a.main}>
+        {error && <ErrorBanner error={error} onDismiss={() => setError(null)} />}
+        {q.error ? (
+          <p role="alert" className={c.empty}>
+            {q.error.message}
+          </p>
+        ) : (
+          selected && (
+            <>
+              <div className={c.fileHeader}>
+                <Button onPress={() => act('apply')}>Apply</Button>
+                <Button onPress={() => act('pop')}>Pop</Button>
+                <Button onPress={() => act('drop')}>Drop…</Button>
+              </div>
+              <CommitView key={selected.sha} repo={p.repo} sha={selected.sha} />
+            </>
           )
         )}
       </section>

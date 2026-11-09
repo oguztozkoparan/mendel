@@ -1,7 +1,8 @@
 import { readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import { applyBranchStash, createBranch, deleteBranch, listBranches, parseTrack, stashAndSwitch, switchBranch, validateBranchName } from '../../src/main/git/branch'
+import { applyBranchStash, createBranch, deleteBranch, listBranches, listStashes, parseTrack, stashAction, stashAndSwitch, switchBranch, validateBranchName } from '../../src/main/git/branch'
+import type { StashEntry } from '../../src/shared/ipc'
 import { rebaseOntoUpstream } from '../../src/main/git/sync'
 import { createRepoFixture, type RepoFixture } from '../fixtures/repo'
 
@@ -93,6 +94,29 @@ describe('branches', () => {
     expect(await deleteBranch(fx.work, 'unmerged', true, fx.env)).toBe('ok')
     await expect(deleteBranch(fx.work, 'main', true, fx.env)).rejects.toThrow('current branch')
     expect(fx.git(['branch', '--format=%(refname:short)'])).toBe('main')
+  })
+
+  it('lists stashes; apply / pop / drop by sha, unknown sha refused', async () => {
+    fx = createRepoFixture()
+    writeFileSync(path.join(fx.work, 'README.md'), 'one\n')
+    fx.git(['stash', 'push', '-q', '-m', 'first'])
+    writeFileSync(path.join(fx.work, 'README.md'), 'two\n')
+    fx.git(['stash', 'push', '-q', '-m', 'second'])
+    const list = await listStashes(fx.work, fx.env)
+    expect(list.map((x) => x.message)).toEqual(['On main: second', 'On main: first'])
+    const [second, first] = list as [StashEntry, StashEntry]
+    expect(second.sha).toBe(fx.git(['rev-parse', 'stash@{0}']))
+    await expect(stashAction(fx.work, 'deadbeef', 'drop', fx.env)).rejects.toThrow('Unknown stash')
+    // Entry 1 by sha, not by index: apply keeps it, pop removes it.
+    await stashAction(fx.work, first.sha, 'apply', fx.env)
+    expect(read('README.md')).toBe('one\n')
+    expect(await listStashes(fx.work, fx.env)).toHaveLength(2)
+    fx.git(['checkout', '-q', '--', 'README.md'])
+    await stashAction(fx.work, first.sha, 'pop', fx.env)
+    expect(read('README.md')).toBe('one\n')
+    expect((await listStashes(fx.work, fx.env)).map((x) => x.sha)).toEqual([second.sha])
+    await stashAction(fx.work, second.sha, 'drop', fx.env)
+    expect(await listStashes(fx.work, fx.env)).toEqual([])
   })
 
   it('detached HEAD has no current branch but a short sha', async () => {
