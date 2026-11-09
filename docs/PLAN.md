@@ -48,8 +48,22 @@ Cross-platform desktop git client (Electron + React + Vite + TypeScript), GitHub
 - **Multi-account → later.** One credential per Gerrit host. Git auth is owned by system git (SSH agent / credential helper), so mendel needs no account system for git itself.
 - **Review notifications (new incoming review) → later.** MVP refreshes on focus and on an interval.
 
+### Done after MVP
+Line staging, stash list, tags, blame, history search & file history, cherry-pick/revert UI, `mendel` CLI launcher, Gerrit attention set + hashtags, Gerrit related changes, review notifications (new incoming reviews), interactive rebase of unpushed commits.
+
 ### Later
-Line staging, 3-way merge editor, multiple accounts per host, review notifications, Gerrit attention set / hashtags / drafts sync / edit commit message on server / related changes / cherry-pick to branch, history search & file history, blame, tags, cherry-pick/revert UI, interactive rebase, jump lists / dock recent items, beta update channel, GitHub provider (PRs), Bitbucket provider (PRs), i18n (Turkish), SSH setup in Gerrit settings (connection check via `ssh -p 29418 <user>@<host> gerrit version`, show key from `ssh -G`, generate key, upload via `POST /a/accounts/self/sshkeys`; never write `~/.ssh/config`).
+GitHub provider (PRs; needs its own design pass first: the provider interface only covers what Gerrit uses).
+
+### Deferred (revisit on demand)
+- **3-way merge editor**: large; users already have an editor (see "Conflict UI" above).
+- **Gerrit drafts sync**: drafts are local until sent by design; syncing with server drafts adds a second source of truth and conflicts.
+- **Gerrit edit commit message on server / cherry-pick to branch**: creates patch sets the local branch doesn't have; amend + push already covers it.
+- **Multiple accounts per host**: rare; complicates credentials and UI.
+- **Beta update channel**: no beta audience yet; stable releases go straight to GitHub Releases.
+- **i18n (Turkish)**: wait until the UI settles (see ui-concept.html).
+- **Bitbucket provider**: after GitHub proves the provider interface; Cloud and Data Center are separate APIs.
+- **SSH setup in Gerrit settings**: key generation/upload is a security surface; a connection check / show key is the acceptable part.
+- **Jump lists / dock recent items**: `mendel .` and the recents list cover it.
 
 ---
 
