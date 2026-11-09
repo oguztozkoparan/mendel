@@ -469,6 +469,8 @@ export const invoke = {
   'gerrit:diff': res<GerritDiff>()(z.object({ repo: repoId, change: changeNum, revision, path: z.string().min(1).max(4096), base: changeNum.optional() }).strict()),
   'gerrit:comments': res<GerritComment[]>()(z.object({ repo: repoId, change: changeNum }).strict()),
   /** Related changes (relation chain) of the current patch set. */
+  /** The signed-in account's id (`accounts/self`), null if Gerrit omits it. */
+  'gerrit:self': res<number | null>()(inRepo),
   'gerrit:related': res<GerritRelated[]>()(z.object({ repo: repoId, change: changeNum }).strict()),
   /** Reply: one review POST on `patchSet` with message, votes and its inline comments (drafts on older patch sets go to those). */
   'gerrit:review': res<void>()(

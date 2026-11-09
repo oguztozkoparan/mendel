@@ -11,11 +11,11 @@ import { fileLabel, fmtVote } from './util'
  * Reply panel (PLAN.md §3.8, §4.5): overall message, vote pickers built only from `permitted_labels`, pending
  * inline comments; all sent in one review call. On failure the pending comments are kept.
  */
-export function ReplyDialog(p: { repo: string; change: GerritChange; patchSet: number; me: string | null; pending: PendingStore; onClose(): void }) {
+export function ReplyDialog(p: { repo: string; change: GerritChange; patchSet: number; me: number | null; pending: PendingStore; onClose(): void }) {
   const qc = useQueryClient()
   const ch = p.change
   const permitted = Object.entries(ch.permitted_labels ?? {}).map(([label, values]) => [label, values.map(Number).sort((x, y) => x - y)] as const)
-  const mine = (label: string) => ch.labels?.[label]?.all?.find((v) => p.me && v.username === p.me)?.value ?? 0
+  const mine = (label: string) => ch.labels?.[label]?.all?.find((v) => p.me !== null && v._account_id === p.me)?.value ?? 0
   const [votes, setVotes] = useState<Record<string, number>>(() => Object.fromEntries(permitted.map(([l]) => [l, mine(l)])))
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)

@@ -25,8 +25,8 @@ export function labelSummary(labels: Record<string, GerritLabel> | undefined): s
 export const initial = (a?: { name?: string; username?: string }): string => (a?.name ?? a?.username ?? '?').trim().charAt(0).toUpperCase()
 export const who = (a?: { name?: string; username?: string; email?: string }): string => a?.name ?? a?.username ?? a?.email ?? 'Unknown'
 
-/** The signed-in user (`me` = username) is in the change's attention set. */
-export const needsMe = (ch: GerritChange, me: string | null): boolean => !!me && Object.values(ch.attention_set ?? {}).some((a) => a.account.username === me)
+/** The signed-in account (`me` = account id; the HTTP username need not match the account's) is in the attention set. */
+export const needsMe = (ch: GerritChange, me: number | null): boolean => me !== null && Object.values(ch.attention_set ?? {}).some((a) => a.account._account_id === me)
 
 /** Gerrit DiffInfo → unified diff text for react-diff-view's parseDiff (a new hunk after every `skip`). */
 export function diffText(d: GerritDiff): string {
