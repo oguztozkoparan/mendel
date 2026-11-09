@@ -21,7 +21,8 @@ export interface RepoFixture {
 }
 
 export function createRepoFixture(): RepoFixture {
-  const dir = realpathSync(mkdtempSync(path.join(tmpdir(), 'mendel-repo-')))
+  // .native: on Windows, expands 8.3 short names (RUNNER~1) the way git reports paths.
+  const dir = realpathSync.native(mkdtempSync(path.join(tmpdir(), 'mendel-repo-')))
   const env = isolatedGitEnv(dir)
   const remote = path.join(dir, 'remote.git')
   const work = path.join(dir, 'work')
@@ -40,5 +41,13 @@ export function createRepoFixture(): RepoFixture {
   commitFile('README.md', '# fixture\n', 'initial commit')
   git(['push', '-q', 'origin', 'main'])
 
-  return { dir, env, remote, work, git, commitFile, cleanup: () => rmSync(dir, { recursive: true, force: true }) }
+  const cleanup = () => {
+    try {
+      rmSync(dir, { recursive: true, force: true, maxRetries: 5 })
+    } catch (err) {
+      // shortcut: on Windows a killed git's sh/sleep grandchild can still hold the dir; leave it in %TEMP%.
+      if (process.platform !== 'win32') throw err
+    }
+  }
+  return { dir, env, remote, work, git, commitFile, cleanup }
 }

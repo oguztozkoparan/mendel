@@ -72,11 +72,14 @@ describe('status and diff against a real repo', () => {
     expect(await getDiff(fx.work, { path: 'README.md', staged: true, untracked: false }, fx.env)).toContain('+more')
     expect(await getDiff(fx.work, { path: 'README.md', staged: false, untracked: false }, fx.env)).toBe('')
 
-    writeFileSync(path.join(fx.work, '*.txt'), 'literal\n')
-    writeFileSync(path.join(fx.work, 'other.txt'), 'other\n')
-    const untracked = await getDiff(fx.work, { path: '*.txt', staged: false, untracked: true }, fx.env)
-    expect(untracked).toContain('+++ b/*.txt')
-    expect(untracked).toContain('+literal')
+    // Windows forbids '*' in file names: the literal-pathspec case runs on macOS/Linux only.
+    if (process.platform !== 'win32') {
+      writeFileSync(path.join(fx.work, '*.txt'), 'literal\n')
+      writeFileSync(path.join(fx.work, 'other.txt'), 'other\n')
+      const untracked = await getDiff(fx.work, { path: '*.txt', staged: false, untracked: true }, fx.env)
+      expect(untracked).toContain('+++ b/*.txt')
+      expect(untracked).toContain('+literal')
+    }
 
     writeFileSync(path.join(fx.work, 'img.bin'), Buffer.from([0, 1, 2, 0, 255]))
     expect(await getDiff(fx.work, { path: 'img.bin', staged: false, untracked: true }, fx.env)).toMatch(/^Binary files /m)
