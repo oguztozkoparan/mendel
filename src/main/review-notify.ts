@@ -3,8 +3,7 @@
 import { BrowserWindow, Notification } from 'electron'
 import type { GerritChange } from '../shared/gerrit'
 import { emit } from './ipc'
-import { gerritFor } from './ipc/gerrit'
-import { activeState } from './ipc/provider'
+import { baseOf, gerritFor, hostOf } from './ipc/gerrit'
 import log from './log'
 import { credentialUser } from './providers/gerrit/credentials'
 import { providerStore, saveProviderStore } from './providers/store'
@@ -25,9 +24,10 @@ const live = new Set<Notification>()
 async function poll(): Promise<void> {
   const repo = listRepos().current
   if (!repo || !getSettings().reviewNotifications) return
-  const d = (await activeState(repo)).detection
-  if (d?.provider !== 'gerrit' || !d.baseUrl) return
-  const host = new URL(d.baseUrl).host
+  // Same base URL and credential key as every Gerrit IPC call.
+  const base = await baseOf(repo).catch(() => null) // Gerrit not active or URL not set
+  if (!base) return
+  const host = hostOf(base)
   if (!credentialUser(host)) return
   const { incoming } = await (await gerritFor(repo)).listChanges(null)
   if (!getSettings().reviewNotifications) return // turned off (and seen ids cleared) while the query ran
