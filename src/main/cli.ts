@@ -11,9 +11,10 @@ import { rememberRepo } from './repos'
 /** Path argument from `argv`, absolute against the caller's `cwd`; null if none. Switches (Chromium's, macOS `-psn_`) are skipped. */
 export function cliPath(argv: string[], cwd: string, defaultApp = !!process.defaultApp): string | null {
   // Unpackaged runs are `electron <main script> ...`; packaged ones `<exe> ...`.
+  // Drop switches first: Chromium inserts its own before the main script in second-instance argv.
   const arg = argv
-    .slice(defaultApp ? 2 : 1)
     .filter((a) => !a.startsWith('-'))
+    .slice(defaultApp ? 2 : 1)
     .at(-1)
   return arg && !arg.includes('\0') ? path.resolve(cwd, arg) : null
 }
