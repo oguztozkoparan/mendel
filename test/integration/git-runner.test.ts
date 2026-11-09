@@ -69,7 +69,7 @@ describe('git runner against real git', () => {
   it('killAllGit ends running git children (app quit)', async () => {
     fx = createRepoFixture()
     const started = Date.now()
-    const run = git(['-c', 'alias.slow=!sleep 10', 'slow'], { cwd: fx.work, env: fx.env }).catch((e: unknown) => e)
+    const run = git(['-c', 'alias.slow=!sleep 10; :', 'slow'], { cwd: fx.work, env: fx.env }).catch((e: unknown) => e)
     setTimeout(killAllGit, 100)
     expect(await run).toBeInstanceOf(GitError)
     expect(Date.now() - started).toBeLessThan(5000)
