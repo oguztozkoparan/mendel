@@ -14,6 +14,8 @@ describe('cliPath', () => {
   it('null without a path, for switches only, and for NUL bytes', () => {
     expect(cliPath(['/Mendel'], '/w', false)).toBeNull()
     expect(cliPath(['electron', 'out/main/index.js'], '/w', true)).toBeNull()
+    // Chromium puts its switches before the main script in second-instance argv.
+    expect(cliPath(['electron', '--allow-file-access-from-files', 'out/main/index.js'], '/w', true)).toBeNull()
     expect(cliPath(['/Mendel', '-psn_0_123', '--allow-file-access'], '/w', false)).toBeNull()
     expect(cliPath(['/Mendel', 'a\0b'], '/w', false)).toBeNull()
   })
