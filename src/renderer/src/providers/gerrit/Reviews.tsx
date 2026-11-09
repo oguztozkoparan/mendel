@@ -10,7 +10,7 @@ import c from '../../Changes.module.css'
 import { GerritConnectDialog } from './GerritConnectDialog'
 import s from './Gerrit.module.css'
 import { RepoProviderDialog } from './RepoProviderDialog'
-import { initial, labelSummary, shortDate, who } from './util'
+import { initial, labelSummary, needsMe, shortDate, who } from './util'
 
 /** Reviews tab (PLAN.md §3.7): Outgoing / Incoming / Recently closed in the sidebar, change detail in the main pane. */
 export function Reviews({ repo, state, focus }: { repo: RepoEntry; state: ProviderState; focus?: { change: number } | null }) {
@@ -119,7 +119,7 @@ export function Reviews({ repo, state, focus }: { repo: RepoEntry; state: Provid
                     <span className={s.changeText}>
                       <span className={s.subject}>{ch.subject}</span>
                       <span className={s.meta}>
-                        #{ch._number} · {ch.status === 'NEW' ? 'Open' : ch.status.charAt(0) + ch.status.slice(1).toLowerCase()}
+                        {needsMe(ch, state.credentialUser) && <span className={s.attention}>Your turn · </span>}#{ch._number} · {ch.status === 'NEW' ? 'Open' : ch.status.charAt(0) + ch.status.slice(1).toLowerCase()}
                         {ch.work_in_progress && ' · WIP'}
                         {!!ch.unresolved_comment_count && ` · ${ch.unresolved_comment_count} unresolved`}
                         {labelSummary(ch.labels).map((l) => ` · ${l}`)} · {shortDate(ch.updated)}

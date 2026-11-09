@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest'
 import { fetchCommand, reviewRef } from '../../src/shared/gerrit'
-import { abbrev, gerritDate, labelSummary } from '../../src/renderer/src/providers/gerrit/util'
+import { abbrev, gerritDate, labelSummary, needsMe } from '../../src/renderer/src/providers/gerrit/util'
 
 it('summarizes labels as highest/lowest vote', () => {
   expect(labelSummary({ 'Code-Review': { all: [{ value: 2 }, { value: -1 }, { value: 0 }] }, Verified: { all: [{ value: 1 }] }, 'Library-Compliance': { all: [] } })).toEqual(['CR +2/−1', 'V +1'])
@@ -35,4 +35,12 @@ it('fetchCommand builds refs/changes/NN/N/P and quotes odd remote names', () => 
   expect(fetchCommand('origin', 1234, 3)).toBe('git fetch origin refs/changes/34/1234/3 && git checkout FETCH_HEAD')
   expect(fetchCommand('origin', 5, 1)).toBe('git fetch origin refs/changes/05/5/1 && git checkout FETCH_HEAD')
   expect(fetchCommand("my remote's", 100, 2)).toBe("git fetch 'my remote'\\''s' refs/changes/00/100/2 && git checkout FETCH_HEAD")
+})
+
+it('needs my attention only when my username is in the attention set', () => {
+  const ch = { attention_set: { '1': { account: { _account_id: 1, username: 'me' } } } } as unknown as Parameters<typeof needsMe>[0]
+  expect(needsMe(ch, 'me')).toBe(true)
+  expect(needsMe(ch, 'other')).toBe(false)
+  expect(needsMe(ch, null)).toBe(false)
+  expect(needsMe({ ...ch, attention_set: undefined }, 'me')).toBe(false)
 })

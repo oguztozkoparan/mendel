@@ -1,4 +1,4 @@
-import type { GerritDiff, GerritLabel } from '../../../../shared/gerrit'
+import type { GerritChange, GerritDiff, GerritLabel } from '../../../../shared/gerrit'
 
 /** Gerrit timestamps are UTC "2026-11-03 10:00:00.000000000". */
 export const gerritDate = (s: string): Date => new Date(s.replace(' ', 'T').slice(0, 23) + 'Z')
@@ -24,6 +24,9 @@ export function labelSummary(labels: Record<string, GerritLabel> | undefined): s
 
 export const initial = (a?: { name?: string; username?: string }): string => (a?.name ?? a?.username ?? '?').trim().charAt(0).toUpperCase()
 export const who = (a?: { name?: string; username?: string; email?: string }): string => a?.name ?? a?.username ?? a?.email ?? 'Unknown'
+
+/** The signed-in user (`me` = username) is in the change's attention set. */
+export const needsMe = (ch: GerritChange, me: string | null): boolean => !!me && Object.values(ch.attention_set ?? {}).some((a) => a.account.username === me)
 
 /** Gerrit DiffInfo → unified diff text for react-diff-view's parseDiff (a new hunk after every `skip`). */
 export function diffText(d: GerritDiff): string {
