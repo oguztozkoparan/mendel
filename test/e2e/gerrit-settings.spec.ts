@@ -51,6 +51,8 @@ test('Settings → Gerrit: provider None and back to Auto, connect, reviews refr
 
   await settings.getByText('Every 15 min', { exact: true }).click()
   await expect.poll(() => JSON.parse(readFileSync(path.join(g!.userData, 'settings.json'), 'utf8')).reviewsRefreshMinutes).toBe(15)
+  await settings.getByText('Review notifications').click()
+  await expect.poll(() => JSON.parse(readFileSync(path.join(g!.userData, 'settings.json'), 'utf8')).reviewNotifications).toBe(false)
   await settings.getByRole('button', { name: 'Done' }).click()
   await expect(settings).toHaveCount(0)
 })

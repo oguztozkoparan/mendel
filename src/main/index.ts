@@ -5,6 +5,7 @@ import { git, killAllGit, setGitEnv } from './git/runner'
 import { registerIpc } from './ipc'
 import { askUser } from './ipc/auth'
 import { startUpdater } from './ipc/update'
+import { startReviewNotifier } from './review-notify'
 import log from './log'
 import { clearCurrent } from './repos'
 import { getSettings, onSettingsChanged } from './settings'
@@ -79,6 +80,7 @@ function startApp(): void {
     buildMenu()
     createMainWindow()
     startUpdater()
+    startReviewNotifier()
     app.on('activate', () => BrowserWindow.getAllWindows().length === 0 && createMainWindow())
   })
 
