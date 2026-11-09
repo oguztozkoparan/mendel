@@ -25,10 +25,6 @@ jobs:
       - name: npm audit (runtime deps)
         if: runner.os == 'Linux'
         run: npm audit --omit=dev --audit-level=high
-      - name: TEMP askpass probe (Windows)
-        if: runner.os == 'Windows'
-        continue-on-error: true
-        run: node .github/askpass-probe.mjs
       - run: npm run typecheck
       - run: npm test
       - name: e2e (Linux, xvfb)
