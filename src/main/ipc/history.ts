@@ -1,11 +1,15 @@
 import { fullBranchRef } from '../git/branch'
 import { pickCommit } from '../git/conflict'
 import { getBlame, getCommit, getCommitDiff, getLog } from '../git/log'
+import { interactiveRebase } from '../git/rebase'
+import { hasLocalChanges } from '../git/sync'
+import { unpushedCommits } from '../providers/gerrit/git'
 import { repoRoot } from '../repos'
 import { checkPath } from './changes'
+import { confirmStash } from './sync'
 import type { Handlers } from '.'
 
-export const historyHandlers: Handlers<'history:log' | 'history:commit' | 'history:diff' | 'history:blame' | 'history:pick'> = {
+export const historyHandlers: Handlers<'history:log' | 'history:commit' | 'history:diff' | 'history:blame' | 'history:pick' | 'history:unpushed' | 'history:rebase'> = {
   'history:log': async ({ repo, skip, grep, author, path, ref }) => {
     const root = repoRoot(repo)
     // Full ref name: a local branch called like a remote one ("origin/x") stays unambiguous.
@@ -13,6 +17,13 @@ export const historyHandlers: Handlers<'history:log' | 'history:commit' | 'histo
     return getLog(root, skip, undefined, undefined, { grep, author, path: path && checkPath(root, path), ref: full })
   },
   'history:pick': ({ repo, sha, op }) => pickCommit(repoRoot(repo), op, sha),
+  'history:unpushed': async ({ repo }) => (await unpushedCommits(repoRoot(repo))).reverse(),
+  'history:rebase': async ({ repo, steps }, e) => {
+    const root = repoRoot(repo)
+    const dirty = await hasLocalChanges(root)
+    if (dirty && !(await confirmStash(e, 'Stash & rebase'))) return null
+    return interactiveRebase(root, steps, dirty)
+  },
   'history:commit': ({ repo, sha }) => getCommit(repoRoot(repo), sha),
   'history:diff': ({ repo, sha, path, origPath }) => {
     const root = repoRoot(repo)

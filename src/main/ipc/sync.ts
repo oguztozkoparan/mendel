@@ -27,7 +27,7 @@ export async function exclusive<T>(fn: (signal: AbortSignal) => Promise<T>, auto
   }
 }
 
-const confirmStash = (e: IpcMainInvokeEvent, button: string) =>
+export const confirmStash = (e: IpcMainInvokeEvent, button: string) =>
   confirm(e, button, 'You have uncommitted changes.', 'They are stashed before the rebase and restored after it.')
 
 export const syncHandlers: Handlers<'sync:state' | 'sync:fetch' | 'sync:pull' | 'sync:push' | 'sync:rebase' | 'sync:cancel'> = {
