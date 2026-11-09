@@ -39,8 +39,8 @@ it('fetchCommand builds refs/changes/NN/N/P and quotes odd remote names', () => 
 
 it('needs my attention only when my username is in the attention set', () => {
   const ch = { attention_set: { '1': { account: { _account_id: 1, username: 'me' } } } } as unknown as Parameters<typeof needsMe>[0]
-  expect(needsMe(ch, 'me')).toBe(true)
-  expect(needsMe(ch, 'other')).toBe(false)
+  expect(needsMe(ch, 1)).toBe(true)
+  expect(needsMe(ch, 2)).toBe(false)
   expect(needsMe(ch, null)).toBe(false)
-  expect(needsMe({ ...ch, attention_set: undefined }, 'me')).toBe(false)
+  expect(needsMe({ ...ch, attention_set: undefined }, 1)).toBe(false)
 })

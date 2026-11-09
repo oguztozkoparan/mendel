@@ -7,7 +7,7 @@ import s from './Gerrit.module.css'
 import { needsMe, who } from './util'
 
 /** Attention set (only when the server sends one, 3.3+) and hashtags rows of the change detail's Labels block. */
-export function AttentionHashtags({ repo, change: ch, me }: { repo: string; change: GerritChange; me: string | null }) {
+export function AttentionHashtags({ repo, change: ch, me }: { repo: string; change: GerritChange; me: number | null }) {
   const qc = useQueryClient()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)

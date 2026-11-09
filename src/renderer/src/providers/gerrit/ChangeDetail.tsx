@@ -31,7 +31,7 @@ export const revisionsOf = (ch: GerritChange): Revision[] =>
 const statusText = (st: string) => (st === 'NEW' ? 'Open' : st.charAt(0) + st.slice(1).toLowerCase())
 
 /** Change detail (PLAN.md §3.8): header, labels, reviewers, related changes, files, side-by-side diff with comment threads. */
-export function ChangeDetail({ repo, number, me, onBack, onOpen }: { repo: string; number: number; me: string | null; onBack(): void; onOpen(change: number): void }) {
+export function ChangeDetail({ repo, number, me, onBack, onOpen }: { repo: string; number: number; me: number | null; onBack(): void; onOpen(change: number): void }) {
   const q = useQuery({ queryKey: ['gerrit', repo, 'change', number], queryFn: () => window.mendel['gerrit:change']({ repo, change: number }) })
   const [psSel, setPs] = useState<number | null>(null)
   const [base, setBase] = useState<number | undefined>(undefined)

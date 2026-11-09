@@ -27,6 +27,9 @@ export function Reviews({ repo, state, focus }: { repo: RepoEntry; state: Provid
     enabled: ready,
     refetchInterval: refreshMinutes * 60_000
   })
+  // Keyed by credential user: reconnecting as someone else re-reads the account id.
+  const self = useQuery({ queryKey: ['gerrit', repo.id, 'self', state.credentialUser], queryFn: () => window.mendel['gerrit:self']({ repo: repo.id }), enabled: ready, staleTime: Infinity })
+  const me = self.data ?? null
   const authFailed = lists.error?.message === GERRIT_AUTH_ERROR
 
   let main
@@ -61,7 +64,7 @@ export function Reviews({ repo, state, focus }: { repo: RepoEntry; state: Provid
         <Button onPress={() => void lists.refetch()}>Retry</Button>
       </div>
     )
-  else main = selected ? <ChangeDetail key={selected} repo={repo.id} number={selected} me={state.credentialUser} onBack={() => setSelected(null)} onOpen={setSelected} /> : <p className={s.empty}>Select a change</p>
+  else main = selected ? <ChangeDetail key={selected} repo={repo.id} number={selected} me={me} onBack={() => setSelected(null)} onOpen={setSelected} /> : <p className={s.empty}>Select a change</p>
 
   const sections: [string, GerritChange[]][] = lists.data
     ? [
@@ -119,7 +122,7 @@ export function Reviews({ repo, state, focus }: { repo: RepoEntry; state: Provid
                     <span className={s.changeText}>
                       <span className={s.subject}>{ch.subject}</span>
                       <span className={s.meta}>
-                        {needsMe(ch, state.credentialUser) && <span className={s.attention}>Your turn · </span>}#{ch._number} · {ch.status === 'NEW' ? 'Open' : ch.status.charAt(0) + ch.status.slice(1).toLowerCase()}
+                        {needsMe(ch, me) && <span className={s.attention}>Your turn · </span>}#{ch._number} · {ch.status === 'NEW' ? 'Open' : ch.status.charAt(0) + ch.status.slice(1).toLowerCase()}
                         {ch.work_in_progress && ' · WIP'}
                         {!!ch.unresolved_comment_count && ` · ${ch.unresolved_comment_count} unresolved`}
                         {labelSummary(ch.labels).map((l) => ` · ${l}`)} · {shortDate(ch.updated)}
