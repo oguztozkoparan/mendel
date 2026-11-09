@@ -72,7 +72,14 @@ export function HistoryView(p: { repo: string; decorate?: (c: CommitSummary) => 
         ) : (
           selected && (
             // Amend only HEAD, and only while it is unpushed (PLAN.md 3.6).
-            <CommitView key={selected.sha} repo={p.repo} sha={selected.sha} onAmend={selected === commits[0] && selected.unpushed ? p.onAmend : undefined} />
+            <CommitView
+              key={selected.sha}
+              repo={p.repo}
+              sha={selected.sha}
+              onAmend={selected === commits[0] && selected.unpushed ? p.onAmend : undefined}
+              // Blame jumps only to commits already loaded in the list.
+              onPick={(sha) => commits.some((x) => x.sha === sha) && setPicked(sha)}
+            />
           )
         )}
       </section>
@@ -140,9 +147,10 @@ export function StashesView(p: { repo: string }) {
   )
 }
 
-function CommitView(p: { repo: string; sha: string; onAmend?: () => void }) {
+function CommitView(p: { repo: string; sha: string; onAmend?: () => void; onPick?: (sha: string) => void }) {
   const q = useQuery({ queryKey: ['commit', p.repo, p.sha], queryFn: () => window.mendel['history:commit']({ repo: p.repo, sha: p.sha }) })
   const [file, setFile] = useState<string | null>(null)
+  const [blame, setBlame] = useState(false)
   const [copied, setCopied] = useState(false)
   if (q.error) return <p role="alert" className={c.empty}>{q.error.message}</p>
   const d = q.data
@@ -206,7 +214,13 @@ function CommitView(p: { repo: string; sha: string; onAmend?: () => void }) {
           )}
         </ListBox>
       </Virtualizer>
-      {f && <CommitFileDiff repo={p.repo} sha={d.sha} file={f} />}
+      {/* A deleted file has nothing to blame at this commit. */}
+      {f && f.status !== 'D' && (
+        <div>
+          <Button onPress={() => setBlame(!blame)}>{blame ? 'Show diff' : 'Blame'}</Button>
+        </div>
+      )}
+      {f && (blame && f.status !== 'D' ? <BlameView key={f.path} repo={p.repo} sha={d.sha} path={f.path} onPick={p.onPick} /> : <CommitFileDiff repo={p.repo} sha={d.sha} file={f} />)}
     </div>
   )
 }
@@ -257,6 +271,29 @@ function CommitTags(p: { repo: string; sha: string }) {
         </p>
       )}
     </>
+  )
+}
+
+/** `git blame` of one file as of a commit; activating a line selects its commit in the list. */
+function BlameView(p: { repo: string; sha: string; path: string; onPick?: (sha: string) => void }) {
+  const q = useQuery({ queryKey: ['blame', p.repo, p.sha, p.path], queryFn: () => window.mendel['history:blame']({ repo: p.repo, sha: p.sha, path: p.path }) })
+  const rows = useMemo(() => q.data?.map((x, i) => ({ ...x, id: i })) ?? [], [q.data])
+  if (q.error) return <p role="alert" className={c.empty}>{q.error.message}</p>
+  if (!q.data) return null
+  return (
+    <Virtualizer layout={ListLayout} layoutOptions={{ rowHeight: 20 }}>
+      <GridList aria-label="Blame" items={rows} onAction={(k) => p.onPick?.(rows[Number(k)]!.sha)} className={s.blame}>
+        {(x) => (
+          <GridListItem id={x.id} textValue={`${x.sha.slice(0, 7)} ${x.author} ${x.text}`} className={s.blameRow}>
+            <span className={s.blameWho}>
+              <code>{x.sha.slice(0, 7)}</code> {x.author} · {ago(x.date)}
+            </span>
+            <span className={s.blameNo}>{x.id + 1}</span>
+            <span>{x.text}</span>
+          </GridListItem>
+        )}
+      </GridList>
+    </Virtualizer>
   )
 }
 

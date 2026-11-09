@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process'
 import { afterEach, describe, expect, it } from 'vitest'
-import { getCommit, getCommitDiff, getLog } from '../../src/main/git/log'
+import { getBlame, getCommit, getCommitDiff, getLog } from '../../src/main/git/log'
 import { createRepoFixture, type RepoFixture } from '../fixtures/repo'
 
 describe('history', () => {
@@ -50,6 +50,22 @@ describe('history', () => {
     const root = fx.git(['rev-list', '--max-parents=0', 'HEAD'])
     expect((await getCommit(fx.work, root, fx.env)).files).toEqual([{ status: 'A', path: 'README.md' }])
     expect(await getCommitDiff(fx.work, root, { path: 'README.md' }, fx.env)).toContain('+# fixture')
+  })
+
+  it('blame: per-line commit/author/date as of a commit', async () => {
+    fx = createRepoFixture()
+    const first = fx.commitFile('a.txt', 'one\ntwo\n')
+    const second = fx.commitFile('a.txt', 'one\nTWO\nthree\n')
+    const lines = await getBlame(fx.work, second, 'a.txt', fx.env)
+    expect(lines.map((l) => [l.sha, l.text])).toEqual([
+      [first, 'one'],
+      [second, 'TWO'],
+      [second, 'three']
+    ])
+    expect(lines[0]).toMatchObject({ author: 'Test User' })
+    expect(lines[0]!.date).toBeGreaterThan(Date.now() - 60_000)
+    expect((await getBlame(fx.work, first, 'a.txt', fx.env)).map((l) => l.text)).toEqual(['one', 'two'])
+    await expect(getBlame(fx.work, first, 'missing.txt', fx.env)).rejects.toThrow()
   })
 
   it('empty repo has no commits', async () => {

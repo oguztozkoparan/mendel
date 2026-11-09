@@ -124,3 +124,25 @@ test('Amend on an unpushed HEAD opens Changes with amend ticked; pushed or older
     fx.cleanup()
   }
 })
+
+test('blame a commit file; activating a line selects its commit', async () => {
+  const fx = createRepoFixture()
+  fx.commitFile('a.txt', 'one\ntwo\n', 'Add a')
+  fx.commitFile('a.txt', 'one\nTWO\n', 'Change a')
+  const app = await launchApp(fx.env)
+  const { win } = app
+  try {
+    await openRepo(app, fx.work)
+    await win.getByRole('tab', { name: 'History' }).click()
+    const detail = win.getByLabel('Commit detail')
+    await expect(detail.getByRole('heading', { name: 'Change a' })).toBeVisible()
+    await detail.getByRole('button', { name: 'Blame' }).click()
+    const blame = win.getByRole('grid', { name: 'Blame' })
+    await expect(blame.getByRole('row')).toHaveText([/Test User.*1one/, /Test User.*2TWO/])
+    await blame.getByRole('row').first().click()
+    await expect(detail.getByRole('heading', { name: 'Add a' })).toBeVisible()
+  } finally {
+    await app.close()
+    fx.cleanup()
+  }
+})

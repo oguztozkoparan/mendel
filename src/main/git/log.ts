@@ -1,4 +1,4 @@
-import type { CommitDetail, CommitSummary } from '../../shared/ipc'
+import type { BlameLine, CommitDetail, CommitSummary } from '../../shared/ipc'
 import { endOfOptions, git } from './runner'
 
 export const LOG_PAGE = 100
@@ -63,4 +63,29 @@ export async function getCommitDiff(cwd: string, sha: string, file: { path: stri
   const d = { sha: full, parents }
   const args = ['--literal-pathspecs', '-c', 'core.quotePath=false', 'diff-tree', '-p', '-M', '--no-color', '--no-ext-diff', '--no-textconv', '--src-prefix=a/', '--dst-prefix=b/', '--no-commit-id']
   return (await git([...args, ...treeRange(d), '--', ...(file.origPath ? [file.origPath] : []), file.path], { cwd, env, background: true })).stdout
+}
+
+/** Parse `blame --porcelain`: author fields follow only a commit's first header. */
+export function parseBlame(out: string): BlameLine[] {
+  const commits = new Map<string, { author: string; date: number }>()
+  const lines: BlameLine[] = []
+  let c = { author: '', date: 0 }
+  let sha = ''
+  for (const l of out.split('\n')) {
+    if (l.startsWith('\t')) lines.push({ sha, author: c.author, date: c.date, text: l.slice(1) })
+    else if (/^[0-9a-f]{40,64} \d/.test(l)) {
+      sha = l.slice(0, l.indexOf(' '))
+      c = commits.get(sha) ?? { author: '', date: 0 }
+      commits.set(sha, c)
+    } else if (l.startsWith('author ')) c.author = l.slice(7)
+    else if (l.startsWith('author-time ')) c.date = Number(l.slice(12)) * 1000
+  }
+  return lines
+}
+
+/** Per-line origin of `path` as of commit `sha`. */
+export async function getBlame(cwd: string, sha: string, path: string, env?: NodeJS.ProcessEnv): Promise<BlameLine[]> {
+  // blame mis-parses `--end-of-options <rev> -- <path>`; the IPC sha schema (hex only) already rules out a leading '-'.
+  if (!/^[0-9a-f]{7,64}$/.test(sha)) throw new Error('Invalid commit')
+  return parseBlame((await git(['blame', '--porcelain', sha, '--', path], { cwd, env, background: true })).stdout)
 }

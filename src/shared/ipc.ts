@@ -144,6 +144,15 @@ export interface TagInfo {
   annotated: boolean
 }
 
+/** One line of `git blame --porcelain`; line number = index + 1. */
+export interface BlameLine {
+  sha: string
+  author: string
+  /** ms epoch (author date). */
+  date: number
+  text: string
+}
+
 /** A merge or rebase stopped on conflicts (or otherwise waiting to be continued). */
 export type OpInProgress = 'merge' | 'rebase' | null
 
@@ -363,6 +372,8 @@ export const invoke = {
   'tag:delete': res<boolean>()(z.object({ repo: repoId, name: branchName }).strict()),
   /** Push a listed tag to the sync remote; cancellable with `sync:cancel`. */
   'tag:push': res<void>()(z.object({ repo: repoId, name: branchName }).strict()),
+  /** Per-line author/commit of a file as of a commit. */
+  'history:blame': res<BlameLine[]>()(z.object({ repo: repoId, sha, path: relPath }).strict()),
   'conflict:state': res<OpInProgress>()(inRepo),
   /** Continue the merge/rebase once all files are marked resolved (`changes:stage`); 'conflict' = stopped again. */
   'conflict:continue': res<SyncResult>()(inRepo),
