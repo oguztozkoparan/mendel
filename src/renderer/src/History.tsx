@@ -14,11 +14,14 @@ import { ago } from './time'
 const PAGE = 100
 
 /**
- * History tab (PLAN.md 3.6): current branch's commits (pages of 100, virtualized) and the selected commit's detail.
+ * History tab (PLAN.md 3.6): current (or picked) branch's commits (pages of 100, virtualized) and the selected commit's detail.
+ * Current branch: Revert a commit; another branch: Cherry-pick a commit onto the current one.
  * `decorate` adds per-row content, e.g. a provider badge ("in review #1234").
  */
 export function HistoryView(p: { repo: string; decorate?: (c: CommitSummary) => ReactNode; onAmend?: () => void }) {
   const branches = useBranches(p.repo)
+  /** '' = current branch. */
+  const [ref, setRef] = useState('')
   // Keyed by HEAD: a new commit/checkout starts a fresh first page, and `--skip` pages stay consistent within one HEAD.
   // Not stale on its own (no all-pages refetch on focus); refreshRepo trims it to page 1 before invalidating.
   // Applied filters (search fields apply on Enter, not per keystroke); empty = unfiltered.
@@ -26,8 +29,8 @@ export function HistoryView(p: { repo: string; decorate?: (c: CommitSummary) => 
   const set = (k: keyof typeof filter, v: string) => setFilter((f) => ({ ...f, [k]: v.trim() || undefined }))
   const filtered = !!(filter.grep || filter.author || filter.path)
   const q = useInfiniteQuery({
-    queryKey: ['history', p.repo, branches.data?.head, filter],
-    queryFn: ({ pageParam }) => window.mendel['history:log']({ repo: p.repo, skip: pageParam, ...filter }),
+    queryKey: ['history', p.repo, branches.data?.head, ref, filter],
+    queryFn: ({ pageParam }) => window.mendel['history:log']({ repo: p.repo, skip: pageParam, ref: ref || undefined, ...filter }),
     initialPageParam: 0,
     getNextPageParam: (last, all) => (last.length === PAGE ? all.length * PAGE : undefined),
     enabled: !!branches.data,
@@ -41,6 +44,11 @@ export function HistoryView(p: { repo: string; decorate?: (c: CommitSummary) => 
   return (
     <>
       <aside className={a.side}>
+        <select aria-label="History branch" className={s.branch} value={ref} onChange={(e) => setRef(e.target.value)}>
+          <option value="">Current branch{branches.data?.current ? ` (${branches.data.current})` : ''}</option>
+          {branches.data?.local.filter((b) => b.name !== branches.data?.current).map((b) => <option key={b.name}>{b.name}</option>)}
+          {branches.data?.remote.map((b) => <option key={b}>{b}</option>)}
+        </select>
         <div className={s.filters}>
           <SearchField aria-label="Search messages" onSubmit={(v) => set('grep', v)} onClear={() => set('grep', '')}>
             <Input placeholder="Search messages" />
@@ -96,7 +104,8 @@ export function HistoryView(p: { repo: string; decorate?: (c: CommitSummary) => 
               key={selected.sha}
               repo={p.repo}
               sha={selected.sha}
-              onAmend={!filtered && selected === commits[0] && selected.unpushed ? p.onAmend : undefined}
+              pick={ref ? 'cherry-pick' : 'revert'}
+              onAmend={!ref && !filtered && selected === commits[0] && selected.unpushed ? p.onAmend : undefined}
               // Blame jumps only to commits already loaded in the list.
               onPick={(sha) => commits.some((x) => x.sha === sha) && setPicked(sha)}
               onFileHistory={(path) => set('path', path)}
@@ -168,11 +177,22 @@ export function StashesView(p: { repo: string }) {
   )
 }
 
-function CommitView(p: { repo: string; sha: string; onAmend?: () => void; onPick?: (sha: string) => void; onFileHistory?(path: string): void }) {
+function CommitView(p: { repo: string; sha: string; pick?: 'cherry-pick' | 'revert'; onAmend?: () => void; onPick?: (sha: string) => void; onFileHistory?(path: string): void }) {
+  const qc = useQueryClient()
   const q = useQuery({ queryKey: ['commit', p.repo, p.sha], queryFn: () => window.mendel['history:commit']({ repo: p.repo, sha: p.sha }) })
   const [file, setFile] = useState<string | null>(null)
   const [blame, setBlame] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  // A conflict needs nothing here: refreshRepo refetches conflict state and the banner takes over.
+  const pick = () => {
+    setBusy(true)
+    setError(null)
+    void window.mendel['history:pick']({ repo: p.repo, sha: p.sha, op: p.pick! })
+      .catch((e: { message?: string }) => setError(e.message ?? String(e)))
+      .finally(() => (setBusy(false), refreshRepo(qc, p.repo)))
+  }
   if (q.error) return <p role="alert" className={c.empty}>{q.error.message}</p>
   const d = q.data
   if (!d) return null
@@ -183,6 +203,13 @@ function CommitView(p: { repo: string; sha: string; onAmend?: () => void; onPick
     <div className={s.detail} aria-label="Commit detail">
       <h2 className={s.title}>{summary}</h2>
       {p.onAmend && <Button onPress={p.onAmend}>Amend last commit</Button>}
+      {/* Merge commits need a mainline (-m): not offered. */}
+      {p.pick && d.parents.length < 2 && (
+        <Button isDisabled={busy} onPress={pick}>
+          {p.pick === 'revert' ? 'Revert commit' : 'Cherry-pick onto current branch'}
+        </Button>
+      )}
+      {error && <p role="alert" className={c.empty}>{error}</p>}
       {body.join('\n').trim() && <pre className={s.message}>{body.join('\n').trim()}</pre>}
       <dl className={s.fields}>
         <dt>Author</dt>

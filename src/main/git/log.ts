@@ -7,17 +7,19 @@ const US = '\x1f'
 const hasHead = (cwd: string, env?: NodeJS.ProcessEnv) =>
   git(['rev-parse', '--verify', '-q', 'HEAD'], { cwd, env, background: true }).then(() => true, () => false)
 
-/** History filters: case-insensitive literal match on message (`grep`) and author (ANDed, as git does); `path` = one file, following renames. */
+/** History filters: case-insensitive literal match on message (`grep`) and author (ANDed, as git does); `path` = one file, following renames; `ref` = full ref name (default HEAD). */
 export interface LogFilter {
   grep?: string
   author?: string
   path?: string
+  ref?: string
 }
 
-/** One page of the current branch's history, newest first; `unpushed` = on no remote-tracking branch. */
+/** One page of the current branch's (or `f.ref`'s) history, newest first; `unpushed` = on no remote-tracking branch. */
 export async function getLog(cwd: string, skip: number, env?: NodeJS.ProcessEnv, limit = LOG_PAGE, f: LogFilter = {}): Promise<CommitSummary[]> {
   if (!(await hasHead(cwd, env))) return []
   const o = { cwd, env, background: true }
+  const ref = f.ref ?? 'HEAD'
   // Single `--opt=value` args: a value starting with '-' cannot become an option.
   const match = [...(f.grep ? [`--grep=${f.grep}`] : []), ...(f.author ? [`--author=${f.author}`] : [])]
   const filter = match.length ? ['-i', '-F', ...match] : []
@@ -27,9 +29,10 @@ export async function getLog(cwd: string, skip: number, env?: NodeJS.ProcessEnv,
   // shortcut: file history page N re-reads N-1 pages, upgrade to a sha cursor if huge single-file histories get slow.
   const page = f.path ? ['--follow', '-n', String(skip + limit)] : [`--skip=${skip}`, '-n', String(limit)]
   const [log, local] = await Promise.all([
-    git([...lit, 'log', '-z', `--format=%H${US}%h${US}%an${US}%at${US}%s`, ...filter, ...page, 'HEAD', '--', ...paths], o),
+    git([...lit, 'log', '-z', `--format=%H${US}%h${US}%an${US}%at${US}%s`, ...filter, ...page, ...endOfOptions(ref), '--', ...paths], o),
     // Same filters so the unpushed set covers this page (rev-list has no --follow; pre-rename commits are rarely local-only).
-    git([...lit, 'rev-list', ...filter, `--max-count=${skip + limit}`, 'HEAD', '--not', '--remotes', '--', ...paths], o)
+    // `--end-of-options <ref>` has to be last before `--`: git rejects `--not` after it.
+    git([...lit, 'rev-list', ...filter, `--max-count=${skip + limit}`, '--not', '--remotes', '--not', ...endOfOptions(ref), '--', ...paths], o)
   ])
   const unpushed = new Set(local.stdout.split('\n'))
   return log.stdout

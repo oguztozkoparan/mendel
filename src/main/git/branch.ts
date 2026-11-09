@@ -52,7 +52,7 @@ export async function validateBranchName(cwd: string, name: string, env?: NodeJS
 }
 
 /** Throw unless `name` is an existing local (or, with `remote`, remote-tracking) branch: the renderer only picks from the list. */
-async function known(cwd: string, name: string, env?: NodeJS.ProcessEnv, remote = false): Promise<{ kind: 'local' | 'remote'; b: Branches }> {
+export async function known(cwd: string, name: string, env?: NodeJS.ProcessEnv, remote = false): Promise<{ kind: 'local' | 'remote'; b: Branches }> {
   const b = await listBranches(cwd, env)
   if (b.local.some((x) => x.name === name)) return { kind: 'local', b }
   if (remote && b.remote.includes(name)) return { kind: 'remote', b }
