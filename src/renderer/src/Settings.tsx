@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { AnimatePresence } from 'motion/react'
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
-import { Button, Checkbox, Dialog, Heading, Input, Label, Modal, ModalOverlay, Radio, RadioGroup, Tab, TabList, TabPanel, Tabs, TextField } from 'react-aria-components'
+import { Button, Checkbox, Dialog, Heading, Input, Label, Radio, RadioGroup, Tab, TabList, TabPanel, Tabs, TextField } from 'react-aria-components'
 import type { Settings, UpdateState } from '../../shared/ipc'
 import a from './App.module.css'
 import c from './Changes.module.css'
@@ -8,6 +9,7 @@ import { GerritConnectDialog } from './providers/gerrit/GerritConnectDialog'
 import { RepoProviderDialog } from './providers/gerrit/RepoProviderDialog'
 import s from './Settings.module.css'
 import { Segmented } from './controls'
+import { DialogShell, Highlight, withTransition } from './motion'
 
 export const useSettings = () => useQuery({ queryKey: ['settings'], queryFn: () => window.mendel['settings:get']() })
 
@@ -35,97 +37,107 @@ function Choice<T extends string | number>(p: { label: string; value: T; options
   )
 }
 
+/** Resolves when the OS-level color scheme flips after a theme change, or after 200ms when it does not change. */
+const schemeChange = () =>
+  new Promise<void>((done) => {
+    matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => done(), { once: true })
+    setTimeout(done, 200)
+  })
+
 /** Settings modal with sections (PLAN.md §3.11, §6). Every change is saved right away. */
 export function SettingsDialog(p: { repo?: string; onClose(): void }) {
   const qc = useQueryClient()
   const q = useSettings()
   const [error, setError] = useState<string | null>(null)
   const set = (patch: Partial<Settings>) =>
-    void window.mendel['settings:set'](patch).then((v) => qc.setQueryData(['settings'], v), (e: Error) => setError(e.message))
+    window.mendel['settings:set'](patch).then((v) => void qc.setQueryData(['settings'], v), (e: Error) => setError(e.message))
   const st = q.data
   if (!st) return null
   return (
-    <ModalOverlay isOpen isDismissable onOpenChange={(o) => !o && p.onClose()} className={a.backdrop}>
-      <Modal>
-        <Dialog className={`${a.dialog} ${s.dialog}`} aria-labelledby="settings-title">
-          <Heading slot="title" id="settings-title">
-            Settings
-          </Heading>
-          <Tabs orientation="vertical" className={s.tabs}>
-            <TabList aria-label="Sections" className={s.sections}>
-              {['General', 'Git', 'Commit', 'Gerrit', 'Updates', 'Advanced'].map((t) => (
-                <Tab key={t} id={t}>
-                  {t}
-                </Tab>
-              ))}
-            </TabList>
-            <TabPanel id="General" className={s.panel}>
-              <Choice label="Theme" value={st.theme} options={[['system', 'System'], ['light', 'Light'], ['dark', 'Dark']]} onChange={(theme) => set({ theme })} />
-              <Row label="Accent">
-                <Segmented
-                  label="Accent"
-                  value={st.accent}
-                  options={[['cyan', 'Cyan'], ['cobalt', 'Cobalt'], ['violet', 'Violet'], ['fuchsia', 'Fuchsia'], ['graphite', 'Graphite']]}
-                  onChange={(accent) => set({ accent })}
-                />
-              </Row>
-              <CloneFolder />
-              <ToolChoice kind="editor" st={st} set={set} onError={setError} />
-              <ToolChoice kind="terminal" st={st} set={set} onError={setError} />
-              <Toggle label="Reopen last repository on start" value={st.reopenLastRepo} onChange={(reopenLastRepo) => set({ reopenLastRepo })} />
-              <Toggle label="Confirm before discarding changes" value={st.confirmDiscard} onChange={(confirmDiscard) => set({ confirmDiscard })} />
-            </TabPanel>
-            <TabPanel id="Git" className={s.panel}>
-              <GitSection />
-              <Choice
-                label="Auto-fetch"
-                value={st.autoFetchMinutes}
-                options={[[0, 'Off'], [5, 'Every 5 min'], [15, 'Every 15 min'], [30, 'Every 30 min']]}
-                onChange={(autoFetchMinutes) => set({ autoFetchMinutes })}
+    <DialogShell isDismissable onOpenChange={(o) => !o && p.onClose()} className={a.backdrop}>
+      <Dialog className={`${a.dialog} ${s.dialog}`} aria-labelledby="settings-title">
+        <Heading slot="title" id="settings-title">
+          Settings
+        </Heading>
+        <Tabs orientation="vertical" className={s.tabs}>
+          <TabList aria-label="Sections" className={s.sections}>
+            {['General', 'Git', 'Commit', 'Gerrit', 'Updates', 'Advanced'].map((t) => (
+              <Tab key={t} id={t}>
+                {({ isSelected }) => (
+                  <>
+                    {isSelected && <Highlight id="settings-tab" />}
+                    {t}
+                  </>
+                )}
+              </Tab>
+            ))}
+          </TabList>
+          <TabPanel id="General" className={s.panel}>
+            <Choice label="Theme" value={st.theme} options={[['system', 'System'], ['light', 'Light'], ['dark', 'Dark']]} onChange={(theme) => withTransition(() => Promise.all([schemeChange(), set({ theme })]))} />
+            <Row label="Accent">
+              <Segmented
+                label="Accent"
+                value={st.accent}
+                options={[['cyan', 'Cyan'], ['cobalt', 'Cobalt'], ['violet', 'Violet'], ['fuchsia', 'Fuchsia'], ['graphite', 'Graphite']]}
+                onChange={(accent) => withTransition(() => ((document.documentElement.dataset.accent = accent), set({ accent })))}
               />
-              <Choice label="Pull strategy" value={st.pullStrategy} options={[['merge', 'Merge'], ['rebase', 'Rebase']]} onChange={(pullStrategy) => set({ pullStrategy })} />
-            </TabPanel>
-            <TabPanel id="Commit" className={s.panel}>
-              <TextField
-                className={a.field}
-                defaultValue={String(st.summaryLimit)}
-                onChange={(v) => /^\d+$/.test(v) && Number(v) >= 20 && Number(v) <= 200 && set({ summaryLimit: Number(v) })}
-              >
-                <Label>Summary soft limit</Label>
-                <Input type="number" min={20} max={200} className={s.number} />
-              </TextField>
-              <Toggle label="Spellcheck" value={st.spellcheck} onChange={(spellcheck) => set({ spellcheck })} />
-              <Toggle label="Show 72-column ruler in description" value={st.descriptionRuler} onChange={(descriptionRuler) => set({ descriptionRuler })} />
-            </TabPanel>
-            <TabPanel id="Gerrit" className={s.panel}>
-              <GerritSection repo={p.repo} />
-              <Choice
-                label="Reviews refresh"
-                value={st.reviewsRefreshMinutes}
-                options={[[1, 'Every minute'], [5, 'Every 5 min'], [15, 'Every 15 min'], [30, 'Every 30 min']]}
-                onChange={(reviewsRefreshMinutes) => set({ reviewsRefreshMinutes })}
-              />
-              <Toggle label="Review notifications" value={st.reviewNotifications} onChange={(reviewNotifications) => set({ reviewNotifications })} />
-            </TabPanel>
-            <TabPanel id="Updates" className={s.panel}>
-              <Toggle label="Check for updates automatically" value={st.autoUpdateCheck} onChange={(autoUpdateCheck) => set({ autoUpdateCheck })} />
-              <UpdatesSection />
-            </TabPanel>
-            <TabPanel id="Advanced" className={s.panel}>
-              <Button onPress={() => void window.mendel['settings:openLogs']().catch((e: Error) => setError(e.message))}>Open logs folder</Button>
-            </TabPanel>
-          </Tabs>
-          {error && (
-            <p role="alert" className={a.error}>
-              {error}
-            </p>
-          )}
-          <div className={a.actions}>
-            <Button onPress={p.onClose}>Done</Button>
-          </div>
-        </Dialog>
-      </Modal>
-    </ModalOverlay>
+            </Row>
+            <CloneFolder />
+            <ToolChoice kind="editor" st={st} set={set} onError={setError} />
+            <ToolChoice kind="terminal" st={st} set={set} onError={setError} />
+            <Toggle label="Reopen last repository on start" value={st.reopenLastRepo} onChange={(reopenLastRepo) => set({ reopenLastRepo })} />
+            <Toggle label="Confirm before discarding changes" value={st.confirmDiscard} onChange={(confirmDiscard) => set({ confirmDiscard })} />
+          </TabPanel>
+          <TabPanel id="Git" className={s.panel}>
+            <GitSection />
+            <Choice
+              label="Auto-fetch"
+              value={st.autoFetchMinutes}
+              options={[[0, 'Off'], [5, 'Every 5 min'], [15, 'Every 15 min'], [30, 'Every 30 min']]}
+              onChange={(autoFetchMinutes) => set({ autoFetchMinutes })}
+            />
+            <Choice label="Pull strategy" value={st.pullStrategy} options={[['merge', 'Merge'], ['rebase', 'Rebase']]} onChange={(pullStrategy) => set({ pullStrategy })} />
+          </TabPanel>
+          <TabPanel id="Commit" className={s.panel}>
+            <TextField
+              className={a.field}
+              defaultValue={String(st.summaryLimit)}
+              onChange={(v) => /^\d+$/.test(v) && Number(v) >= 20 && Number(v) <= 200 && set({ summaryLimit: Number(v) })}
+            >
+              <Label>Summary soft limit</Label>
+              <Input type="number" min={20} max={200} className={s.number} />
+            </TextField>
+            <Toggle label="Spellcheck" value={st.spellcheck} onChange={(spellcheck) => set({ spellcheck })} />
+            <Toggle label="Show 72-column ruler in description" value={st.descriptionRuler} onChange={(descriptionRuler) => set({ descriptionRuler })} />
+          </TabPanel>
+          <TabPanel id="Gerrit" className={s.panel}>
+            <GerritSection repo={p.repo} />
+            <Choice
+              label="Reviews refresh"
+              value={st.reviewsRefreshMinutes}
+              options={[[1, 'Every minute'], [5, 'Every 5 min'], [15, 'Every 15 min'], [30, 'Every 30 min']]}
+              onChange={(reviewsRefreshMinutes) => set({ reviewsRefreshMinutes })}
+            />
+            <Toggle label="Review notifications" value={st.reviewNotifications} onChange={(reviewNotifications) => set({ reviewNotifications })} />
+          </TabPanel>
+          <TabPanel id="Updates" className={s.panel}>
+            <Toggle label="Check for updates automatically" value={st.autoUpdateCheck} onChange={(autoUpdateCheck) => set({ autoUpdateCheck })} />
+            <UpdatesSection />
+          </TabPanel>
+          <TabPanel id="Advanced" className={s.panel}>
+            <Button onPress={() => void window.mendel['settings:openLogs']().catch((e: Error) => setError(e.message))}>Open logs folder</Button>
+          </TabPanel>
+        </Tabs>
+        {error && (
+          <p role="alert" className={a.error}>
+            {error}
+          </p>
+        )}
+        <div className={a.actions}>
+          <Button onPress={p.onClose}>Done</Button>
+        </div>
+      </Dialog>
+    </DialogShell>
   )
 }
 
@@ -268,8 +280,10 @@ function GerritSection({ repo }: { repo?: string }) {
         <Button onPress={() => setDialog('provider')}>Repository provider…</Button>
         {gerrit && d.baseUrl && <Button onPress={() => setDialog('connect')}>Connect…</Button>}
       </div>
-      {dialog === 'provider' && <RepoProviderDialog repo={repo} state={st} onClose={() => setDialog(null)} />}
-      {dialog === 'connect' && <GerritConnectDialog repo={repo} state={st} onClose={() => setDialog(null)} />}
+      <AnimatePresence>
+        {dialog === 'provider' && <RepoProviderDialog key="provider" repo={repo} state={st} onClose={() => setDialog(null)} />}
+        {dialog === 'connect' && <GerritConnectDialog key="connect" repo={repo} state={st} onClose={() => setDialog(null)} />}
+      </AnimatePresence>
     </>
   )
 }

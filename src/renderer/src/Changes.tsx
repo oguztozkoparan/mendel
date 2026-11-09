@@ -5,6 +5,7 @@ import type { FileChange, RepoEntry } from '../../shared/ipc'
 import a from './App.module.css'
 import { CommitBox } from './CommitBox'
 import s from './Changes.module.css'
+import { Highlight } from './motion'
 import { DiffView } from './DiffView'
 import { bannerError, ErrorBanner, type BannerError } from './ErrorBanner'
 import { useGerritCommitHint } from './providers/gerrit/commitHint'
@@ -90,13 +91,18 @@ export function ChangesView({ repo, amend, onAmendDone }: { repo: RepoEntry; ame
                 className={s.row}
                 onContextMenu={(e) => (e.preventDefault(), act(window.mendel['changes:menu']({ repo: repo.id, path: f.path, origPath: f.origPath, untracked: f.unstaged === '?' })))}
               >
-                <Box label="Staged" selected={fullyStaged(f)} indeterminate={!!f.staged && !!f.unstaged} onChange={(v) => setStaged([f], v)} />
-                <span className={s.path} title={f.origPath ? `${f.origPath} → ${f.path}` : f.path}>
-                  {f.path}
-                </span>
-                <span className={s.letter} data-status={statusLetter(f)} aria-label={`status ${statusLetter(f)}`}>
-                  {statusLetter(f)}
-                </span>
+                {({ isSelected }) => (
+                  <>
+                    {isSelected && <Highlight id="sel-files" />}
+                    <Box label="Staged" selected={fullyStaged(f)} indeterminate={!!f.staged && !!f.unstaged} onChange={(v) => setStaged([f], v)} />
+                    <span className={s.path} title={f.origPath ? `${f.origPath} → ${f.path}` : f.path}>
+                      {f.path}
+                    </span>
+                    <span className={s.letter} data-status={statusLetter(f)} aria-label={`status ${statusLetter(f)}`}>
+                      {statusLetter(f)}
+                    </span>
+                  </>
+                )}
               </GridListItem>
             )}
           </GridList>

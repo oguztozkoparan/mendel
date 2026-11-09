@@ -157,8 +157,14 @@
 }
 
 .tabs [role='tab'][data-selected] {
-  box-shadow: inset 0 -2px var(--accent);
   font-weight: 600;
+}
+
+/* sliding underline (motion.tsx Highlight) */
+.tabs :global(.hl) {
+  inset: auto 0 0;
+  height: 2px;
+  background: var(--accent);
 }
 
 /* Panel children are placed straight into the repoView grid (side / main areas). */

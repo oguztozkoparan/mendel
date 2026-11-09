@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { Switch as AriaSwitch, ToggleButton, ToggleButtonGroup } from 'react-aria-components'
+import { Thumb } from './motion'
 
 /** react-aria Switch in the concept's tactile look (.switch in global.css). */
 export function Switch(p: { isSelected: boolean; onChange(v: boolean): void; isDisabled?: boolean; children: ReactNode }) {
@@ -43,7 +44,7 @@ export function Segmented<T extends string>(p: { label: string; value: T; option
       }}
       className="segmented"
     >
-      {thumb && <span className="thumb" aria-hidden style={{ transform: `translateX(${thumb.x}px)`, width: thumb.w }} />}
+      {thumb && <Thumb x={thumb.x} w={thumb.w} />}
       {p.options.map(([v, text]) => (
         <ToggleButton key={v} id={v}>
           {text}

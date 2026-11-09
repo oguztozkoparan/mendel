@@ -1,11 +1,13 @@
 import { useQuery, useQueryClient, type InfiniteData, type QueryClient } from '@tanstack/react-query'
 import { ChevronDown, GitBranch, GitBranchPlus, X } from 'lucide-react'
+import { AnimatePresence } from 'motion/react'
 import { useState, type FormEvent } from 'react'
-import { Button, Dialog, DialogTrigger, GridList, GridListItem, Heading, Input, Label, Modal, ModalOverlay, Popover, SearchField, TextField } from 'react-aria-components'
+import { Button, Dialog, DialogTrigger, GridList, GridListItem, Heading, Input, Label, SearchField, TextField } from 'react-aria-components'
 import type { BranchInfo } from '../../shared/ipc'
 import a from './App.module.css'
 import { useMenuCommand } from './menu'
 import s from './Repos.module.css'
+import { DialogShell, PopPopover } from './motion'
 
 /** Refetch every query of this repo (keys are `[kind, repoId, ...]`) after a git write; History refetches only its first page. */
 export const refreshRepo = (qc: QueryClient, repo: string) => {
@@ -59,89 +61,95 @@ export function BranchSelector(p: { repo: string; onError(e: unknown): void }) {
           </span>
           <ChevronDown size={14} aria-hidden />
         </Button>
-        <Popover placement="bottom start" className={s.popover}>
-          <Dialog aria-label="Branches" className={s.menu}>
-            {({ close }) => {
-              const act = (fn: () => Promise<unknown>) => (close(), run(fn()))
-              return (
-                <>
-                  <SearchField aria-label="Filter branches" value={filter} onChange={setFilter} autoFocus>
-                    <Input placeholder="Filter" className={s.filter} />
-                  </SearchField>
-                  <GridList
-                    aria-label="Local branches"
-                    items={local}
-                    className={s.list}
-                    onAction={(name) => act(() => window.mendel['branch:switch']({ repo: p.repo, name: String(name) }))}
-                    renderEmptyState={() =>
-                      filter.trim() ? (
-                        <Button className={s.empty} onPress={() => (close(), setCreating({ name: filter.trim() }))}>
-                          Create branch '{filter.trim()}'
-                        </Button>
-                      ) : (
-                        <p className={s.empty}>No branches</p>
-                      )
-                    }
-                  >
-                    {(x) => (
-                      <GridListItem id={x.name} textValue={x.name} className={s.item}>
-                        <div className={s.info}>
-                          <span>
-                            {x.name === b?.current ? '✓ ' : ''}
-                            {x.name}
-                          </span>
-                        </div>
-                        {aheadBehind(x) && <small aria-label="ahead/behind">{aheadBehind(x)}</small>}
-                        <Button className="icon" aria-label={`New branch from ${x.name}`} onPress={() => (close(), setCreating({ name: '', from: x.name }))}>
-                          <GitBranchPlus size={14} />
-                        </Button>
-                        {x.name !== b?.current && (
-                          <Button className="icon" aria-label={`Delete ${x.name}`} onPress={() => act(() => window.mendel['branch:delete']({ repo: p.repo, name: x.name }))}>
-                            <X size={14} />
-                          </Button>
+        <AnimatePresence>
+          {open && (
+            <PopPopover placement="bottom start" className={s.popover}>
+              <Dialog aria-label="Branches" className={s.menu}>
+                {({ close }) => {
+                  const act = (fn: () => Promise<unknown>) => (close(), run(fn()))
+                  return (
+                    <>
+                      <SearchField aria-label="Filter branches" value={filter} onChange={setFilter} autoFocus>
+                        <Input placeholder="Filter" className={s.filter} />
+                      </SearchField>
+                      <GridList
+                        aria-label="Local branches"
+                        items={local}
+                        className={s.list}
+                        onAction={(name) => act(() => window.mendel['branch:switch']({ repo: p.repo, name: String(name) }))}
+                        renderEmptyState={() =>
+                          filter.trim() ? (
+                            <Button className={s.empty} onPress={() => (close(), setCreating({ name: filter.trim() }))}>
+                              Create branch '{filter.trim()}'
+                            </Button>
+                          ) : (
+                            <p className={s.empty}>No branches</p>
+                          )
+                        }
+                      >
+                        {(x) => (
+                          <GridListItem id={x.name} textValue={x.name} className={s.item}>
+                            <div className={s.info}>
+                              <span>
+                                {x.name === b?.current ? '✓ ' : ''}
+                                {x.name}
+                              </span>
+                            </div>
+                            {aheadBehind(x) && <small aria-label="ahead/behind">{aheadBehind(x)}</small>}
+                            <Button className="icon" aria-label={`New branch from ${x.name}`} onPress={() => (close(), setCreating({ name: '', from: x.name }))}>
+                              <GitBranchPlus size={14} />
+                            </Button>
+                            {x.name !== b?.current && (
+                              <Button className="icon" aria-label={`Delete ${x.name}`} onPress={() => act(() => window.mendel['branch:delete']({ repo: p.repo, name: x.name }))}>
+                                <X size={14} />
+                              </Button>
+                            )}
+                          </GridListItem>
                         )}
-                      </GridListItem>
-                    )}
-                  </GridList>
-                  {remote.length > 0 && (
-                    <Button onPress={() => setShowRemote(!showRemote)} aria-expanded={showRemote}>
-                      Remote branches ({remote.length})
-                    </Button>
-                  )}
-                  {showRemote && (
-                    <GridList
-                      aria-label="Remote branches"
-                      items={remote.map((name) => ({ name }))}
-                      className={s.list}
-                      onAction={(name) => act(() => window.mendel['branch:switch']({ repo: p.repo, name: String(name) }))}
-                    >
-                      {(x) => (
-                        <GridListItem id={x.name} textValue={x.name} className={s.item}>
-                          <div className={s.info}>{x.name}</div>
-                          <Button className="icon" aria-label={`New branch from ${x.name}`} onPress={() => (close(), setCreating({ name: '', from: x.name }))}>
-                            <GitBranchPlus size={14} />
-                          </Button>
-                        </GridListItem>
+                      </GridList>
+                      {remote.length > 0 && (
+                        <Button onPress={() => setShowRemote(!showRemote)} aria-expanded={showRemote}>
+                          Remote branches ({remote.length})
+                        </Button>
                       )}
-                    </GridList>
-                  )}
-                  <div className={s.menuActions}>
-                    <Button onPress={() => (close(), setCreating({ name: filter.trim() }))}>{b?.current ? 'New branch…' : 'Create branch here…'}</Button>
-                  </div>
-                </>
-              )
-            }}
-          </Dialog>
-        </Popover>
+                      {showRemote && (
+                        <GridList
+                          aria-label="Remote branches"
+                          items={remote.map((name) => ({ name }))}
+                          className={s.list}
+                          onAction={(name) => act(() => window.mendel['branch:switch']({ repo: p.repo, name: String(name) }))}
+                        >
+                          {(x) => (
+                            <GridListItem id={x.name} textValue={x.name} className={s.item}>
+                              <div className={s.info}>{x.name}</div>
+                              <Button className="icon" aria-label={`New branch from ${x.name}`} onPress={() => (close(), setCreating({ name: '', from: x.name }))}>
+                                <GitBranchPlus size={14} />
+                              </Button>
+                            </GridListItem>
+                          )}
+                        </GridList>
+                      )}
+                      <div className={s.menuActions}>
+                        <Button onPress={() => (close(), setCreating({ name: filter.trim() }))}>{b?.current ? 'New branch…' : 'Create branch here…'}</Button>
+                      </div>
+                    </>
+                  )
+                }}
+              </Dialog>
+            </PopPopover>
+          )}
+        </AnimatePresence>
       </DialogTrigger>
-      {creating !== null && (
-        <NewBranchDialog
-          initial={creating.name}
-          from={creating.from ?? label}
-          onClose={() => setCreating(null)}
-          create={(name) => window.mendel['branch:create']({ repo: p.repo, name, from: creating.from }).then(() => refreshRepo(qc, p.repo))}
-        />
-      )}
+      <AnimatePresence>
+        {creating !== null && (
+          <NewBranchDialog
+            initial={creating.name}
+            from={creating.from ?? label}
+            onClose={() => setCreating(null)}
+            create={(name) => window.mendel['branch:create']({ repo: p.repo, name, from: creating.from }).then(() => refreshRepo(qc, p.repo))}
+          />
+        )}
+      </AnimatePresence>
     </>
   )
 }
@@ -155,33 +163,31 @@ function NewBranchDialog(p: { initial: string; from: string; onClose(): void; cr
     p.create(name.trim()).then(p.onClose, (err: Error) => setError(err.message))
   }
   return (
-    <ModalOverlay isOpen isDismissable onOpenChange={(o) => !o && p.onClose()} className={a.backdrop}>
-      <Modal>
-        <Dialog className={a.dialog} aria-labelledby="new-branch-title">
-          <form onSubmit={submit} className={a.form}>
-            <Heading slot="title" id="new-branch-title">
-              New branch
-            </Heading>
-            <TextField value={name} onChange={setName} autoFocus className={a.field}>
-              <Label>Name</Label>
-              <Input spellCheck={false} />
-            </TextField>
-            <small className={a.muted}>From {p.from}</small>
-            {error && (
-              <p role="alert" className={a.error}>
-                {error}
-              </p>
-            )}
-            <div className={a.actions}>
-              <Button onPress={p.onClose}>Cancel</Button>
-              <Button type="submit" className="primary" isDisabled={!name.trim()}>
-                Create branch
-              </Button>
-            </div>
-          </form>
-        </Dialog>
-      </Modal>
-    </ModalOverlay>
+    <DialogShell isDismissable onOpenChange={(o) => !o && p.onClose()} className={a.backdrop}>
+      <Dialog className={a.dialog} aria-labelledby="new-branch-title">
+        <form onSubmit={submit} className={a.form}>
+          <Heading slot="title" id="new-branch-title">
+            New branch
+          </Heading>
+          <TextField value={name} onChange={setName} autoFocus className={a.field}>
+            <Label>Name</Label>
+            <Input spellCheck={false} />
+          </TextField>
+          <small className={a.muted}>From {p.from}</small>
+          {error && (
+            <p role="alert" className={a.error}>
+              {error}
+            </p>
+          )}
+          <div className={a.actions}>
+            <Button onPress={p.onClose}>Cancel</Button>
+            <Button type="submit" className="primary" isDisabled={!name.trim()}>
+              Create branch
+            </Button>
+          </div>
+        </form>
+      </Dialog>
+    </DialogShell>
   )
 }
 

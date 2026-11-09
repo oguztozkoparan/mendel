@@ -1,10 +1,11 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Decoration, Diff, getChangeKey, Hunk, parseDiff, type GutterOptions, type HunkData } from 'react-diff-view'
 import 'react-diff-view/style/index.css'
 import { Button, Checkbox } from 'react-aria-components'
 import type { FileChange } from '../../shared/ipc'
 import s from './Changes.module.css'
+import { staggerIn } from './motion'
 import { Toggle, useSettings } from './Settings'
 
 const LARGE_DIFF_LINES = 5000
@@ -86,6 +87,14 @@ function DiffSection(p: { repo: string; file: FileChange; act: Act; staged: bool
       window.mendel['changes:diff']({ repo: p.repo, path: file.path, origPath: file.origPath, staged, untracked: file.unstaged === '?' && !staged })
   })
   const { parsed, gate } = useParsedDiff(q.data)
+  // DiffView is keyed by file: rows slide in once per shown file, not on every refetch.
+  const section = useRef<HTMLElement>(null)
+  const staggered = useRef(false)
+  useEffect(() => {
+    if (!parsed || staggered.current || !section.current) return
+    staggered.current = true
+    staggerIn(section.current.querySelectorAll('tr'))
+  }, [parsed])
   // Picked change lines (by change key) for line staging; dropped whenever the diff text changes.
   const [pick, setPick] = useState<{ data?: string; keys: Set<string> }>({ keys: new Set() })
   const picked = pick.data === q.data ? pick.keys : new Set<string>()
@@ -165,7 +174,7 @@ function DiffSection(p: { repo: string; file: FileChange; act: Act; staged: bool
     )
 
   return (
-    <section aria-label={staged ? 'Staged diff' : 'Unstaged diff'}>
+    <section ref={section} aria-label={staged ? 'Staged diff' : 'Unstaged diff'}>
       {p.title && <h3 className={s.sectionTitle}>{p.title}</h3>}
       {body}
     </section>

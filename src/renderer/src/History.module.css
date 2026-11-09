@@ -8,10 +8,6 @@
   border-bottom: 1px solid var(--border);
 }
 
-.row[data-selected] {
-  background: color-mix(in srgb, var(--accent) 22%, transparent);
-}
-
 .summary,
 .meta {
   overflow: hidden;

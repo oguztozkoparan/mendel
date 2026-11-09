@@ -10,6 +10,7 @@ import { useParsedDiff, visible } from './DiffView'
 import { bannerError, ErrorBanner, type BannerError } from './ErrorBanner'
 import s from './History.module.css'
 import { RebaseDialog } from './RebaseDialog'
+import { Highlight } from './motion'
 import { ago } from './time'
 
 const PAGE = 100
@@ -87,12 +88,17 @@ export function HistoryView(p: { repo: string; decorate?: (c: CommitSummary) => 
             <Collection items={commits} dependencies={[p.decorate]}>
               {(x) => (
                 <GridListItem id={x.sha} textValue={x.summary} className={s.row}>
-                  <span className={s.summary}>{x.summary}</span>
-                  <small className={s.meta}>
-                    {x.author} · {ago(x.date)} · <code>{x.short}</code>
-                    {x.unpushed && <span className={s.badge}>↑ unpushed</span>}
-                    {p.decorate?.(x)}
-                  </small>
+                  {({ isSelected }) => (
+                    <>
+                      {isSelected && <Highlight id="sel-commits" />}
+                      <span className={s.summary}>{x.summary}</span>
+                      <small className={s.meta}>
+                        {x.author} · {ago(x.date)} · <code>{x.short}</code>
+                        {x.unpushed && <span className={s.badge}>↑ unpushed</span>}
+                        {p.decorate?.(x)}
+                      </small>
+                    </>
+                  )}
                 </GridListItem>
               )}
             </Collection>
@@ -158,8 +164,13 @@ export function StashesView(p: { repo: string }) {
         >
           {(x) => (
             <GridListItem id={x.sha} textValue={x.message} className={s.row}>
-              <span className={s.summary}>{x.message}</span>
-              <small className={s.meta}>{ago(x.date)}</small>
+              {({ isSelected }) => (
+                <>
+                  {isSelected && <Highlight id="sel-stashes" />}
+                  <span className={s.summary}>{x.message}</span>
+                  <small className={s.meta}>{ago(x.date)}</small>
+                </>
+              )}
             </GridListItem>
           )}
         </GridList>
@@ -264,10 +275,15 @@ function CommitView(p: { repo: string; sha: string; pick?: 'cherry-pick' | 'reve
         >
           {(x) => (
             <ListBoxItem id={x.path} textValue={x.path} className={c.row}>
-              <span className={c.letter} data-status={x.status}>
-                {x.status}
-              </span>
-              <span className={c.path}>{x.origPath ? `${x.origPath} → ${x.path}` : x.path}</span>
+              {({ isSelected }) => (
+                <>
+                  {isSelected && <Highlight id="sel-commit-files" />}
+                  <span className={c.letter} data-status={x.status}>
+                    {x.status}
+                  </span>
+                  <span className={c.path}>{x.origPath ? `${x.origPath} → ${x.path}` : x.path}</span>
+                </>
+              )}
             </ListBoxItem>
           )}
         </ListBox>

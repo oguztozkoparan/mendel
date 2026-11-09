@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { AnimatePresence } from 'motion/react'
 import { useEffect, useState } from 'react'
 import { Button, Checkbox, Header, ListBox, ListBoxItem, ListBoxSection } from 'react-aria-components'
 import { GERRIT_AUTH_ERROR, type GerritChange } from '../../../../shared/gerrit'
@@ -11,6 +12,7 @@ import { GerritConnectDialog } from './GerritConnectDialog'
 import s from './Gerrit.module.css'
 import { RepoProviderDialog } from './RepoProviderDialog'
 import { initial, labelSummary, needsMe, shortDate, who } from './util'
+import { Highlight } from '../../motion'
 
 /** Reviews tab (PLAN.md §3.7): Outgoing / Incoming / Recently closed in the sidebar, change detail in the main pane. */
 export function Reviews({ repo, state, focus }: { repo: RepoEntry; state: ProviderState; focus?: { change: number } | null }) {
@@ -116,18 +118,23 @@ export function Reviews({ repo, state, focus }: { repo: RepoEntry; state: Provid
                 </Header>
                 {list.map((ch) => (
                   <ListBoxItem key={`${title}-${ch._number}`} id={ch._number} textValue={`${ch.subject} #${ch._number}`} className={s.changeRow}>
-                    <span className={s.avatar} title={who(ch.owner)} aria-hidden>
-                      {initial(ch.owner)}
-                    </span>
-                    <span className={s.changeText}>
-                      <span className={s.subject}>{ch.subject}</span>
-                      <span className={s.meta}>
-                        {needsMe(ch, me) && <span className={s.attention}>Your turn · </span>}#{ch._number} · {ch.status === 'NEW' ? 'Open' : ch.status.charAt(0) + ch.status.slice(1).toLowerCase()}
-                        {ch.work_in_progress && ' · WIP'}
-                        {!!ch.unresolved_comment_count && ` · ${ch.unresolved_comment_count} unresolved`}
-                        {labelSummary(ch.labels).map((l) => ` · ${l}`)} · {shortDate(ch.updated)}
-                      </span>
-                    </span>
+                    {({ isSelected }) => (
+                      <>
+                        {isSelected && <Highlight id="sel-changes" />}
+                        <span className={s.avatar} title={who(ch.owner)} aria-hidden>
+                          {initial(ch.owner)}
+                        </span>
+                        <span className={s.changeText}>
+                          <span className={s.subject}>{ch.subject}</span>
+                          <span className={s.meta}>
+                            {needsMe(ch, me) && <span className={s.attention}>Your turn · </span>}#{ch._number} · {ch.status === 'NEW' ? 'Open' : ch.status.charAt(0) + ch.status.slice(1).toLowerCase()}
+                            {ch.work_in_progress && ' · WIP'}
+                            {!!ch.unresolved_comment_count && ` · ${ch.unresolved_comment_count} unresolved`}
+                            {labelSummary(ch.labels).map((l) => ` · ${l}`)} · {shortDate(ch.updated)}
+                          </span>
+                        </span>
+                      </>
+                    )}
                   </ListBoxItem>
                 ))}
               </ListBoxSection>
@@ -136,8 +143,10 @@ export function Reviews({ repo, state, focus }: { repo: RepoEntry; state: Provid
         )}
       </aside>
       <section className={a.main}>{main}</section>
-      {dialog === 'provider' && <RepoProviderDialog repo={repo.id} state={state} onClose={() => setDialog(null)} />}
-      {dialog === 'connect' && <GerritConnectDialog repo={repo.id} state={state} expired={authFailed} onClose={() => setDialog(null)} />}
+      <AnimatePresence>
+        {dialog === 'provider' && <RepoProviderDialog key="provider" repo={repo.id} state={state} onClose={() => setDialog(null)} />}
+        {dialog === 'connect' && <GerritConnectDialog key="connect" repo={repo.id} state={state} expired={authFailed} onClose={() => setDialog(null)} />}
+      </AnimatePresence>
     </>
   )
 }

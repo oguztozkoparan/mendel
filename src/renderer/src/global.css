@@ -402,6 +402,40 @@ textarea {
   box-shadow: var(--focus);
 }
 
+/* Motion (motion.tsx): sliding selection plate rendered inside the selected tab / row / menu item */
+.hl {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  pointer-events: none;
+}
+
+:has(> .hl) {
+  position: relative;
+  isolation: isolate;
+}
+
+/* accent and mode crossfade (motion.tsx withTransition) */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 320ms;
+}
+
+/* reduced motion: nothing animates, CSS transitions included (motion.tsx handles its own) */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after,
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
 /* Cursors (concept): actions get --cursor-action (arrow on mac, hand elsewhere); only selectable text gets the I-beam.
    :where() keeps these at zero specificity so a nested action (button in a row) still wins over the inherit rule. */
 :root {

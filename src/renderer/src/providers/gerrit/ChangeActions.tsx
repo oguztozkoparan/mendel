@@ -1,11 +1,13 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { AnimatePresence } from 'motion/react'
 import { useState, type FormEvent } from 'react'
-import { Button, Dialog, Heading, Modal, ModalOverlay } from 'react-aria-components'
+import { Button, Dialog, Heading } from 'react-aria-components'
 import { fetchCommand, GERRIT_REBASE_CONFLICT, type GerritChange } from '../../../../shared/gerrit'
 import a from '../../App.module.css'
 import { refreshRepo } from '../../Branches'
 import type { Revision } from './ChangeDetail'
 import s from './Gerrit.module.css'
+import { DialogShell } from '../../motion'
 
 type Action = 'submit' | 'abandon' | 'rebase'
 const DONE: Record<Action, string> = {
@@ -98,9 +100,9 @@ export function ChangeActions({ repo, change, current, ps }: { repo: string; cha
           Rebase locally
         </Button>
       )}
-      {confirm && (
-        <ModalOverlay isOpen isDismissable={!busy} className={a.backdrop} onOpenChange={(o) => !o && setConfirm(null)}>
-          <Modal>
+      <AnimatePresence>
+        {confirm && (
+          <DialogShell isDismissable={!busy} className={a.backdrop} onOpenChange={(o) => !o && setConfirm(null)}>
             <Dialog aria-labelledby="action-title" className={a.dialog}>
               <form className={a.form} onSubmit={submit}>
                 <Heading slot="title" id="action-title">
@@ -118,9 +120,9 @@ export function ChangeActions({ repo, change, current, ps }: { repo: string; cha
                 </div>
               </form>
             </Dialog>
-          </Modal>
-        </ModalOverlay>
-      )}
+          </DialogShell>
+        )}
+      </AnimatePresence>
     </>
   )
 }

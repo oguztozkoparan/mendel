@@ -1,4 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { AnimatePresence } from 'motion/react'
 import { useEffect, useState } from 'react'
 import { Settings as Gear } from 'lucide-react'
 import { Button } from 'react-aria-components'
@@ -18,6 +19,7 @@ import { RepoView } from './RepoView'
 import { IdentityForm, SettingsDialog, useSettings } from './Settings'
 import { SyncButton, type Notice } from './SyncButton'
 import { UpdatePill } from './UpdatePill'
+import { Toast } from './motion'
 
 const INSTALL_HINT: Record<string, string> = {
   darwin: 'Install Git with Xcode Command Line Tools (xcode-select --install) or Homebrew (brew install git).',
@@ -113,13 +115,17 @@ export function App() {
         </Button>
       </header>
       {error && <ErrorBanner error={error} onDismiss={() => setError(null)} />}
-      {notice && (
-        <div role="alert" className={`${s.banner} ${s.notice}`}>
-          <span>{notice.text}</span>
-          {notice.action && <Button onPress={() => (setNotice(null), notice.action!.run())}>{notice.action.label}</Button>}
-          <Button onPress={() => setNotice(null)}>Dismiss</Button>
-        </div>
-      )}
+      <AnimatePresence>
+        {notice && (
+          <Toast key={notice.text}>
+            <div role="alert" className={`${s.banner} ${s.notice}`}>
+              <span>{notice.text}</span>
+              {notice.action && <Button onPress={() => (setNotice(null), notice.action!.run())}>{notice.action.label}</Button>}
+              <Button onPress={() => setNotice(null)}>Dismiss</Button>
+            </div>
+          </Toast>
+        )}
+      </AnimatePresence>
       {current && <ConflictBanner key={current.id} repo={current.id} onError={onError} />}
       {current && <StashBanner key={current.id} repo={current.id} onError={onError} />}
       {current ? (
@@ -158,14 +164,17 @@ export function App() {
           )}
         </main>
       )}
-      {cloning && (
-        <CloneDialog
-          onClose={() => setCloning(false)}
-          onCloned={() => (setCloning(false), void qc.invalidateQueries({ queryKey: ['repos'] }))}
-        />
-      )}
-      {sending && current && <SendForReview repo={current.id} onClose={() => setSending(false)} onSent={sent} />}
-      {settings && <SettingsDialog repo={current?.id} onClose={() => setSettings(false)} />}
+      <AnimatePresence>
+        {cloning && (
+          <CloneDialog
+            key="clone"
+            onClose={() => setCloning(false)}
+            onCloned={() => (setCloning(false), void qc.invalidateQueries({ queryKey: ['repos'] }))}
+          />
+        )}
+        {sending && current && <SendForReview key="send" repo={current.id} onClose={() => setSending(false)} onSent={sent} />}
+        {settings && <SettingsDialog key="settings" repo={current?.id} onClose={() => setSettings(false)} />}
+      </AnimatePresence>
       <AuthPromptDialog />
     </div>
   )

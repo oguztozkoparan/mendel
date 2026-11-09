@@ -1,10 +1,15 @@
+import { AnimatePresence } from 'motion/react'
 import { useEffect, useState } from 'react'
 import type { UpdateState } from '../../shared/ipc'
+import { PopPanel } from './motion'
 import s from './UpdatePill.module.css'
 
 /** Shift the panel left so it stays 12px inside the window (react-aria popovers clamp themselves). */
+// Layout box, not getBoundingClientRect: the panel mounts mid scale-in animation.
 const clampToWindow = (el: HTMLElement | null) => {
-  if (el) el.style.translate = `${-Math.max(0, el.getBoundingClientRect().right - document.documentElement.clientWidth + 12)}px`
+  if (!el) return
+  const right = (el.offsetParent?.getBoundingClientRect().left ?? 0) + el.offsetLeft + el.offsetWidth
+  el.style.translate = `${-Math.max(0, right - document.documentElement.clientWidth + 12)}px`
 }
 
 /** Self-contained update pill + panel (PLAN.md §3.12, §4.10). Place it anywhere in the toolbar. */
@@ -39,16 +44,18 @@ export function UpdatePill() {
           <button type="button" className={s.pill} aria-expanded={open} onClick={() => setOpen(!open)}>
             Update v{state.version} available
           </button>
-          {open && (
-            <div className={s.panel} ref={clampToWindow} role="dialog" aria-label={`mendel ${state.version}`}>
-              <strong>mendel {state.version}</strong>
-              {state.notes && <pre className={s.notes}>{state.notes}</pre>}
-              {!state.canInstall && <p className={s.hint}>Opens the download page; install the new version by hand.</p>}
-              <button type="button" onClick={() => void window.mendel['update:download']()}>
-                Download
-              </button>
-            </div>
-          )}
+          <AnimatePresence>
+            {open && (
+              <PopPanel className={s.panel} ref={clampToWindow} role="dialog" aria-label={`mendel ${state.version}`}>
+                <strong>mendel {state.version}</strong>
+                {state.notes && <pre className={s.notes}>{state.notes}</pre>}
+                {!state.canInstall && <p className={s.hint}>Opens the download page; install the new version by hand.</p>}
+                <button type="button" onClick={() => void window.mendel['update:download']()}>
+                  Download
+                </button>
+              </PopPanel>
+            )}
+          </AnimatePresence>
         </>
       )}
       {state.status === 'downloading' && (

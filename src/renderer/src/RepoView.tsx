@@ -8,7 +8,16 @@ import { ChangesView } from './Changes'
 import { HistoryView, StashesView } from './History'
 import h from './History.module.css'
 import { useMenuCommand } from './menu'
+import { Highlight } from './motion'
 import { Reviews } from './providers/gerrit/Reviews'
+/** Tab label with the sliding underline under the selected one. */
+const tabLabel = (label: string) => ({ isSelected }: { isSelected: boolean }) => (
+  <>
+    {isSelected && <Highlight id="repo-tab" />}
+    {label}
+  </>
+)
+
 /** Open repo: tabs in sidebar head; panel lays out its own sidebar list + main pane (PLAN.md §3). */
 export function RepoView({ repo, focus }: { repo: RepoEntry; focus?: { change: number } | null }) {
   const [tab, setTab] = useState<Key>('changes')
@@ -32,10 +41,10 @@ export function RepoView({ repo, focus }: { repo: RepoEntry; focus?: { change: n
   return (
     <Tabs className={s.repoView} selectedKey={tab} onSelectionChange={setTab}>
       <TabList aria-label="Views" className={s.tabs}>
-        <Tab id="changes">Changes</Tab>
-        <Tab id="history">History</Tab>
-        <Tab id="stashes">Stashes</Tab>
-        {gerrit && <Tab id="reviews">Reviews</Tab>}
+        <Tab id="changes">{tabLabel('Changes')}</Tab>
+        <Tab id="history">{tabLabel('History')}</Tab>
+        <Tab id="stashes">{tabLabel('Stashes')}</Tab>
+        {gerrit && <Tab id="reviews">{tabLabel('Reviews')}</Tab>}
       </TabList>
       <TabPanel id="changes" className={s.panel}>
         <ChangesView repo={repo} amend={amend} onAmendDone={() => setAmend(false)} />

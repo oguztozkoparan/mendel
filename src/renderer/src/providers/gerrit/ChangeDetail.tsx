@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { AnimatePresence } from 'motion/react'
 import { useMemo, useState, type ReactNode } from 'react'
 import { Button, ListBox, ListBoxItem } from 'react-aria-components'
 import {
@@ -21,6 +22,7 @@ import { Composer, DraftView, Thread, usePending, type Pending, type PendingStor
 import s from './Gerrit.module.css'
 import { ReplyDialog } from './ReplyDialog'
 import { diffText, fileLabel, fmtVote, shortDate, threadsOf, who } from './util'
+import { Highlight } from '../../motion'
 
 export type Revision = NonNullable<GerritChange['revisions']>[string] & { sha: string }
 export const revisionsOf = (ch: GerritChange): Revision[] =>
@@ -179,11 +181,16 @@ export function ChangeDetail({ repo, number, me, onBack, onOpen }: { repo: strin
           const f = files.data![p]
           return (
             <ListBoxItem key={p} id={p} textValue={fileLabel(p)} className={s.fileRow}>
-              {f.status && <span className={c.letter} data-status={f.status}>{f.status}</span>}
-              <span className={c.path}>{fileLabel(p)}</span>
-              <span className={s.added}>+{f.lines_inserted ?? 0}</span>
-              <span className={s.deleted}>−{f.lines_deleted ?? 0}</span>
-              {shown.some((cm) => cm.path === p) && <span className={s.meta}>{`${shown.filter((cm) => cm.path === p).length} comments`}</span>}
+              {({ isSelected }) => (
+                <>
+                  {isSelected && <Highlight id="sel-change-files" />}
+                  {f.status && <span className={c.letter} data-status={f.status}>{f.status}</span>}
+                  <span className={c.path}>{fileLabel(p)}</span>
+                  <span className={s.added}>+{f.lines_inserted ?? 0}</span>
+                  <span className={s.deleted}>−{f.lines_deleted ?? 0}</span>
+                  {shown.some((cm) => cm.path === p) && <span className={s.meta}>{`${shown.filter((cm) => cm.path === p).length} comments`}</span>}
+                </>
+              )}
             </ListBoxItem>
           )
         })}
@@ -204,7 +211,9 @@ export function ChangeDetail({ repo, number, me, onBack, onOpen }: { repo: strin
           canComment={{ old: isCurrent && !base, new: isCurrent }}
         />
       )}
-      {replying && current && <ReplyDialog repo={repo} change={ch} patchSet={current._number} me={me} pending={pending} onClose={() => setReplying(false)} />}
+      <AnimatePresence>
+        {replying && current && <ReplyDialog repo={repo} change={ch} patchSet={current._number} me={me} pending={pending} onClose={() => setReplying(false)} />}
+      </AnimatePresence>
     </div>
   )
 }

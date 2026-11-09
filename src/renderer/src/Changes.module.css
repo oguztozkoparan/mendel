@@ -23,10 +23,6 @@
   box-sizing: border-box;
 }
 
-.row[data-selected] {
-  background: color-mix(in srgb, var(--accent) 22%, transparent);
-}
-
 .path {
   flex: 1;
   min-width: 0;

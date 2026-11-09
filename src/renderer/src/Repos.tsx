@@ -1,9 +1,11 @@
 import { Check, ChevronDown, Code, FolderGit2, FolderOpen, SquareTerminal, X } from 'lucide-react'
+import { AnimatePresence } from 'motion/react'
 import { useState } from 'react'
 import { useMenuCommand } from './menu'
-import { Button, Dialog, DialogTrigger, GridList, GridListItem, Input, Popover, SearchField } from 'react-aria-components'
+import { Button, Dialog, DialogTrigger, GridList, GridListItem, Input, SearchField } from 'react-aria-components'
 import type { RepoEntry } from '../../shared/ipc'
 import s from './Repos.module.css'
+import { PopPopover } from './motion'
 
 export interface RepoActions {
   /** Native folder dialog; `locate` re-points a missing entry. */
@@ -79,22 +81,26 @@ export function RepoSelector(p: { repos: RepoEntry[]; current: RepoEntry; action
         </span>
         <ChevronDown size={14} aria-hidden />
       </Button>
-      <Popover placement="bottom start" className={s.popover}>
-        <Dialog aria-label="Repositories" className={s.menu}>
-          {({ close }) => (
-            <>
-              <SearchField aria-label="Filter repositories" value={filter} onChange={setFilter} autoFocus>
-                <Input placeholder="Filter" className={s.filter} />
-              </SearchField>
-              <RepoList repos={shown} current={p.current.id} actions={p.actions} onDone={close} />
-              <div className={s.menuActions}>
-                <Button onPress={() => (close(), p.actions.add())}>Open…</Button>
-                <Button onPress={() => (close(), p.actions.clone())}>Clone…</Button>
-              </div>
-            </>
-          )}
-        </Dialog>
-      </Popover>
+      <AnimatePresence>
+        {open && (
+          <PopPopover placement="bottom start" className={s.popover}>
+            <Dialog aria-label="Repositories" className={s.menu}>
+              {({ close }) => (
+                <>
+                  <SearchField aria-label="Filter repositories" value={filter} onChange={setFilter} autoFocus>
+                    <Input placeholder="Filter" className={s.filter} />
+                  </SearchField>
+                  <RepoList repos={shown} current={p.current.id} actions={p.actions} onDone={close} />
+                  <div className={s.menuActions}>
+                    <Button onPress={() => (close(), p.actions.add())}>Open…</Button>
+                    <Button onPress={() => (close(), p.actions.clone())}>Clone…</Button>
+                  </div>
+                </>
+              )}
+            </Dialog>
+          </PopPopover>
+        )}
+      </AnimatePresence>
     </DialogTrigger>
   )
 }

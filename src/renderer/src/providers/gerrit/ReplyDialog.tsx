@@ -1,11 +1,12 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { useState, type FormEvent } from 'react'
-import { Dialog, Heading, Modal, ModalOverlay } from 'react-aria-components'
+import { Dialog, Heading } from 'react-aria-components'
 import type { GerritChange } from '../../../../shared/gerrit'
 import a from '../../App.module.css'
 import type { PendingStore } from './Comments'
 import s from './Gerrit.module.css'
 import { fileLabel, fmtVote } from './util'
+import { DialogShell } from '../../motion'
 
 /**
  * Reply panel (PLAN.md §3.8, §4.5): overall message, vote pickers built only from `permitted_labels`, pending
@@ -48,56 +49,54 @@ export function ReplyDialog(p: { repo: string; change: GerritChange; patchSet: n
   }
 
   return (
-    <ModalOverlay isOpen isDismissable={!busy} className={a.backdrop} onOpenChange={(o) => !o && p.onClose()}>
-      <Modal>
-        <Dialog aria-labelledby="reply-title" className={`${a.dialog} ${s.wide}`}>
-          <form className={a.form} onSubmit={send}>
-            <Heading slot="title" id="reply-title">
-              Reply to #{ch._number}
-            </Heading>
-            <textarea aria-label="Message" rows={4} value={message} onChange={(e) => setMessage(e.target.value)} disabled={busy} autoFocus />
-            {permitted.map(([label, values]) => (
-              <div key={label} role="radiogroup" aria-label={label} className={s.labelRow}>
-                <strong>{label}</strong>
-                {values.map((v) => (
-                  <label key={v} className={s.radio}>
-                    <input type="radio" name={label} checked={votes[label] === v} onChange={() => setVotes((x) => ({ ...x, [label]: v }))} disabled={busy} />
-                    {fmtVote(v)}
-                  </label>
-                ))}
-              </div>
-            ))}
-            {p.pending.list.length > 0 && (
-              <ul aria-label="Pending comments" className={s.pendingList}>
-                {p.pending.list.map((d) => (
-                  <li key={d.key}>
-                    <span className={s.grow}>
-                      {fileLabel(d.path)}
-                      {d.line ? `:${d.line}` : ''} (PS {d.patch_set}) — {d.message}
-                    </span>
-                    <button type="button" onClick={() => p.pending.remove(d.key)} disabled={busy}>
-                      Remove
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-            {error && (
-              <p role="alert" className={a.error}>
-                {error}
-              </p>
-            )}
-            <div className={a.actions}>
-              <button type="button" onClick={p.onClose} disabled={busy}>
-                Cancel
-              </button>
-              <button type="submit" className="primary" disabled={busy}>
-                Send
-              </button>
+    <DialogShell isDismissable={!busy} className={a.backdrop} onOpenChange={(o) => !o && p.onClose()}>
+      <Dialog aria-labelledby="reply-title" className={`${a.dialog} ${s.wide}`}>
+        <form className={a.form} onSubmit={send}>
+          <Heading slot="title" id="reply-title">
+            Reply to #{ch._number}
+          </Heading>
+          <textarea aria-label="Message" rows={4} value={message} onChange={(e) => setMessage(e.target.value)} disabled={busy} autoFocus />
+          {permitted.map(([label, values]) => (
+            <div key={label} role="radiogroup" aria-label={label} className={s.labelRow}>
+              <strong>{label}</strong>
+              {values.map((v) => (
+                <label key={v} className={s.radio}>
+                  <input type="radio" name={label} checked={votes[label] === v} onChange={() => setVotes((x) => ({ ...x, [label]: v }))} disabled={busy} />
+                  {fmtVote(v)}
+                </label>
+              ))}
             </div>
-          </form>
-        </Dialog>
-      </Modal>
-    </ModalOverlay>
+          ))}
+          {p.pending.list.length > 0 && (
+            <ul aria-label="Pending comments" className={s.pendingList}>
+              {p.pending.list.map((d) => (
+                <li key={d.key}>
+                  <span className={s.grow}>
+                    {fileLabel(d.path)}
+                    {d.line ? `:${d.line}` : ''} (PS {d.patch_set}) — {d.message}
+                  </span>
+                  <button type="button" onClick={() => p.pending.remove(d.key)} disabled={busy}>
+                    Remove
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          {error && (
+            <p role="alert" className={a.error}>
+              {error}
+            </p>
+          )}
+          <div className={a.actions}>
+            <button type="button" onClick={p.onClose} disabled={busy}>
+              Cancel
+            </button>
+            <button type="submit" className="primary" disabled={busy}>
+              Send
+            </button>
+          </div>
+        </form>
+      </Dialog>
+    </DialogShell>
   )
 }

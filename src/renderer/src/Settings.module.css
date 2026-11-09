@@ -21,7 +21,6 @@
 }
 
 .sections [role='tab'][data-selected] {
-  background: color-mix(in srgb, var(--accent) 22%, transparent);
   font-weight: 600;
 }
 

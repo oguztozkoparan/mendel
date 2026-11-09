@@ -19,6 +19,16 @@
   background: var(--bg-hover);
 }
 
+/* menu items: the hover plate slides between items instead (motion.tsx Highlight) */
+.item[role='menuitem'][data-hovered],
+.item[role='menuitem'][data-focused] {
+  background: none;
+}
+
+.item :global(.hl) {
+  background: var(--bg-hover);
+}
+
 .info {
   flex: 1;
   min-width: 0;
@@ -81,6 +91,7 @@
 }
 
 .popover {
+  transform-origin: var(--trigger-anchor-point);
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 8px;
