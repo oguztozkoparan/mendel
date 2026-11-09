@@ -106,7 +106,7 @@ test('switching repos through the repo dropdown keeps one branch button and one 
     await expect(repoButton).toContainText('other')
     for (const name of ['work', 'other', 'work']) {
       await repoButton.click()
-      await win.getByRole('dialog', { name: 'Repositories' }).getByRole('row', { name }).click()
+      await win.getByRole('dialog', { name: 'Repositories' }).getByRole('row', { name, exact: true }).click()
       await expect(repoButton).toContainText(name)
       await expect(branchButtons).toHaveCount(1)
       await expect(toolbar.getByRole('button', { name: /^(Fetch|Pull|Push|Publish)/ })).toHaveCount(1)
