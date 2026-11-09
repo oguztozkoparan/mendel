@@ -13,7 +13,9 @@ const BACKGROUND_TIMEOUT_MS = 30_000
 /** Running git children -> whether they are background reads. */
 const live = new Map<ReturnType<typeof spawn>, boolean>()
 /** Kill every running git child (app quit), so none outlives mendel. */
-export const killAllGit = () => live.forEach((_, c) => c.kill())
+export const killAllGit = () => live.forEach((_, c) => (quitKilled.add(c), c.kill()))
+/** Children ended by killAllGit: settle on 'exit', since grandchildren (hooks, ssh) may hold stdio open past it. */
+const quitKilled = new WeakSet<ReturnType<typeof spawn>>()
 /** A git op other than a background read is running (e.g. push, commit, rebase): restarting would interrupt it. */
 export const gitBusy = () => [...live.values()].some((background) => !background)
 
@@ -176,7 +178,7 @@ export function git(args: string[], opts: GitOptions): Promise<GitResult> {
       if (err.name !== 'AbortError') reject(new GitError('Unknown', `Failed to start git: ${err.message}`, args))
     })
     // 'exit', not 'close': grandchildren (hooks, ssh) may keep stdio open after git itself died.
-    child.on('exit', () => opts.signal?.aborted && reject(new GitError('Cancelled', 'Git operation was cancelled', args)))
+    child.on('exit', () => (opts.signal?.aborted || quitKilled.has(child)) && reject(new GitError('Cancelled', 'Git operation was cancelled', args)))
     child.on('close', (code, signal) => {
       if (opts.signal?.aborted) return reject(new GitError('Cancelled', 'Git operation was cancelled', args))
       if (tooLarge) return reject(new GitError('OutputTooLarge', 'Git output exceeded the size limit', args))
