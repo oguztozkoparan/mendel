@@ -9,6 +9,7 @@ import c from './Changes.module.css'
 import { useParsedDiff, visible } from './DiffView'
 import { bannerError, ErrorBanner, type BannerError } from './ErrorBanner'
 import s from './History.module.css'
+import { RebaseDialog } from './RebaseDialog'
 import { ago } from './time'
 
 const PAGE = 100
@@ -43,6 +44,7 @@ export function HistoryView(p: { repo: string; decorate?: (c: CommitSummary) => 
   const commits = useMemo(() => q.data?.pages.flat() ?? [], [q.data])
   const [picked, setPicked] = useState<string | null>(null)
   const selected = commits.find((x) => x.sha === picked) ?? commits[0]
+  const [rebasing, setRebasing] = useState(false)
 
   return (
     <>
@@ -67,7 +69,10 @@ export function HistoryView(p: { repo: string; decorate?: (c: CommitSummary) => 
               <Button onPress={() => set('path', '')}>All files</Button>
             </p>
           )}
+          {/* Current branch, unfiltered, HEAD unpushed: there is something to edit. */}
+          {!ref && !filtered && commits[0]?.unpushed && <Button onPress={() => setRebasing(true)}>Edit unpushed commits…</Button>}
         </div>
+        {rebasing && <RebaseDialog repo={p.repo} onClose={() => setRebasing(false)} />}
         <Virtualizer layout={ListLayout} layoutOptions={{ rowHeight: 44 }}>
           <GridList
             aria-label="Commits"

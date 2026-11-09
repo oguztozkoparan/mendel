@@ -146,3 +146,27 @@
 .branch {
   margin: 6px 10px;
 }
+
+.rebaseList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 50vh;
+  overflow: auto;
+}
+
+.rebaseRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+}
+
+.rebaseRow .summary {
+  flex: 1;
+}
+
+.rebaseList textarea {
+  width: 100%;
+  box-sizing: border-box;
+}

@@ -113,6 +113,13 @@ export interface SyncState {
 /** rejected = push refused as non-fast-forward (pull first); conflict = merge/rebase stopped on conflicts. */
 export type SyncResult = 'ok' | 'rejected' | 'conflict'
 
+/** One line of an interactive rebase todo; `message` = the new message for `reword`. */
+export interface RebaseStep {
+  sha: string
+  action: 'pick' | 'reword' | 'squash' | 'fixup' | 'drop'
+  message?: string
+}
+
 export interface CommitSummary {
   sha: string
   short: string
@@ -385,6 +392,20 @@ export const invoke = {
   'history:blame': res<BlameLine[]>()(z.object({ repo: repoId, sha, path: relPath }).strict()),
   /** Apply one commit onto HEAD (`cherry-pick`) or undo it with a new commit (`revert`); 'conflict' = the conflict banner takes over. */
   'history:pick': res<SyncResult>()(z.object({ repo: repoId, sha, op: z.enum(['cherry-pick', 'revert']) }).strict()),
+  /** HEAD's commits on no remote-tracking branch, oldest first (interactive rebase dialog). */
+  'history:unpushed': res<GerritCommit[]>()(inRepo),
+  /** Interactive rebase of exactly the unpushed commits (`steps` oldest first); a dirty tree asks "Stash & rebase" (null = cancelled). */
+  'history:rebase': res<SyncResult | null>()(
+    z
+      .object({
+        repo: repoId,
+        steps: z
+          .array(z.object({ sha, action: z.enum(['pick', 'reword', 'squash', 'fixup', 'drop']), message: z.string().max(100_000).optional() }).strict())
+          .min(1)
+          .max(100)
+      })
+      .strict()
+  ),
   'conflict:state': res<OpInProgress>()(inRepo),
   /** Continue the merge/rebase/cherry-pick/revert once all files are marked resolved (`changes:stage`); 'conflict' = stopped again. */
   'conflict:continue': res<SyncResult>()(inRepo),
