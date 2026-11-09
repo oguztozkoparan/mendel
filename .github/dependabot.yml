@@ -4,7 +4,16 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    # Supply chain: only propose releases at least a week old, so a hijacked publish is usually caught and yanked first.
+    cooldown:
+      default-days: 7
+    ignore:
+      # Types track the Node that Electron bundles (24.x); a newer major would type-check APIs missing at runtime.
+      - dependency-name: '@types/node'
+        update-types: ['version-update:semver-major']
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 7
