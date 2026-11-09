@@ -1,4 +1,4 @@
-import type { BranchInfo, Branches } from '../../shared/ipc'
+import type { BranchInfo, Branches, StashEntry } from '../../shared/ipc'
 import { endOfOptions, git, GitError } from './runner'
 
 /** Message of stashes made by "Stash & switch"; git stores the subject as `On <branch>: mendel-stash`. */
@@ -101,6 +101,26 @@ export async function applyBranchStash(cwd: string, action: 'restore' | 'discard
   const ref = current && stashOf((await git(STASH_LIST, { cwd, env })).stdout, current)
   if (!ref) throw new Error('No stashed changes for this branch')
   await git(['stash', action === 'restore' ? 'pop' : 'drop', '--quiet', ref], { cwd, env })
+}
+
+/** All stashes, newest first (`stash@{0}`). */
+export async function listStashes(cwd: string, env?: NodeJS.ProcessEnv): Promise<StashEntry[]> {
+  const { stdout } = await git(['stash', 'list', '--format=%H%x00%gs%x00%ct'], { cwd, env, background: true })
+  return stdout
+    .split('\n')
+    .filter(Boolean)
+    .map((l) => {
+      const [sha = '', message = '', ct = '0'] = l.split('\0')
+      return { sha, message, date: Number(ct) * 1000 }
+    })
+}
+
+/** Apply, pop or drop the stash with commit `sha`; its `stash@{n}` is looked up now, so a shifted list cannot hit the wrong entry. */
+export async function stashAction(cwd: string, sha: string, action: 'apply' | 'pop' | 'drop', env?: NodeJS.ProcessEnv): Promise<void> {
+  const { stdout } = await git(['stash', 'list', '--format=%gd%x00%H'], { cwd, env })
+  const ref = stdout.split('\n').map((l) => l.split('\0')).find(([r, h]) => r && h === sha)?.[0]
+  if (!ref) throw new Error('Unknown stash')
+  await git(['stash', action, '--quiet', ref], { cwd, env })
 }
 
 /** `git branch -d`; with `force` `-D`. 'unmerged' = -d refused because the branch is not fully merged. */

@@ -5,7 +5,7 @@ import type { CommitSummary, RepoEntry } from '../../shared/ipc'
 import s from './App.module.css'
 import { useBranches } from './Branches'
 import { ChangesView } from './Changes'
-import { HistoryView } from './History'
+import { HistoryView, StashesView } from './History'
 import h from './History.module.css'
 import { useMenuCommand } from './menu'
 import { Reviews } from './providers/gerrit/Reviews'
@@ -34,6 +34,7 @@ export function RepoView({ repo, focus }: { repo: RepoEntry; focus?: { change: n
       <TabList aria-label="Views" className={s.tabs}>
         <Tab id="changes">Changes</Tab>
         <Tab id="history">History</Tab>
+        <Tab id="stashes">Stashes</Tab>
         {gerrit && <Tab id="reviews">Reviews</Tab>}
       </TabList>
       <TabPanel id="changes" className={s.panel}>
@@ -41,6 +42,9 @@ export function RepoView({ repo, focus }: { repo: RepoEntry; focus?: { change: n
       </TabPanel>
       <TabPanel id="history" className={s.panel}>
         <HistoryView repo={repo.id} decorate={decorate} onAmend={() => (setAmend(true), setTab('changes'))} />
+      </TabPanel>
+      <TabPanel id="stashes" className={s.panel}>
+        <StashesView repo={repo.id} />
       </TabPanel>
       {gerrit && (
         <TabPanel id="reviews" className={s.panel}>
