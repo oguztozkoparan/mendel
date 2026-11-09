@@ -73,6 +73,11 @@
   -webkit-app-region: no-drag;
 }
 
+/* concept .tb:hover; the global brightness hover is invisible on a transparent face */
+.trigger:hover:not([data-disabled]) {
+  background: var(--bg-hover);
+}
+
 .triggerText {
   flex: 1;
   min-width: 0;
