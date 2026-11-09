@@ -105,6 +105,8 @@
 :root {
   --bg-selected: color-mix(in srgb, var(--accent) 14%, transparent);
   --diff-sel: color-mix(in srgb, var(--accent) 20%, transparent);
+  /* edge ring of pressed accent keys (checkbox, radio); module CSS has no hex */
+  --a-edge: color-mix(in srgb, var(--accent), #000 32%);
 }
 
 html[data-platform='win32'] {
@@ -129,25 +131,167 @@ textarea {
   color: inherit;
 }
 
+/* Tactile (docs/ui-concept.html). State rules use :where() so module classes (.link, .trigger) still win. */
 button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   min-height: var(--ctl-h);
-  padding: 0 10px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg);
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--ctl-radius);
+  color: var(--fg);
+  font-weight: 500;
+  white-space: nowrap;
+  user-select: none;
   cursor: default;
+  background: linear-gradient(180deg, var(--face-top), var(--face-bot));
+  box-shadow: inset 0 1px 0 var(--hi), 0 0 0 1px var(--edge), 0 2px 0 var(--lip), 0 3px 6px var(--drop);
+  transition: box-shadow .09s ease-out, filter .15s, background-color .15s;
+}
+
+button:where(:hover) {
+  filter: brightness(1.04);
+}
+
+button:where(:active, [data-pressed]) {
+  background: linear-gradient(180deg, var(--face-bot), var(--face-top));
+  box-shadow: inset 0 2px 3px rgb(0 0 0 / .2), 0 0 0 1px var(--edge), 0 0 0 var(--lip), 0 1px 1px var(--drop);
+}
+
+.danger {
+  color: var(--danger);
+}
+
+.primary {
+  color: var(--on-accent);
+  background: linear-gradient(180deg, var(--a-top), var(--a-bot));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / .38), inset 0 -1px 0 rgb(0 0 0 / .1), 0 0 0 1px color-mix(in srgb, var(--accent), #000 32%), 0 2px 0 var(--a-lip), 0 5px 12px color-mix(in srgb, var(--accent) 32%, transparent);
+}
+
+.primary:where(:active, [data-pressed]) {
+  background: linear-gradient(180deg, var(--a-bot), var(--a-top));
+  box-shadow: inset 0 2px 4px rgb(0 0 0 / .28), 0 0 0 1px color-mix(in srgb, var(--accent), #000 32%), 0 0 0 var(--a-lip), 0 1px 2px var(--drop);
+}
+
+@media (prefers-color-scheme: dark) {
+  button:where(:hover) {
+    filter: brightness(1.15);
+  }
+
+  .primary:where(:not(:active, [data-pressed])) {
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / .38), inset 0 -1px 0 rgb(0 0 0 / .1), 0 0 0 1px color-mix(in srgb, var(--accent), #000 32%), 0 2px 0 var(--a-lip), 0 4px 8px color-mix(in srgb, var(--accent) 18%, transparent);
+  }
+}
+
+/* tertiary: flush tinted plate at rest, rises to a 1px key on hover */
+.ghost {
+  min-height: 0;
+  height: calc(var(--ctl-h) - 4px);
+  padding: 0 10px;
+  color: color-mix(in srgb, var(--fg) 78%, transparent);
+  background: color-mix(in srgb, var(--fg) 6%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--fg) 5%, transparent);
+}
+
+html[data-platform='win32'] .ghost,
+html[data-platform='linux'] .ghost {
+  height: 28px;
+}
+
+.ghost:where(:hover) {
+  filter: none;
+  color: var(--fg);
+  background: linear-gradient(180deg, var(--face-top), var(--face-bot));
+  box-shadow: inset 0 1px 0 var(--hi), 0 0 0 1px var(--edge), 0 1px 0 var(--lip), 0 2px 4px var(--drop);
+}
+
+.ghost:where(:active, [data-pressed]) {
+  background: linear-gradient(180deg, var(--face-bot), var(--face-top));
+  box-shadow: inset 0 1px 2px rgb(0 0 0 / .18), 0 0 0 1px var(--edge), 0 0 0 var(--lip);
+}
+
+.ghost.danger {
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 9%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--danger) 14%, transparent);
+}
+
+.ghost.danger:where(:hover) {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--danger) 16%, var(--face-top)), color-mix(in srgb, var(--danger) 10%, var(--face-bot)));
+  box-shadow: inset 0 1px 0 var(--hi), 0 0 0 1px color-mix(in srgb, var(--danger) 45%, transparent), 0 1px 0 color-mix(in srgb, var(--danger) 55%, var(--lip)), 0 2px 4px var(--drop);
+}
+
+.ghost.danger:where(:active, [data-pressed]) {
+  box-shadow: inset 0 1px 2px rgb(0 0 0 / .2), 0 0 0 1px color-mix(in srgb, var(--danger) 45%, transparent);
 }
 
 button:disabled {
+  filter: none;
   opacity: 0.5;
 }
 
-input,
+:where(button:disabled),
+.ghost:disabled {
+  box-shadow: 0 0 0 1px var(--edge);
+  background: var(--face-bot);
+}
+
+/* Deviation: the concept greys a disabled primary under on-accent text (unreadable in light mode); keep the accent face, drop the lip. */
+.primary:disabled {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent), #000 32%);
+}
+
+.icon {
+  padding: 0 4px;
+  background: transparent;
+  box-shadow: none;
+}
+
+kbd {
+  font: 500 10.5px/1.5 var(--mono);
+  padding: 0 5px;
+  margin-bottom: 1px;
+  border-radius: 4px;
+  color: var(--muted);
+  background: linear-gradient(180deg, var(--face-top), var(--face-bot));
+  box-shadow: inset 0 1px 0 var(--hi), 0 0 0 1px var(--edge), 0 1px 0 var(--lip);
+}
+
+button kbd {
+  margin-left: 2px;
+}
+
+.primary kbd {
+  color: color-mix(in srgb, var(--on-accent) 80%, transparent);
+  background: rgb(255 255 255 / .16);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / .25), 0 1px 0 rgb(0 0 0 / .22);
+}
+
+/* Recessed fields; native checkboxes/radios keep their own look. */
+input:where(:not([type='checkbox'], [type='radio'])),
 textarea {
-  padding: 4px 6px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg);
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--ctl-radius);
+  outline: none;
+  color: var(--fg);
+  background: var(--well);
+  box-shadow: inset 0 2px 3px rgb(0 0 0 / .16), inset 0 0 0 1px var(--edge), 0 1px 0 var(--hi-low);
+  transition: box-shadow .18s ease-out;
+}
+
+input:where(:not([type='checkbox'], [type='radio'])) {
+  height: var(--ctl-h);
+}
+
+textarea {
+  padding: 8px 10px;
+}
+
+:is(input, textarea)::placeholder {
+  color: var(--muted);
 }
 
 :is(button, input, textarea, [role='row'], [role='tab']):focus-visible,
@@ -156,16 +300,100 @@ textarea {
   box-shadow: var(--focus);
 }
 
-.primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--on-accent);
+:is(input:not([type='checkbox'], [type='radio']), textarea):focus {
+  box-shadow: inset 0 2px 3px rgb(0 0 0 / .16), inset 0 0 0 1px var(--accent), 0 1px 0 var(--hi-low), 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent);
 }
 
-.icon {
-  padding: 0 4px;
-  border-color: transparent;
-  background: transparent;
+:is(input, textarea):is([aria-invalid='true'], [data-invalid]) {
+  box-shadow: inset 0 2px 3px rgb(0 0 0 / .16), inset 0 0 0 1px var(--danger), 0 0 0 3px color-mix(in srgb, var(--danger) 18%, transparent);
+}
+
+/* Switch (react-aria Switch, see controls.tsx): recessed track, round knob. */
+.switch {
   display: inline-flex;
   align-items: center;
+  gap: 9px;
+}
+
+.switch .track {
+  position: relative;
+  flex: none;
+  width: 36px;
+  height: 20px;
+  border-radius: 10px;
+  background: var(--well);
+  box-shadow: inset 0 1px 3px rgb(0 0 0 / .32), inset 0 0 0 1px var(--edge), 0 1px 0 var(--hi-low);
+  transition: background-color .2s, box-shadow .2s;
+}
+
+.switch[data-selected] .track {
+  background: color-mix(in srgb, var(--accent), #000 4%);
+  box-shadow: inset 0 1px 3px rgb(0 0 0 / .35), inset 0 0 0 1px color-mix(in srgb, var(--accent), #000 30%), 0 1px 0 var(--hi-low);
+}
+
+.switch .knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff, #ececec 55%, #cfcfcf);
+  box-shadow: 0 1px 0 rgb(0 0 0 / .18), 0 2px 4px rgb(0 0 0 / .35), 0 0 0 .5px rgb(0 0 0 / .25);
+  transition: transform .2s;
+}
+
+.switch[data-selected] .knob {
+  transform: translateX(16px);
+}
+
+.switch[data-focus-visible] .track {
+  box-shadow: var(--focus);
+}
+
+.switch[data-disabled] {
+  opacity: 0.5;
+}
+
+/* Segmented (react-aria ToggleButtonGroup, see controls.tsx): recessed rail, raised thumb. */
+.segmented {
+  position: relative;
+  display: inline-flex;
+  padding: 3px;
+  border-radius: calc(var(--ctl-radius) + 3px);
+  background: var(--well);
+  box-shadow: inset 0 2px 3px rgb(0 0 0 / .14), inset 0 0 0 1px var(--edge), 0 1px 0 var(--hi-low);
+}
+
+.segmented .thumb {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 0;
+  border-radius: var(--ctl-radius);
+  background: linear-gradient(180deg, var(--face-top), var(--face-bot));
+  box-shadow: inset 0 1px 0 var(--hi), 0 0 0 1px var(--edge), 0 1px 0 var(--lip), 0 2px 4px var(--drop);
+  pointer-events: none;
+}
+
+.segmented > button {
+  position: relative;
+  z-index: 1;
+  min-height: 0;
+  height: calc(var(--ctl-h) - 4px);
+  padding: 0 12px;
+  border-radius: var(--ctl-radius);
+  background: transparent;
+  box-shadow: none;
+  filter: none;
+  color: var(--muted);
+  transition: color .2s;
+}
+
+.segmented > button[data-selected] {
+  color: var(--fg);
+}
+
+.segmented > button[data-focus-visible] {
+  box-shadow: var(--focus);
 }

@@ -48,21 +48,24 @@
 .radio {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 9px;
 }
 
+/* Tactile radio (concept .radio): raised round key; on = pressed accent with an on-accent dot. */
 .radio::before {
   content: '';
-  width: 12px;
-  height: 12px;
-  border: 1px solid var(--border);
+  flex: none;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
+  background: linear-gradient(180deg, var(--face-top), var(--face-bot));
+  box-shadow: inset 0 1px 0 var(--hi), 0 0 0 1px var(--edge), 0 1px 0 var(--lip), 0 2px 3px var(--drop);
+  transition: box-shadow .12s, background .12s;
 }
 
 .radio[data-selected]::before {
-  border: 4px solid var(--accent);
-  width: 6px;
-  height: 6px;
+  background: radial-gradient(circle, var(--on-accent) 3px, transparent 3.5px), linear-gradient(180deg, var(--a-bot), var(--a-top));
+  box-shadow: inset 0 1px 2px rgb(0 0 0 / .32), 0 0 0 1px var(--a-edge), 0 1px 0 var(--hi-low);
 }
 
 .number {

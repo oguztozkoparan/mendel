@@ -17,6 +17,7 @@
 .link {
   border: none;
   background: none;
+  box-shadow: none;
   padding: 0;
   font-size: 12px;
   opacity: 0.7;

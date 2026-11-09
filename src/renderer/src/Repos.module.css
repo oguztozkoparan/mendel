@@ -57,6 +57,7 @@
   border-radius: 0;
   border-right: 1px solid var(--border);
   background: transparent;
+  box-shadow: none;
   text-align: left;
   -webkit-app-region: no-drag;
 }

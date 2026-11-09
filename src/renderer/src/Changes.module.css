@@ -140,23 +140,28 @@
   -webkit-app-region: no-drag;
 }
 
+/* Tactile checkbox (concept .chk): small raised key, pressed in and accent when on. */
 .box {
-  width: 14px;
-  height: 14px;
-  border: 1px solid var(--border);
-  border-radius: 3px;
-  background: var(--bg);
+  flex: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 5px;
+  background: linear-gradient(180deg, var(--face-top), var(--face-bot));
+  box-shadow: inset 0 1px 0 var(--hi), 0 0 0 1px var(--edge), 0 1px 0 var(--lip), 0 2px 3px var(--drop);
+  transition: box-shadow .12s, background .12s;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   font-size: 11px;
+  font-weight: 700;
   line-height: 1;
 }
 
 .checkbox[data-selected] .box,
-.checkbox[data-indeterminate] .box {
-  background: var(--accent);
-  border-color: var(--accent);
+.checkbox[data-indeterminate] .box,
+.amend[data-selected] .box {
+  background: linear-gradient(180deg, var(--a-bot), var(--a-top));
+  box-shadow: inset 0 1px 2px rgb(0 0 0 / .32), 0 0 0 1px var(--a-edge), 0 1px 0 var(--hi-low);
   color: var(--on-accent);
 }
 
@@ -216,8 +221,8 @@
 }
 
 .ruler {
-  /* 6px = textarea padding-left (global.css) */
-  background-image: linear-gradient(to right, transparent calc(6px + 72ch), var(--border) calc(6px + 72ch), var(--border) calc(7px + 72ch), transparent calc(7px + 72ch));
+  /* 10px = textarea padding-left (global.css) */
+  background-image: linear-gradient(to right, transparent calc(10px + 72ch), var(--border) calc(10px + 72ch), var(--border) calc(11px + 72ch), transparent calc(11px + 72ch));
   background-attachment: local;
 }
 
@@ -225,12 +230,6 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-}
-
-.amend[data-selected] .box {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--on-accent);
 }
 
 .amend[data-disabled] {
