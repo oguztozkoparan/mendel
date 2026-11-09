@@ -223,13 +223,15 @@ function CommitView(p: { repo: string; sha: string; pick?: 'cherry-pick' | 'reve
   return (
     <div className={s.detail} aria-label="Commit detail">
       <h2 className={s.title}>{summary}</h2>
-      {p.onAmend && <Button onPress={p.onAmend}>Amend last commit</Button>}
-      {/* Merge commits need a mainline (-m): not offered. */}
-      {p.pick && d.parents.length < 2 && (
-        <Button isDisabled={busy} onPress={pick}>
-          {p.pick === 'revert' ? 'Revert commit' : 'Cherry-pick onto current branch'}
-        </Button>
-      )}
+      <div className={s.actions}>
+        {p.onAmend && <Button onPress={p.onAmend}>Amend last commit</Button>}
+        {/* Merge commits need a mainline (-m): not offered. */}
+        {p.pick && d.parents.length < 2 && (
+          <Button isDisabled={busy} onPress={pick}>
+            {p.pick === 'revert' ? 'Revert commit' : 'Cherry-pick onto current branch'}
+          </Button>
+        )}
+      </div>
       {error && <p role="alert" className={c.empty}>{error}</p>}
       {body.join('\n').trim() && <pre className={s.message}>{body.join('\n').trim()}</pre>}
       <dl className={s.fields}>
@@ -248,7 +250,7 @@ function CommitView(p: { repo: string; sha: string; pick?: 'cherry-pick' | 'reve
         <dt>SHA</dt>
         <dd>
           <code>{d.sha}</code>{' '}
-          <Button onPress={() => void window.mendel['app:copy']({ text: d.sha }).then(() => setCopied(true))}>{copied ? 'Copied' : 'Copy'}</Button>
+          <Button className="ghost" onPress={() => void window.mendel['app:copy']({ text: d.sha }).then(() => setCopied(true))}>{copied ? 'Copied' : 'Copy'}</Button>
         </dd>
         {d.parents.length > 0 && (
           <>
@@ -263,7 +265,7 @@ function CommitView(p: { repo: string; sha: string; pick?: 'cherry-pick' | 'reve
           <CommitTags repo={p.repo} sha={d.sha} />
         </dd>
       </dl>
-      <Virtualizer layout={ListLayout} layoutOptions={{ rowHeight: 26 }}>
+      <Virtualizer layout={ListLayout} layoutOptions={{ rowHeight: 30 }}>
         <ListBox
           aria-label="Changed files"
           items={d.files}
@@ -288,15 +290,11 @@ function CommitView(p: { repo: string; sha: string; pick?: 'cherry-pick' | 'reve
           )}
         </ListBox>
       </Virtualizer>
-      {f && p.onFileHistory && (
-        <Button className={s.fileHistory} onPress={() => p.onFileHistory?.(f.path)}>
-          File history
-        </Button>
-      )}
-      {/* A deleted file has nothing to blame at this commit. */}
-      {f && f.status !== 'D' && (
-        <div>
-          <Button onPress={() => setBlame(!blame)}>{blame ? 'Show diff' : 'Blame'}</Button>
+      {f && (p.onFileHistory || f.status !== 'D') && (
+        <div className={s.fileActions}>
+          {p.onFileHistory && <Button onPress={() => p.onFileHistory?.(f.path)}>File history</Button>}
+          {/* A deleted file has nothing to blame at this commit. */}
+          {f.status !== 'D' && <Button onPress={() => setBlame(!blame)}>{blame ? 'Show diff' : 'Blame'}</Button>}
         </div>
       )}
       {f && (blame && f.status !== 'D' ? <BlameView key={f.path} repo={p.repo} sha={d.sha} path={f.path} onPick={p.onPick} /> : <CommitFileDiff repo={p.repo} sha={d.sha} file={f} />)}
@@ -332,7 +330,7 @@ function CommitTags(p: { repo: string; sha: string }) {
             <Button onPress={() => void run(window.mendel['tag:delete']({ repo: p.repo, name: t.name }))}>Delete…</Button>{' '}
           </span>
         ))}
-      <form onSubmit={submit} aria-label="Create tag">
+      <form onSubmit={submit} aria-label="Create tag" className={s.tagForm}>
         <TextField value={name} onChange={setName} aria-label="Tag name">
           <Input placeholder="Tag name" spellCheck={false} />
         </TextField>

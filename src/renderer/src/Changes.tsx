@@ -73,7 +73,7 @@ export function ChangesView({ repo, amend, onAmendDone }: { repo: RepoEntry; ame
           )}
           {files.length === 1 ? '1 changed file' : `${files.length} changed files`}
         </div>
-        <Virtualizer layout={ListLayout} layoutOptions={{ rowHeight: 26 }}>
+        <Virtualizer layout={ListLayout} layoutOptions={{ rowHeight: 30 }}>
           <GridList
             aria-label="Changed files"
             items={files}

@@ -1,7 +1,9 @@
+/* concept .listhead: 11/600 muted panel title, checkbox aligned with the rows' */
 .listHeader {
-  padding: 6px 10px;
+  padding: 6px 14px;
   color: var(--muted);
-  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+  font-weight: 600;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -12,15 +14,22 @@
   min-height: 0;
   overflow: auto;
   outline: none;
+  padding-bottom: 8px;
 }
 
+/* concept .file: 30px rows; the selection plate is inset 6px with the control radius (rows are full-width for the Virtualizer) */
 .row {
   display: flex;
   align-items: center;
-  gap: 6px;
-  height: 26px;
-  padding: 0 10px;
+  gap: 8px;
+  height: 30px;
+  padding: 0 14px;
   box-sizing: border-box;
+}
+
+.row :global(.hl) {
+  inset: 0 6px;
+  border-radius: var(--ctl-radius);
 }
 
 .path {
@@ -80,26 +89,29 @@
   font-size: 12px;
 }
 
+/* concept .fhead: 44px bar, mono path left, actions right */
 .fileHeader {
   display: flex;
   align-items: center;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: 6px 10px;
   position: sticky;
   top: 0;
   z-index: 1;
+  box-sizing: border-box;
+  min-height: 44px;
   margin: 0;
-  padding: 8px 12px;
+  padding: 6px 12px 6px 16px;
   font-size: 13px;
-  font-weight: 600;
   background: var(--bg);
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
   overflow-wrap: anywhere;
 }
 
 .fileHeader h2 {
   flex: 1;
   margin: 0;
-  font-size: inherit;
+  font: 12px var(--mono);
 }
 
 .sectionTitle {
@@ -175,12 +187,13 @@
   font-size: 11px;
 }
 
+/* concept .commit */
 .commitBox {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 10px;
-  border-top: 1px solid var(--border);
+  gap: 8px;
+  padding: 12px 12px 14px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
 }
 
 .summaryField {
