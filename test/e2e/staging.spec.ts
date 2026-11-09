@@ -47,3 +47,31 @@ test('stage/unstage files with checkboxes and single hunks', async () => {
     fx.cleanup()
   }
 })
+
+test('stage/unstage single lines of a hunk', async () => {
+  const fx = createRepoFixture()
+  fx.commitFile('f.txt', 'a\nb\nc\n')
+  writeFileSync(path.join(fx.work, 'f.txt'), 'a\nB\nC\n')
+  const app = await launchApp(fx.env)
+  const { win } = app
+  try {
+    await openRepo(app, fx.work)
+    await win.getByRole('grid', { name: 'Changed files' }).getByRole('row', { name: 'f.txt' }).click()
+    const unstaged = win.getByRole('region', { name: 'Unstaged diff' })
+    await toggle(unstaged.getByRole('checkbox', { name: 'Removed line 2' }))
+    await toggle(unstaged.getByRole('checkbox', { name: 'Added line 2' }))
+    await unstaged.getByRole('button', { name: 'Stage lines' }).click()
+    const staged = win.getByRole('region', { name: 'Staged diff', exact: true })
+    await expect(staged).toContainText('B')
+    expect(fx.git(['show', ':f.txt'])).toBe('a\nB\nc')
+
+    await toggle(staged.getByRole('checkbox', { name: 'Removed line 2' }))
+    await toggle(staged.getByRole('checkbox', { name: 'Added line 2' }))
+    await staged.getByRole('button', { name: 'Unstage lines' }).click()
+    await expect(staged).toHaveCount(0)
+    expect(fx.git(['diff', '--cached', '--name-only'])).toBe('')
+  } finally {
+    await app.close()
+    fx.cleanup()
+  }
+})
