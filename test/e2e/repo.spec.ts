@@ -17,7 +17,7 @@ test('open a repo subfolder opens the top level, adds to recents and reopens on 
     await expect(toolbar).toContainText('work')
     await expect(win.getByRole('tab', { name: 'Changes' })).toHaveAttribute('aria-selected', 'true')
     await toolbar.getByRole('button').first().click()
-    await expect(win.getByRole('dialog', { name: 'Repositories' }).getByRole('row')).toHaveText([/work.*\/work/])
+    await expect(win.getByRole('dialog', { name: 'Repositories' }).getByRole('row')).toHaveText([/work.*[\\/]work/])
     await close()
     ;({ app, win, close } = await launchApp({ ...fx.env, MENDEL_E2E_USERDATA: userData }))
     await expect(win.getByLabel('Toolbar')).toContainText('work')

@@ -116,7 +116,9 @@ test('window bounds persist; a second launch focuses the first instance', async 
   const env = { ...fx.env, MENDEL_E2E_USERDATA: userData }
   let l = await launchApp(env)
   try {
-    const set = { x: 50, y: 60, width: 1000, height: 700 }
+    // Fit the display (macOS CI is 1024×768), or fitBounds rightly moves the window on relaunch.
+    const wa = await l.app.evaluate(({ screen }) => screen.getPrimaryDisplay().workArea)
+    const set = { x: wa.x + 10, y: wa.y + 10, width: Math.min(1000, wa.width - 20), height: Math.min(640, wa.height - 20) }
     await l.app.evaluate(({ BrowserWindow }, b) => BrowserWindow.getAllWindows()[0]!.setBounds(b), set)
     await l.close()
     l = await launchApp(env)
