@@ -96,6 +96,7 @@ export function SettingsDialog(p: { repo?: string; onClose(): void }) {
                 options={[[1, 'Every minute'], [5, 'Every 5 min'], [15, 'Every 15 min'], [30, 'Every 30 min']]}
                 onChange={(reviewsRefreshMinutes) => set({ reviewsRefreshMinutes })}
               />
+              <Toggle label="Review notifications" value={st.reviewNotifications} onChange={(reviewNotifications) => set({ reviewNotifications })} />
             </TabPanel>
             <TabPanel id="Updates" className={s.panel}>
               <Toggle label="Check for updates automatically" value={st.autoUpdateCheck} onChange={(autoUpdateCheck) => set({ autoUpdateCheck })} />

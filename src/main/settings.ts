@@ -17,6 +17,7 @@ export const DEFAULTS: Settings = {
   showWhitespace: false,
   autoUpdateCheck: true,
   reviewsRefreshMinutes: 5,
+  reviewNotifications: true,
   editor: 'system',
   editorPath: '',
   terminal: 'system',

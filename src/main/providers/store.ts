@@ -13,7 +13,9 @@ const schema = z.object({
     .record(z.string(), z.object({ provider: z.enum(['auto', 'gerrit', 'none']), baseUrl: z.string().optional(), version: z.string().optional() }))
     .default({}),
   /** Gerrit host (with port) → username + safeStorage-encrypted secret (base64). */
-  credentials: z.record(z.string(), z.object({ username: z.string(), secret: z.string() })).default({})
+  credentials: z.record(z.string(), z.object({ username: z.string(), secret: z.string() })).default({}),
+  /** Gerrit host → incoming change numbers at the last review-notification poll. */
+  seenIncoming: z.record(z.string(), z.array(z.number())).default({})
 })
 export type ProviderStore = z.infer<typeof schema>
 

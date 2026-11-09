@@ -175,6 +175,8 @@ const prefs = z
     autoUpdateCheck: z.boolean(),
     /** Gerrit Reviews tab auto-refresh. */
     reviewsRefreshMinutes: z.union([z.literal(1), z.literal(5), z.literal(15), z.literal(30)]),
+    /** OS notification for new incoming reviews while the window is unfocused. */
+    reviewNotifications: z.boolean(),
     /** 'system' (OS default), 'custom' (`editorPath`) or a detected tool id (`app:tools`). */
     editor: z.string().min(1).max(64),
     /** Custom editor executable; set only through the native picker in main (`settings:pickTool`). */
@@ -491,7 +493,9 @@ export const events = {
   /** Main made `repo` current on its own (`mendel <dir>` launch): refetch the repo list. */
   'repo:opened': null as unknown as { repo: string },
   'update:state': null as unknown as UpdateState,
-  'menu:command': null as unknown as MenuCommand
+  'menu:command': null as unknown as MenuCommand,
+  /** A review notification was clicked: show change `change` of `repo` in Reviews. */
+  'gerrit:openChange': null as unknown as { repo: string; change: number }
 } as const
 
 /**

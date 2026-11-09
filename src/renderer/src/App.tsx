@@ -51,6 +51,7 @@ export function App() {
   const list = useQuery({ queryKey: ['repos'], queryFn: () => window.mendel['repo:list'](), enabled: usable })
   const repos = list.data?.repos ?? []
   const current = repos.find((r) => r.id === list.data?.current)
+  useEffect(() => window.mendel.on('gerrit:openChange', (e) => e.repo === current?.id && setFocus({ change: e.change })), [current?.id])
   const provider = useQuery({ queryKey: ['provider', current?.id], queryFn: () => window.mendel['provider:get']({ repo: current!.id }), enabled: !!current })
   const gerrit = provider.data?.detection?.provider === 'gerrit'
   const sent = (r: GerritSent) => {
