@@ -99,10 +99,10 @@ export function App() {
     <div className={s.app}>
       <header className={s.toolbar} aria-label="Toolbar">
         {current && <RepoSelector repos={repos} current={current} actions={actions} />}
-        {current && <BranchSelector key={current.id} repo={current.id} onError={onError} />}
+        {current && <BranchSelector key={`branch:${current.id}`} repo={current.id} onError={onError} />}
         {current && (
           <SyncButton
-            key={current.id}
+            key={`sync:${current.id}`}
             repo={current.id}
             onError={onError}
             onNotice={setNotice}
@@ -126,8 +126,8 @@ export function App() {
           </Toast>
         )}
       </AnimatePresence>
-      {current && <ConflictBanner key={current.id} repo={current.id} onError={onError} />}
-      {current && <StashBanner key={current.id} repo={current.id} onError={onError} />}
+      {current && <ConflictBanner key={`conflict:${current.id}`} repo={current.id} onError={onError} />}
+      {current && <StashBanner key={`stash:${current.id}`} repo={current.id} onError={onError} />}
       {current ? (
         <RepoView key={current.id} repo={current} focus={focus} />
       ) : (
