@@ -115,8 +115,22 @@ describe('branches', () => {
     await stashAction(fx.work, first.sha, 'pop', fx.env)
     expect(read('README.md')).toBe('one\n')
     expect((await listStashes(fx.work, fx.env)).map((x) => x.sha)).toEqual([second.sha])
-    await stashAction(fx.work, second.sha, 'drop', fx.env)
+    expect(await stashAction(fx.work, second.sha, 'drop', fx.env)).toBe('ok')
     expect(await listStashes(fx.work, fx.env)).toEqual([])
+  })
+
+  it('apply / pop conflicting with HEAD -> conflict, unmerged file, pop keeps the stash', async () => {
+    fx = createRepoFixture()
+    writeFileSync(path.join(fx.work, 'README.md'), 'stashed\n')
+    fx.git(['stash', 'push', '-q'])
+    fx.commitFile('README.md', 'committed\n')
+    const [entry] = (await listStashes(fx.work, fx.env)) as [StashEntry]
+    for (const action of ['apply', 'pop'] as const) {
+      expect(await stashAction(fx.work, entry.sha, action, fx.env)).toBe('conflict')
+      expect(fx.git(['ls-files', '--unmerged'])).toContain('README.md')
+      expect(await listStashes(fx.work, fx.env)).toHaveLength(1)
+      fx.git(['reset', '-q', '--hard'])
+    }
   })
 
   it('detached HEAD has no current branch but a short sha', async () => {

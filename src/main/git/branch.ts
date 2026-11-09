@@ -1,5 +1,6 @@
-import type { BranchInfo, Branches, StashEntry } from '../../shared/ipc'
+import type { BranchInfo, Branches, StashEntry, SyncResult } from '../../shared/ipc'
 import { endOfOptions, git, GitError } from './runner'
+import { conflictAware } from './sync'
 
 /** Message of stashes made by "Stash & switch"; git stores the subject as `On <branch>: mendel-stash`. */
 export const STASH_MSG = 'mendel-stash'
@@ -123,12 +124,15 @@ export async function listStashes(cwd: string, env?: NodeJS.ProcessEnv): Promise
     })
 }
 
-/** Apply, pop or drop the stash with commit `sha`; its `stash@{n}` is looked up now, so a shifted list cannot hit the wrong entry. */
-export async function stashAction(cwd: string, sha: string, action: 'apply' | 'pop' | 'drop', env?: NodeJS.ProcessEnv): Promise<void> {
+/**
+ * Apply, pop or drop the stash with commit `sha`; its `stash@{n}` is looked up now, so a shifted list cannot hit the wrong entry.
+ * 'conflict' = apply/pop left unmerged files (a conflicting pop keeps the stash); nothing to continue, only files to resolve.
+ */
+export async function stashAction(cwd: string, sha: string, action: 'apply' | 'pop' | 'drop', env?: NodeJS.ProcessEnv): Promise<SyncResult> {
   const { stdout } = await git(['stash', 'list', '--format=%gd%x00%H'], { cwd, env })
   const ref = stdout.split('\n').map((l) => l.split('\0')).find(([r, h]) => r && h === sha)?.[0]
   if (!ref) throw new Error('Unknown stash')
-  await git(['stash', action, '--quiet', ref], { cwd, env })
+  return conflictAware(cwd, git(['stash', action, '--quiet', ref], { cwd, env }), env)
 }
 
 /** `git branch -d`; with `force` `-D`. 'unmerged' = -d refused because the branch is not fully merged. */

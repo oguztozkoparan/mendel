@@ -348,8 +348,8 @@ export const invoke = {
   'branch:delete': res<boolean>()(z.object({ repo: repoId, name: branchName }).strict()),
   /** All stashes, newest first. */
   'stash:list': res<StashEntry[]>()(inRepo),
-  /** Apply, pop or drop (native confirm first; false = cancelled) the stash with commit `sha`. */
-  'stash:action': res<boolean>()(z.object({ repo: repoId, sha, action: z.enum(['apply', 'pop', 'drop']) }).strict()),
+  /** Apply, pop or drop (native confirm first; false = cancelled) the stash with commit `sha`; 'conflict' = apply/pop left unmerged files. */
+  'stash:action': res<SyncResult | false>()(z.object({ repo: repoId, sha, action: z.enum(['apply', 'pop', 'drop']) }).strict()),
   /** Restore (pop) or discard (confirm first) the current branch's "Stash & switch" changes. false = cancelled. */
   'branch:stash': res<boolean>()(z.object({ repo: repoId, action: z.enum(['restore', 'discard']) }).strict()),
   'sync:state': res<SyncState>()(inRepo),
