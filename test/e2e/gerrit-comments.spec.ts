@@ -84,6 +84,8 @@ test('reply sends one review POST with message, labels and pending comments; fai
   const { fx, userData } = g
   g = { ...g, ...relaunched, close: async () => (await relaunched.close(), fx.cleanup(), rmSync(path.dirname(userData), { recursive: true, force: true })) }
   win = g.win
+  // Linux CI has no keyring (basic_text): the credential is session-only by design (TECH.md §6.5), so connect again.
+  if (process.platform === 'linux') await connectGerrit(win, mock)
   await win.getByRole('tab', { name: 'Reviews' }).click()
   diff = await openFile(win)
   await expect(diff.getByRole('group', { name: 'Draft comment' })).toHaveCount(2)

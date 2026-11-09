@@ -123,13 +123,17 @@ test('window bounds persist; a second launch focuses the first instance', async 
     await l.win.waitForLoadState()
     expect(await l.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.getBounds())).toEqual(set)
 
-    await l.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.minimize())
-    await expect.poll(() => l.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.isMinimized())).toBe(true)
+    // xvfb has no window manager, so minimize is a no-op on Linux CI.
+    const wm = process.platform !== 'linux'
+    if (wm) {
+      await l.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.minimize())
+      await expect.poll(() => l.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.isMinimized())).toBe(true)
+    }
     const electron = (await import('electron')).default as unknown as string
     const second = spawn(electron, ['out/main/index.js'], { env: { ...env, ELECTRON_RUN_AS_NODE: undefined }, stdio: 'ignore' })
     const code = await new Promise<number | null>((r) => second.on('exit', r))
     expect(code).toBe(0)
-    await expect.poll(() => l.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.isMinimized())).toBe(false)
+    if (wm) await expect.poll(() => l.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.isMinimized())).toBe(false)
     expect(await l.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length)).toBe(1)
   } finally {
     await l.close()
