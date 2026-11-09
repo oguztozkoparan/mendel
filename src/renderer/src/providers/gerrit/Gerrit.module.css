@@ -148,6 +148,11 @@
   min-width: 110px;
 }
 
+.attention {
+  color: var(--accent);
+  font-weight: 600;
+}
+
 .vote[data-vote='1'] {
   color: #2da44e;
 }

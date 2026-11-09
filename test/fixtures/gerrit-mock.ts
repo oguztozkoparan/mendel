@@ -75,6 +75,9 @@ export function defaultChanges(): MockChange[] {
       },
       permitted_labels: { 'Code-Review': ['-2', '-1', ' 0', '+1', '+2'], Verified: ['-1', ' 0', '+1'] },
       reviewers: { REVIEWER: [OTHER, SELF] },
+      // 3.3+ fields (a 3.1 server omits them); the UI shows them only when present.
+      attention_set: { [SELF._account_id]: { account: SELF, last_update: ts('2026-11-02'), reason: 'Ada Reviewer replied on the change' } },
+      hashtags: ['ux'],
       current_revision: sha('b'),
       revisions: {
         [sha('a')]: { kind: 'REWORK', _number: 1, created: ts('2026-11-01'), uploader: SELF, ref: 'refs/changes/01/101/1', commit: { subject: 'Add feature X' } },
@@ -243,6 +246,12 @@ export async function startGerritMock(opts: GerritMockOptions = {}): Promise<Ger
     if (m[2] && !rev) return text(404, 'Not found')
     const rest = m[3]
     const body = req.body ? JSON.parse(req.body) : {}
+    const att = /^attention\/([^/]+)\/delete$/.exec(rest)
+    if (req.method === 'POST' && att) {
+      const id = decodeURIComponent(att[1])
+      delete c.attention_set?.[id === 'self' ? SELF._account_id : id]
+      return { status: 204, body: '' }
+    }
     const key = `${req.method} ${m[2] ? 'rev/' : ''}${rest.replace(/^files\/[^/]+\/diff$/, 'files/:path/diff')}`
     switch (key) {
       case 'GET detail':
@@ -272,6 +281,15 @@ export async function startGerritMock(opts: GerritMockOptions = {}): Promise<Ger
         if (body.message) c.messages.push({ id: `msg${nextId++}`, author: SELF, date: ts('2026-11-04'), message: `Patch Set ${ps}:\n\n${body.message}`, _revision_number: ps })
         return json({ labels: body.labels ?? {} })
       }
+      case 'POST attention': {
+        const a = [SELF, OTHER].find((x) => String(x._account_id) === body.user)
+        if (!a || !body.reason) return text(400, 'bad attention input')
+        ;(c.attention_set ??= {})[a._account_id] = { account: a, last_update: ts('2026-11-04'), reason: body.reason }
+        return json(a)
+      }
+      case 'POST hashtags':
+        c.hashtags = [...new Set([...(c.hashtags ?? []), ...(body.add ?? [])])].filter((h) => !(body.remove ?? []).includes(h)).sort()
+        return json(c.hashtags)
       case 'POST submit':
         c.status = 'MERGED'
         c.actions = {}

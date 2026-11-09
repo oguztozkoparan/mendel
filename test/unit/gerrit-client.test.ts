@@ -1,7 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { GERRIT_AUTH_ERROR } from '../../src/shared/gerrit'
 import { gerritClient, HINT_TIMEOUT_MS, parseGerritJson } from '../../src/main/providers/gerrit/client'
-import { SELF, startGerritMock, type GerritMock } from '../fixtures/gerrit-mock'
+import { invoke } from '../../src/shared/ipc'
+import { OTHER, SELF, startGerritMock, type GerritMock } from '../fixtures/gerrit-mock'
 
 let mock: GerritMock
 beforeAll(async () => void (mock = await startGerritMock()))
@@ -42,6 +43,20 @@ describe('gerrit client', () => {
   it('escapes quotes and backslashes in the project query term (S10)', async () => {
     await client().listChanges('a" OR owner:x \\')
     expect(decodeURIComponent(mock.find('GET', '/a/changes/').at(-1)!.url)).toContain('project:"a\\" OR owner:x \\\\"')
+  })
+
+  it('edits the attention set (remove self answers 204 No Content) and hashtags', async () => {
+    await client().attention(101, 'self', false, 'r')
+    expect(mock.find('POST', '/a/changes/101/attention/self/delete').at(-1)!.body).toBe('{"reason":"r"}')
+    await client().attention(101, OTHER._account_id, true, 'r')
+    expect(Object.keys((await client().change(101)).attention_set ?? {})).toEqual([String(OTHER._account_id)])
+    expect(await client().hashtags(101, ['b', 'a'], ['ux'])).toEqual(['a', 'b'])
+  })
+
+  it('rejects hashtags with whitespace, commas or control characters at the IPC boundary', () => {
+    const ok = (tag: string) => invoke['gerrit:hashtags'].req.safeParse({ repo: '/r', change: 1, add: [tag], remove: [] }).success
+    expect(ok('release-1.2')).toBe(true)
+    for (const bad of ['', 'a b', 'a,b', 'a\tb', 'a\u0000', 'x'.repeat(101)]) expect(ok(bad)).toBe(false)
   })
 
   it('reports unreachable servers', async () => {

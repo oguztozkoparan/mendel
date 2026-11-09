@@ -74,7 +74,7 @@ export function gerritClient(baseUrl: string, auth: GerritAuth, fetchFn: Fetch) 
     if (res.status === 401) throw new GerritHttpError(401, GERRIT_AUTH_ERROR)
     if (!res.ok) throw new GerritHttpError(res.status, `Gerrit error ${res.status}: ${text.trim().split('\n')[0].slice(0, 300) || res.statusText}`)
     try {
-      return schema.parse(parseGerritJson(text))
+      return schema.parse(res.status === 204 ? undefined : parseGerritJson(text))
     } catch {
       throw new Error(`Unexpected response from Gerrit for ${method} ${path.split('?')[0]}`)
     }
@@ -116,6 +116,15 @@ export function gerritClient(baseUrl: string, auth: GerritAuth, fetchFn: Fetch) 
     /** Change-level POST: submit, abandon (optional message) or server-side rebase. */
     action: (n: number, action: 'submit' | 'abandon' | 'rebase', message?: string) =>
       call(z.unknown(), 'POST', `changes/${enc(n)}/${action}`, message ? { message } : {}),
+
+    /** Attention set (3.3+): add `account` or remove it (`self` = me); Gerrit requires a reason. */
+    attention: (n: number, account: number | 'self', add: boolean, reason: string) =>
+      add
+        ? call(z.unknown(), 'POST', `changes/${enc(n)}/attention`, { user: String(account), reason })
+        : call(z.unknown(), 'POST', `changes/${enc(n)}/attention/${enc(account)}/delete`, { reason }),
+
+    /** Resolves with the change's hashtags after the edit. */
+    hashtags: (n: number, add: string[], remove: string[]) => call(z.array(z.string()), 'POST', `changes/${enc(n)}/hashtags`, { add, remove }),
 
     diff: (n: number, rev: string, path: string, base?: number) =>
       call(diffSchema, 'GET', `changes/${enc(n)}/revisions/${enc(rev)}/files/${enc(path)}/diff?intraline=false${base ? `&base=${enc(base)}` : ''}`)

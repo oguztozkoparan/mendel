@@ -1,4 +1,4 @@
-// Gerrit REST shapes we use (Gerrit >= 2.15, primary target 3.1.3; no attention set / submit_requirements).
+// Gerrit REST shapes we use (Gerrit >= 2.15, primary target 3.1.3; attention set only when the server sends it (3.3+); no submit_requirements).
 // Main zod-parses every response with these (unknown keys stripped); the renderer imports the types only.
 import { z } from 'zod'
 
@@ -9,6 +9,9 @@ export const GERRIT_REBASE_CONFLICT = 'Gerrit could not rebase this change becau
 
 /** Push-option values (topic, reviewer email/username), TECH.md §6.3: no `,` `%` `=` or spaces that could add options. */
 export const PUSH_OPTION_VALUE = /^[A-Za-z0-9._@+-]+$/
+
+/** One hashtag: no whitespace, commas (Gerrit's separator) or control characters. */
+export const HASHTAG = /^[^\s,\0-\x1f\x7f]+$/
 
 /** `refs/for/<target>%topic=t,r=a@b.c,wip|ready` (PLAN.md §3.9, §5.5); throws on a value outside PUSH_OPTION_VALUE. */
 export function reviewRef(target: string, o: { topic?: string; reviewers: string[]; wip: boolean; ready?: boolean }): string {
@@ -110,7 +113,10 @@ export const changeSchema = z.object({
   revisions: z.record(z.string(), revisionSchema).optional(),
   /** CURRENT_ACTIONS change-level actions: abandon, restore, … */
   actions: z.record(z.string(), actionSchema).optional(),
-  messages: z.array(messageSchema).optional()
+  messages: z.array(messageSchema).optional(),
+  /** 3.3+: account id → who has to act next (absent on older servers). */
+  attention_set: z.record(z.string(), z.object({ account: accountSchema, reason: z.string().optional() })).optional(),
+  hashtags: z.array(z.string()).optional()
 })
 export type GerritLabel = z.infer<typeof labelSchema>
 export type GerritChange = z.infer<typeof changeSchema>

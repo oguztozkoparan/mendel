@@ -5,7 +5,7 @@
 // Main must implement every `invoke` channel (see src/main/ipc/index.ts); preload exposes each one as
 // `window.mendel['<channel>'](req)` and `window.mendel.on('<event>', cb)`.
 import { z } from 'zod'
-import { draftSchema, PUSH_OPTION_VALUE, type GerritChange, type GerritCommit, type GerritSent, type GerritChangeLists, type GerritComment, type GerritConnected, type GerritDiff, type GerritFiles } from './gerrit'
+import { draftSchema, HASHTAG, PUSH_OPTION_VALUE, type GerritChange, type GerritCommit, type GerritSent, type GerritChangeLists, type GerritComment, type GerritConnected, type GerritDiff, type GerritFiles } from './gerrit'
 
 const res = <Res>() => <Req extends z.ZodType>(req: Req) => ({ req, res: null as unknown as Res })
 
@@ -265,6 +265,7 @@ const paths = z.object({ repo: repoId, paths: z.array(relPath).min(1).max(100_00
 /** `all`: Stage all / Unstage all on the whole tree, no path list (so no 100k cap). */
 const pathsOrAll = z.union([paths, z.object({ repo: repoId, all: z.literal(true) }).strict()])
 const changeNum = z.number().int().positive().max(2 ** 31)
+const hashtag = z.string().min(1).max(100).regex(HASHTAG)
 const revision = z.string().regex(/^(?:[0-9a-f]{40}|\d{1,9}|current)$/)
 /** Update checker state (PLAN.md §3.12). `canInstall: false` = "Download" opens the download page instead. */
 export type UpdateState =
@@ -460,6 +461,14 @@ export const invoke = {
   /** Submit / abandon (optional message) / server rebase; the UI offers only actions the server listed. */
   'gerrit:action': res<void>()(
     z.object({ repo: repoId, change: changeNum, action: z.enum(['submit', 'abandon', 'rebase']), message: z.string().max(100_000).optional() }).strict()
+  ),
+  /** Add an account to the attention set or remove one ("self" = the signed-in user); Gerrit 3.3+. */
+  'gerrit:attention': res<void>()(
+    z.object({ repo: repoId, change: changeNum, account: z.union([z.literal('self'), z.number().int().positive().max(2 ** 31)]), add: z.boolean() }).strict()
+  ),
+  /** Add / remove hashtags; resolves with the change's hashtags after the edit. */
+  'gerrit:hashtags': res<string[]>()(
+    z.object({ repo: repoId, change: changeNum, add: z.array(hashtag).max(50), remove: z.array(hashtag).max(50) }).strict()
   ),
   'update:state': res<UpdateState>()(z.undefined()),
   /** Manual "Check for updates"; resolves with the state after the check. */

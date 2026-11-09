@@ -67,7 +67,7 @@ async function openByChangeId(repo: string, ids: (string | null)[]): Promise<Map
   }
 }
 
-export const gerritHandlers: Handlers<'gerrit:checkout' | 'gerrit:badges' | 'gerrit:pending' | 'gerrit:send' | 'gerrit:commitHint' | 'gerrit:addChangeId' | 'gerrit:connect' | 'gerrit:disconnect' | 'gerrit:open' | 'gerrit:changes' | 'gerrit:change' | 'gerrit:files' | 'gerrit:diff' | 'gerrit:comments' | 'gerrit:review' | 'gerrit:action'> = {
+export const gerritHandlers: Handlers<'gerrit:checkout' | 'gerrit:badges' | 'gerrit:pending' | 'gerrit:send' | 'gerrit:commitHint' | 'gerrit:addChangeId' | 'gerrit:connect' | 'gerrit:disconnect' | 'gerrit:open' | 'gerrit:changes' | 'gerrit:change' | 'gerrit:files' | 'gerrit:diff' | 'gerrit:comments' | 'gerrit:review' | 'gerrit:action' | 'gerrit:attention' | 'gerrit:hashtags'> = {
   'gerrit:commitHint': async ({ repo }) => {
     const { root } = await gerritRoot(repo)
     const [hook, commits] = await Promise.all([hasCommitMsgHook(root), unpushedCommits(root)])
@@ -124,6 +124,10 @@ export const gerritHandlers: Handlers<'gerrit:checkout' | 'gerrit:badges' | 'ger
       throw err
     }
   },
+  'gerrit:attention': async ({ repo, change, account, add }) => {
+    await (await gerritFor(repo)).attention(change, account, add, add ? 'Added in Mendel' : 'Removed in Mendel')
+  },
+  'gerrit:hashtags': async ({ repo, change, add, remove }) => (await gerritFor(repo)).hashtags(change, add, remove),
   'gerrit:diff': async ({ repo, change, revision, path, base }) => (await gerritFor(repo)).diff(change, revision, path, base),
   'gerrit:changes': async ({ repo, projectOnly }) => {
     const client = await gerritFor(repo)

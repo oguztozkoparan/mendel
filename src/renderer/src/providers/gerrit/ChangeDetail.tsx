@@ -15,6 +15,7 @@ import 'react-diff-view/style/index.css'
 import type { GerritChange, GerritComment } from '../../../../shared/gerrit'
 import c from '../../Changes.module.css'
 import { useParsedDiff, visible } from '../../DiffView'
+import { AttentionHashtags } from './AttentionHashtags'
 import { ChangeActions } from './ChangeActions'
 import { Composer, DraftView, Thread, usePending, type Pending, type PendingStore } from './Comments'
 import s from './Gerrit.module.css'
@@ -132,6 +133,7 @@ export function ChangeDetail({ repo, number, me, onBack }: { repo: string; numbe
           <strong>Reviewers</strong>
           <span>{[...(ch.reviewers?.REVIEWER ?? []), ...(ch.reviewers?.CC ?? [])].map(who).join(', ') || 'None'}</span>
         </div>
+        <AttentionHashtags repo={repo} change={ch} me={me} />
       </section>
 
       <ListBox
