@@ -16,7 +16,7 @@ describe('cliPath', () => {
     expect(cliPath(['electron', '--inspect=0', 'out/main/index.js', '--remote-debugging-port=0', 'sub'], w, true)).toBe(path.join(w, 'sub'))
   })
   it('takes the arg after `--` as given, existing or not', () => {
-    expect(cliPath(['/Mendel', '--', '/abs/r'], w, false)).toBe(path.resolve('/abs/r'))
+    expect(cliPath(['/Mendel', '--', '/abs/r'], w, false)).toBe(path.resolve(w, '/abs/r'))
     expect(cliPath(['electron', 'out/main/index.js', '--', 'missing'], w, true)).toBe(path.join(w, 'missing'))
     expect(cliPath(['/Mendel', '--', '-dash'], w, false)).toBe(path.join(w, '-dash'))
     expect(cliPath(['/Mendel', '--'], w, false)).toBeNull()
