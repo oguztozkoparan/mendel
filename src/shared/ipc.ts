@@ -137,6 +137,13 @@ export interface CommitDetail {
   files: { path: string; origPath?: string; status: string }[]
 }
 
+export interface TagInfo {
+  name: string
+  /** Commit the tag points at (peeled for annotated tags). */
+  sha: string
+  annotated: boolean
+}
+
 /** A merge or rebase stopped on conflicts (or otherwise waiting to be continued). */
 export type OpInProgress = 'merge' | 'rebase' | null
 
@@ -349,6 +356,13 @@ export const invoke = {
   'history:commit': res<CommitDetail>()(z.object({ repo: repoId, sha }).strict()),
   /** Read-only diff of one file of a commit (against its first parent). */
   'history:diff': res<string>()(z.object({ repo: repoId, sha, path: relPath, origPath: relPath.optional() }).strict()),
+  'tag:list': res<TagInfo[]>()(inRepo),
+  /** Tag commit `sha`; a non-empty `message` makes it annotated. Main validates the name (check-ref-format, no leading `-`). */
+  'tag:create': res<void>()(z.object({ repo: repoId, name: branchName, sha, message: z.string().max(100_000).optional() }).strict()),
+  /** Delete a listed local tag after a native confirm. false = user cancelled. */
+  'tag:delete': res<boolean>()(z.object({ repo: repoId, name: branchName }).strict()),
+  /** Push a listed tag to the sync remote; cancellable with `sync:cancel`. */
+  'tag:push': res<void>()(z.object({ repo: repoId, name: branchName }).strict()),
   'conflict:state': res<OpInProgress>()(inRepo),
   /** Continue the merge/rebase once all files are marked resolved (`changes:stage`); 'conflict' = stopped again. */
   'conflict:continue': res<SyncResult>()(inRepo),

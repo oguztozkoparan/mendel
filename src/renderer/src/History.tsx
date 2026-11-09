@@ -1,6 +1,6 @@
 import { keepPreviousData, useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useMemo, useState, type ReactNode } from 'react'
-import { Button, Collection, GridList, GridListItem, GridListLoadMoreItem, ListBox, ListBoxItem, ListLayout, Virtualizer } from 'react-aria-components'
+import { useMemo, useState, type FormEvent, type ReactNode } from 'react'
+import { Button, Collection, GridList, GridListItem, GridListLoadMoreItem, Input, Label, ListBox, ListBoxItem, ListLayout, TextField, Virtualizer } from 'react-aria-components'
 import { Diff, Hunk } from 'react-diff-view'
 import type { CommitDetail, CommitSummary } from '../../shared/ipc'
 import a from './App.module.css'
@@ -181,6 +181,10 @@ function CommitView(p: { repo: string; sha: string; onAmend?: () => void }) {
             </dd>
           </>
         )}
+        <dt>Tags</dt>
+        <dd>
+          <CommitTags repo={p.repo} sha={d.sha} />
+        </dd>
       </dl>
       <Virtualizer layout={ListLayout} layoutOptions={{ rowHeight: 26 }}>
         <ListBox
@@ -204,6 +208,55 @@ function CommitView(p: { repo: string; sha: string; onAmend?: () => void }) {
       </Virtualizer>
       {f && <CommitFileDiff repo={p.repo} sha={d.sha} file={f} />}
     </div>
+  )
+}
+
+/** Tags on this commit (Push / Delete) and a small create form; a message makes the tag annotated. */
+function CommitTags(p: { repo: string; sha: string }) {
+  const qc = useQueryClient()
+  const q = useQuery({ queryKey: ['tags', p.repo], queryFn: () => window.mendel['tag:list']({ repo: p.repo }) })
+  const [name, setName] = useState('')
+  const [message, setMessage] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const run = (op: Promise<unknown>) => {
+    setError(null)
+    return op.then(
+      () => refreshRepo(qc, p.repo),
+      (err: Error) => setError(err.message)
+    )
+  }
+  const submit = (e: FormEvent) => {
+    e.preventDefault()
+    void run(window.mendel['tag:create']({ repo: p.repo, name: name.trim(), sha: p.sha, message: message.trim() || undefined }).then(() => (setName(''), setMessage(''))))
+  }
+  return (
+    <>
+      {q.data
+        ?.filter((t) => t.sha === p.sha)
+        .map((t) => (
+          <span key={t.name} aria-label={`Tag ${t.name}`}>
+            <code>{t.name}</code> <Button onPress={() => void run(window.mendel['tag:push']({ repo: p.repo, name: t.name }))}>Push</Button>{' '}
+            <Button onPress={() => void run(window.mendel['tag:delete']({ repo: p.repo, name: t.name }))}>Delete…</Button>{' '}
+          </span>
+        ))}
+      <form onSubmit={submit} aria-label="Create tag">
+        <TextField value={name} onChange={setName} aria-label="Tag name">
+          <Input placeholder="Tag name" spellCheck={false} />
+        </TextField>
+        <TextField value={message} onChange={setMessage}>
+          <Label className={a.muted}>Message (optional, annotated)</Label>
+          <Input spellCheck={false} />
+        </TextField>
+        <Button type="submit" isDisabled={!name.trim()}>
+          Create tag
+        </Button>
+      </form>
+      {error && (
+        <p role="alert" className={a.error}>
+          {error}
+        </p>
+      )}
+    </>
   )
 }
 
