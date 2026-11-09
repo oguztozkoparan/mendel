@@ -68,6 +68,24 @@ describe('history', () => {
     await expect(getBlame(fx.work, first, 'missing.txt', fx.env)).rejects.toThrow()
   })
 
+  it('filters by message/author (case-insensitive, literal) and by one file across renames', async () => {
+    fx = createRepoFixture()
+    fx.commitFile('a.txt', 'a\n', 'Fix (parser)')
+    fx.git(['mv', 'a.txt', 'b.txt'])
+    fx.commitFile('c.txt', 'c\n', 'rename a')
+    fx.commitFile('b.txt', 'b\n', 'edit b')
+    const f = (filter: Parameters<typeof getLog>[4], skip = 0) => getLog(fx.work, skip, fx.env, undefined, filter).then((l) => l.map((c) => c.summary))
+    expect(await f({ grep: 'fix (PARSER' })).toEqual(['Fix (parser)'])
+    expect(await f({ grep: '--all' })).toEqual([])
+    expect(await f({ author: 'test user' })).toHaveLength(4)
+    expect(await f({ author: 'nobody' })).toEqual([])
+    expect(await f({ grep: 'edit', author: 'nobody' })).toEqual([])
+    expect(await f({ path: 'b.txt' })).toEqual(['edit b', 'rename a', 'Fix (parser)'])
+    expect(await f({ path: 'b.txt' }, 2)).toEqual(['Fix (parser)'])
+    expect(await f({ path: 'b.txt', grep: 'rename' })).toEqual(['rename a'])
+    expect((await getLog(fx.work, 0, fx.env, undefined, { path: 'b.txt' }))[0]!.unpushed).toBe(true)
+  })
+
   it('empty repo has no commits', async () => {
     fx = createRepoFixture()
     fx.git(['checkout', '-q', '--orphan', 'fresh'])
