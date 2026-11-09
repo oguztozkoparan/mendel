@@ -1,4 +1,4 @@
-import { known } from '../git/branch'
+import { fullBranchRef } from '../git/branch'
 import { pickCommit } from '../git/conflict'
 import { getBlame, getCommit, getCommitDiff, getLog } from '../git/log'
 import { repoRoot } from '../repos'
@@ -9,7 +9,7 @@ export const historyHandlers: Handlers<'history:log' | 'history:commit' | 'histo
   'history:log': async ({ repo, skip, grep, author, path, ref }) => {
     const root = repoRoot(repo)
     // Full ref name: a local branch called like a remote one ("origin/x") stays unambiguous.
-    const full = ref && `refs/${(await known(root, ref, undefined, true)).kind === 'local' ? 'heads' : 'remotes'}/${ref}`
+    const full = ref && (await fullBranchRef(root, ref))
     return getLog(root, skip, undefined, undefined, { grep, author, path: path && checkPath(root, path), ref: full })
   },
   'history:pick': ({ repo, sha, op }) => pickCommit(repoRoot(repo), op, sha),

@@ -343,12 +343,12 @@ export const invoke = {
   'branch:switch': res<boolean>()(z.object({ repo: repoId, name: branchName }).strict()),
   /** Delete a non-current local branch after a native confirm. false = user cancelled. */
   'branch:delete': res<boolean>()(z.object({ repo: repoId, name: branchName }).strict()),
-  /** Restore (pop) or discard (confirm first) the current branch's "Stash & switch" changes. false = cancelled. */
   /** All stashes, newest first. */
   'stash:list': res<StashEntry[]>()(inRepo),
   /** Apply, pop or drop (native confirm first; false = cancelled) the stash with commit `sha`. */
   'stash:action': res<boolean>()(z.object({ repo: repoId, sha, action: z.enum(['apply', 'pop', 'drop']) }).strict()),
-  'branch:stash':res<boolean>()(z.object({ repo: repoId, action: z.enum(['restore', 'discard']) }).strict()),
+  /** Restore (pop) or discard (confirm first) the current branch's "Stash & switch" changes. false = cancelled. */
+  'branch:stash': res<boolean>()(z.object({ repo: repoId, action: z.enum(['restore', 'discard']) }).strict()),
   'sync:state': res<SyncState>()(inRepo),
   /** Long ops below are cancellable with `sync:cancel`; git auth prompts arrive via `auth:prompt`. */
   /** `auto`: background auto-fetch; never prompts for credentials and is skipped while another op runs. */

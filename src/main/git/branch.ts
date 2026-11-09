@@ -52,10 +52,18 @@ export async function validateBranchName(cwd: string, name: string, env?: NodeJS
 }
 
 /** Throw unless `name` is an existing local (or, with `remote`, remote-tracking) branch: the renderer only picks from the list. */
-export async function known(cwd: string, name: string, env?: NodeJS.ProcessEnv, remote = false): Promise<{ kind: 'local' | 'remote'; b: Branches }> {
+async function known(cwd: string, name: string, env?: NodeJS.ProcessEnv, remote = false): Promise<{ kind: 'local' | 'remote'; b: Branches }> {
   const b = await listBranches(cwd, env)
   if (b.local.some((x) => x.name === name)) return { kind: 'local', b }
   if (remote && b.remote.includes(name)) return { kind: 'remote', b }
+  throw new Error(`Unknown branch: ${name}`)
+}
+
+/** Full ref name of local (preferred) or remote branch `name`; one show-ref each instead of listing every branch. */
+export async function fullBranchRef(cwd: string, name: string, env?: NodeJS.ProcessEnv): Promise<string> {
+  for (const ref of [`refs/heads/${name}`, `refs/remotes/${name}`]) {
+    if (await git(['show-ref', '--verify', '-q', ref], { cwd, env, background: true }).then(() => true, () => false)) return ref
+  }
   throw new Error(`Unknown branch: ${name}`)
 }
 
