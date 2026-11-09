@@ -25,7 +25,6 @@ export interface PrimaryOverride {
 type Op = 'fetch' | 'pull' | 'push' | 'rebase'
 const BUSY: Record<Op, string> = { fetch: 'Fetching…', pull: 'Pulling…', push: 'Pushing…', rebase: 'Rebasing…' }
 
-/** Toolbar sync button (PLAN.md 3.4): label follows ahead/behind; menu has every op; busy ops are cancellable. */
 /** Menu item label with the sliding hover plate (react-aria focuses the item under the pointer). */
 const item = (label: string) => ({ isFocused }: { isFocused: boolean }) => (
   <>
@@ -34,6 +33,7 @@ const item = (label: string) => ({ isFocused }: { isFocused: boolean }) => (
   </>
 )
 
+/** Toolbar sync button (PLAN.md 3.4): label follows ahead/behind; menu has every op; busy ops are cancellable. */
 export function SyncButton(p: { repo: string; onError(e: unknown, retry?: () => void): void; onNotice(n: Notice | null): void; primary?: PrimaryOverride | null }) {
   const qc = useQueryClient()
   const q = useQuery({ queryKey: ['sync', p.repo], queryFn: () => window.mendel['sync:state']({ repo: p.repo }) })

@@ -37,8 +37,9 @@ export function AuthPromptDialog() {
     answer(current!.kind === 'confirm' ? 'yes' : value)
   }
 
+  // wait: the next prompt mounts after the previous one left, so their ids never coexist.
   return (
-    <AnimatePresence>
+    <AnimatePresence mode="wait">
       {current && (
         <DialogShell key={current.id} className={s.backdrop} onOpenChange={(open) => !open && answer(null)}>
           <Dialog aria-labelledby="auth-title" className={s.dialog}>

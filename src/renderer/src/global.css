@@ -412,7 +412,9 @@ textarea {
   pointer-events: none;
 }
 
-:has(> .hl) {
+:has(> .hl),
+/* react-aria's gridcell is display: contents, so the row itself must hold the plate */
+[role='row']:has(.hl) {
   position: relative;
   isolation: isolate;
 }
