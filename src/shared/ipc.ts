@@ -12,6 +12,8 @@ const res = <Res>() => <Req extends z.ZodType>(req: Req) => ({ req, res: null as
 export interface AppInfo {
   version: string
   platform: string
+  /** Window has native vibrancy/Mica; the renderer keeps its root transparent. */
+  glass: boolean
 }
 
 /** `supported`: >= MIN_GIT_VERSION (usable); `outdated`: < RECOMMENDED_GIT_VERSION (security warning). */

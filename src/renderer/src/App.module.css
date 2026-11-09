@@ -11,6 +11,7 @@
   display: flex;
   -webkit-app-region: drag;
   border-bottom: 1px solid var(--border);
+  background: var(--bg-side);
 }
 
 :global(html[data-platform='darwin']) .toolbar {
@@ -179,6 +180,7 @@
   min-width: 0;
   min-height: 0;
   overflow: auto;
+  background: var(--bg);
 }
 
 /* Informational banner (stash pending, conflicts): same layout as .banner, normal text color. */

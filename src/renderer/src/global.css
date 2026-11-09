@@ -118,6 +118,11 @@ html[data-platform='linux'] {
   --radius: 5px;
 }
 
+/* Native vibrancy/Mica shows through toolbar and sidebar (--bg-side); without it (Linux, Win10) the opaque --bg stays. */
+html[data-glass] {
+  background: transparent;
+}
+
 html,
 body {
   margin: 0;
