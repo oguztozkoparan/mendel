@@ -316,6 +316,99 @@ textarea {
   box-shadow: inset 0 2px 3px rgb(0 0 0 / .16), inset 0 0 0 1px var(--danger), 0 0 0 3px color-mix(in srgb, var(--danger) 18%, transparent);
 }
 
+/* Native <select> as the concept's .inp.select: raised face, muted chevron. base-select (Chromium 135+) themes the picker too; keyboard/a11y stay native. */
+select,
+::picker(select) {
+  appearance: base-select;
+}
+
+select {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: var(--ctl-h);
+  padding: 0 8px 0 10px;
+  border: 0;
+  border-radius: var(--ctl-radius);
+  outline: none;
+  font: inherit;
+  color: var(--fg);
+  background: linear-gradient(180deg, var(--face-top), var(--face-bot));
+  box-shadow: inset 0 1px 0 var(--hi), 0 0 0 1px var(--edge), 0 2px 0 var(--lip), 0 3px 6px var(--drop);
+  transition: box-shadow .09s ease-out, filter .15s;
+}
+
+select:where(:hover:not(:disabled)) {
+  filter: brightness(1.04);
+}
+
+select:open {
+  background: linear-gradient(180deg, var(--face-bot), var(--face-top));
+  box-shadow: inset 0 2px 3px rgb(0 0 0 / .2), 0 0 0 1px var(--edge), 0 0 0 var(--lip), 0 1px 1px var(--drop);
+}
+
+select:focus-visible {
+  box-shadow: var(--focus);
+}
+
+select:disabled {
+  opacity: 0.5;
+  background: var(--face-bot);
+  box-shadow: 0 0 0 1px var(--edge);
+}
+
+select::picker-icon {
+  content: '';
+  width: 14px;
+  height: 14px;
+  margin-left: auto;
+  background: var(--muted);
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") center / contain no-repeat;
+  transition: rotate .15s ease-out;
+}
+
+select:open::picker-icon {
+  rotate: 180deg;
+}
+
+::picker(select) {
+  margin-top: 4px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-menu);
+  color: var(--fg);
+  background: var(--bg);
+  box-shadow: 0 8px 24px var(--drop);
+}
+
+select option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 26px;
+  padding: 0 8px;
+  border-radius: calc(var(--r-menu) - 4px);
+  outline: none;
+}
+
+select option::checkmark {
+  color: var(--accent);
+}
+
+select option:is(:hover, :focus-visible):not(:disabled) {
+  background: var(--bg-selected);
+}
+
+select option:disabled {
+  color: var(--muted);
+}
+
+@media (prefers-color-scheme: dark) {
+  select:where(:hover:not(:disabled)) {
+    filter: brightness(1.15);
+  }
+}
+
 /* Switch (react-aria Switch, see controls.tsx): recessed track, round knob. */
 .switch {
   display: inline-flex;
