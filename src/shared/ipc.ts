@@ -283,7 +283,10 @@ export const invoke = {
   /** Stage whole files (include a rename's origPath). */
   'changes:stage': res<void>()(pathsOrAll),
   'changes:unstage': res<void>()(pathsOrAll),
-  /** Apply one hunk, identified by its `@@ ... @@` header line as shown in the diff. `discard` asks a native confirm first. */
+  /**
+   * Apply one hunk, identified by its `@@ ... @@` header line as shown in the diff. `discard` asks a native confirm first.
+   * `lines`: only these change lines (indexes into the hunk's lines, `\ No newline` markers not counted).
+   */
   'changes:applyHunk': res<void>()(
     z
       .object({
@@ -292,7 +295,8 @@ export const invoke = {
         origPath: relPath.optional(),
         untracked: z.boolean(),
         hunk: z.string().startsWith('@@').max(4096),
-        action: z.enum(['stage', 'unstage', 'discard'])
+        action: z.enum(['stage', 'unstage', 'discard']),
+        lines: z.array(z.number().int().nonnegative()).min(1).max(100_000).optional()
       })
       .strict()
   ),

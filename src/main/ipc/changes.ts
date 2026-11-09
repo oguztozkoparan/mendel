@@ -43,10 +43,10 @@ export const changesHandlers: Handlers<'changes:status' | 'changes:diff' | 'chan
     const root = repoRoot(req.repo)
     return unstagePaths(root, 'all' in req ? null : req.paths.map((p) => checkPath(root, p)))
   },
-  'changes:applyHunk': async ({ repo, path, origPath, untracked, hunk, action }, e) => {
+  'changes:applyHunk': async ({ repo, path, origPath, untracked, hunk, action, lines }, e) => {
     const root = repoRoot(repo)
-    if (action === 'discard' && !(await confirmDiscard(e, `Discard this hunk in ${path}?`))) return
-    return applyHunk(root, { path: checkPath(root, path), origPath: origPath && checkPath(root, origPath), untracked }, hunk, action)
+    if (action === 'discard' && !(await confirmDiscard(e, `Discard ${lines ? 'these lines' : 'this hunk'} in ${path}?`))) return
+    return applyHunk(root, { path: checkPath(root, path), origPath: origPath && checkPath(root, origPath), untracked }, hunk, action, undefined, lines)
   },
   'changes:discard': async ({ repo, paths }, e) => {
     const root = repoRoot(repo)

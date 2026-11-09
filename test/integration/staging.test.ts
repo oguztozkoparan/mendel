@@ -1,9 +1,9 @@
-import { mkdtempSync, realpathSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { afterEach, describe, expect, it } from 'vitest'
-import { applyHunk, getDiff, hunkPatch, stagePaths, unstagePaths } from '../../src/main/git/changes'
+import { applyHunk, getDiff, hunkPatch, linesPatch, stagePaths, unstagePaths } from '../../src/main/git/changes'
 import { invoke } from '../../src/shared/ipc'
 import { createRepoFixture, type RepoFixture } from '../fixtures/repo'
 import { isolatedGitEnv } from '../fixtures/git-env'
@@ -89,5 +89,119 @@ describe('staging', () => {
     const [h] = headers(await getDiff(fx.work, { path: 'new.txt', staged: false, untracked: true }, fx.env))
     await applyHunk(fx.work, { path: 'new.txt', untracked: true }, h!, 'stage', fx.env)
     expect(cached()).toBe('new.txt')
+  })
+})
+
+describe('linesPatch', () => {
+  const H = 'diff --git a/f b/f\nindex 1..2 100644\n--- a/f\n+++ b/f\n'
+  const mixed = H + '@@ -1,3 +1,3 @@ fn\n a\n-b\n-c\n+B\n+C\n'
+  const at = '@@ -1,3 +1,3 @@ fn'
+
+  it('stage: unpicked deletions become context, unpicked additions are dropped', () => {
+    expect(linesPatch(mixed, at, [1, 3], false)).toBe(H + '@@ -1,3 +1,3 @@ fn\n a\n-b\n+B\n c\n')
+    expect(linesPatch(mixed, at, [2, 4], false)).toBe(H + '@@ -1,3 +1,3 @@ fn\n a\n b\n-c\n+C\n')
+    expect(linesPatch(mixed, at, [3, 4], false)).toBe(H + '@@ -1,3 +1,5 @@ fn\n a\n b\n c\n+B\n+C\n')
+    expect(linesPatch(mixed, at, [2], false)).toBe(H + '@@ -1,3 +1,2 @@ fn\n a\n b\n-c\n')
+  })
+
+  it('unstage (reverse): unpicked additions become context, unpicked deletions are dropped', () => {
+    expect(linesPatch(mixed, at, [1, 3], true)).toBe(H + '@@ -1,3 +1,3 @@ fn\n a\n-b\n+B\n C\n')
+    expect(linesPatch(mixed, at, [2, 4], true)).toBe(H + '@@ -1,3 +1,3 @@ fn\n a\n B\n-c\n+C\n')
+  })
+
+  it('returns null when nothing changes or the hunk is gone', () => {
+    expect(linesPatch(mixed, at, [0], false)).toBeNull()
+    expect(linesPatch(mixed, at, [99], false)).toBeNull()
+    expect(linesPatch(mixed, '@@ -7 +7 @@', [1], false)).toBeNull()
+  })
+
+  it('keeps no-newline markers with their line; a kept last line gains its newline when lines follow it', () => {
+    const d = H + '@@ -1,2 +1,3 @@\n a\n-b\n\\ No newline at end of file\n+b\n+c\n\\ No newline at end of file\n'
+    expect(linesPatch(d, '@@ -1,2 +1,3 @@', [3], false)).toBe(H + '@@ -1,2 +1,3 @@\n a\n-b\n\\ No newline at end of file\n+b\n+c\n\\ No newline at end of file\n')
+    expect(linesPatch(d, '@@ -1,2 +1,3 @@', [1], false)).toBe(H + '@@ -1,2 +1,1 @@\n a\n-b\n\\ No newline at end of file\n')
+  })
+
+  it('turns an added file into a modification when unstaging only some of its lines', () => {
+    const d = 'diff --git a/n b/n\nnew file mode 100644\nindex 0..1\n--- /dev/null\n+++ b/n\n@@ -0,0 +1,2 @@\n+x\n+y\n'
+    expect(linesPatch(d, '@@ -0,0 +1,2 @@', [1], true)).toBe('diff --git a/n b/n\nindex 0..1\n--- a/n\n+++ b/n\n@@ -1,1 +1,2 @@\n x\n+y\n')
+    expect(linesPatch(d, '@@ -0,0 +1,2 @@', [0, 1], true)).toBe(d)
+  })
+})
+
+describe('line staging', () => {
+  let fx: RepoFixture
+  afterEach(() => fx?.cleanup())
+  const t = { path: 'f.txt', untracked: false }
+  const index = () => execFileSync('git', ['show', ':f.txt'], { cwd: fx.work, env: fx.env, encoding: 'utf8' })
+  /** Stage (or unstage) the change lines whose text is in `texts`, in the file's only hunk. */
+  const apply = async (action: 'stage' | 'unstage', texts: string[]) => {
+    const diff = await getDiff(fx.work, { ...t, staged: action === 'unstage' }, fx.env)
+    const [h] = headers(diff)
+    const body = diff.slice(diff.indexOf(h!)).split('\n').slice(1).filter((l) => l && !l.startsWith('\\'))
+    await applyHunk(fx.work, t, h!, action, fx.env, body.flatMap((l, i) => (texts.includes(l) ? [i] : [])))
+  }
+  const setup = (before: string, after: string) => {
+    fx = createRepoFixture()
+    fx.commitFile('f.txt', before)
+    writeFileSync(path.join(fx.work, 'f.txt'), after)
+  }
+
+  it('stages and unstages single additions', async () => {
+    setup('a\nb\n', 'a\nx\nb\ny\n')
+    await apply('stage', ['+y'])
+    expect(index()).toBe('a\nb\ny\n')
+    await apply('stage', ['+x'])
+    expect(index()).toBe('a\nx\nb\ny\n')
+    await apply('unstage', ['+y'])
+    expect(index()).toBe('a\nx\nb\n')
+  })
+
+  it('stages and unstages single deletions', async () => {
+    setup('a\nb\nc\n', 'a\n')
+    await apply('stage', ['-c'])
+    expect(index()).toBe('a\nb\n')
+    await apply('stage', ['-b'])
+    expect(index()).toBe('a\n')
+    await apply('unstage', ['-b'])
+    expect(index()).toBe('a\nb\n')
+  })
+
+  it('stages and unstages part of a replacement', async () => {
+    setup('a\nb\nc\n', 'a\nB\nC\n')
+    await apply('stage', ['-b', '+B'])
+    expect(index()).toBe('a\nB\nc\n')
+    await apply('stage', ['-c', '+C'])
+    expect(index()).toBe('a\nB\nC\n')
+    await apply('unstage', ['-c', '+C'])
+    expect(index()).toBe('a\nB\nc\n')
+  })
+
+  it('handles a missing newline at end of file', async () => {
+    setup('a\nb', 'a\nb\nc')
+    await apply('stage', ['+c'])
+    expect(index()).toBe('a\nb\nc')
+    fx.git(['reset', '-q'])
+    await apply('stage', ['+b'])
+    expect(index()).toBe('a\nb\nb\n')
+    fx.git(['reset', '-q'])
+    await apply('stage', ['-b'])
+    expect(index()).toBe('a\n')
+    await apply('unstage', ['-b'])
+    expect(index()).toBe('a\nb')
+  })
+
+  it('unstages some lines of an added file and stages part of a deleted one', async () => {
+    fx = createRepoFixture()
+    writeFileSync(path.join(fx.work, 'f.txt'), 'x\ny\n')
+    fx.git(['add', 'f.txt'])
+    await apply('unstage', ['+y'])
+    expect(index()).toBe('x\n')
+    fx.git(['add', 'f.txt'])
+    fx.git(['commit', '-q', '-m', 'f'])
+    rmSync(path.join(fx.work, 'f.txt'))
+    await apply('stage', ['-y'])
+    expect(index()).toBe('x\n')
+    await apply('stage', ['-x'])
+    expect(fx.git(['status', '--porcelain'])).toBe('D  f.txt')
   })
 })

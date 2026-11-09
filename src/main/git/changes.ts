@@ -75,6 +75,67 @@ export function hunkPatch(diff: string, header: string): string | null {
   return patch.endsWith('\n') ? patch : patch + '\n'
 }
 
+const NO_EOL = '\\ No newline at end of file'
+
+/**
+ * `hunkPatch` cut down to the picked change lines (indexes into the hunk's lines, `\` markers not counted).
+ * The fixed side (old for stage; new for unstage, which is applied with --reverse) must keep matching the file:
+ * unpicked fixed-side lines become context, unpicked other-side lines are dropped. null if the hunk is gone or nothing changes.
+ */
+export function linesPatch(diff: string, header: string, picked: number[], reverse: boolean): string | null {
+  const patch = hunkPatch(diff, header)
+  const m = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@(.*)$/.exec(header)
+  if (!patch || !m) return null
+  const lines = patch.slice(0, -1).split('\n')
+  const at = lines.indexOf(header)
+  const body = lines.slice(at + 1).map((text) => ({ text, eol: true }))
+  for (let i = body.length - 1; i > 0; i--) if (body[i]!.text === NO_EOL) ((body[i - 1]!.eol = false), body.splice(i, 1))
+  const fixed = reverse ? '+' : '-'
+  const want = new Set(picked)
+  if (!body.some((l, i) => want.has(i) && l.text[0] !== ' ')) return null
+  // Per run of changed lines: fixed-side lines keep their order; picked other-side lines go after the last picked
+  // fixed line (stage) or before the first (unstage), so a partly picked replacement lands where it was.
+  const kept: typeof body = []
+  for (let i = 0; i < body.length; ) {
+    if (body[i]!.text[0] === ' ') {
+      kept.push(body[i++]!)
+      continue
+    }
+    const fix: typeof body = []
+    const moving: typeof body = []
+    for (; i < body.length && body[i]!.text[0] !== ' '; i++) {
+      const l = body[i]!
+      if (l.text[0] === fixed) fix.push(want.has(i) ? l : { text: ' ' + l.text.slice(1), eol: l.eol })
+      else if (want.has(i)) moving.push(l)
+    }
+    const last = fix.map((l) => l.text[0]).lastIndexOf(fixed)
+    const pos = reverse ? fix.findIndex((l) => l.text[0] === fixed) : last < 0 ? fix.length : last + 1
+    kept.push(...fix.slice(0, Math.max(pos, 0)), ...moving, ...fix.slice(Math.max(pos, 0)))
+  }
+  const out: string[] = []
+  let oldN = 0
+  let newN = 0
+  kept.forEach((l, i) => {
+    const sign = l.text[0]
+    // A no-newline fixed-side line kept as context but followed by result-side lines must gain its newline there.
+    if (sign === ' ' && !l.eol && kept.slice(i + 1).some((k) => k.text[0] !== fixed)) {
+      out.push(fixed + l.text.slice(1), NO_EOL, (reverse ? '-' : '+') + l.text.slice(1))
+      return void (oldN++, newN++)
+    }
+    out.push(l.text, ...(l.eol ? [] : [NO_EOL]))
+    if (sign !== '+') oldN++
+    if (sign !== '-') newN++
+  })
+  // An added (deleted) file that keeps lines on its empty side becomes a modification of that path.
+  const name = (side: string, prefix: string) => lines.find((h) => h.startsWith(side))!.slice(4).replace(/^("?)[ab]\//, `$1${prefix}/`)
+  const head = lines
+    .slice(0, at)
+    .filter((h) => !((oldN && h.startsWith('new file mode')) || (newN && h.startsWith('deleted file mode'))))
+    .map((h) => (oldN && h === '--- /dev/null' ? '--- ' + name('+++ ', 'a') : newN && h === '+++ /dev/null' ? '+++ ' + name('--- ', 'b') : h))
+  const start = (s: string, n: number) => (n && s === '0' ? '1' : s)
+  return [...head, `@@ -${start(m[1]!, oldN)},${oldN} +${start(m[2]!, newN)},${newN} @@${m[3]}`, ...out].join('\n') + '\n'
+}
+
 /**
  * Throw away all changes (index + worktree) to these paths, only through git (TECH.md §6.4):
  * tracked -> `restore` from HEAD (a newly added file is removed), untracked -> `clean`. Paths not changed are ignored.
@@ -101,11 +162,19 @@ export type HunkAction = 'stage' | 'unstage' | 'discard'
 /**
  * Re-diff the file in main, pick the hunk the user saw (by its `@@` line) and `git apply` it:
  * stage = unstaged hunk -> index; unstage = staged hunk reversed out of the index;
- * discard = unstaged hunk reversed out of the working tree.
+ * discard = unstaged hunk reversed out of the working tree. `lines` = only these change lines of the hunk (see linesPatch).
  */
-export async function applyHunk(cwd: string, t: Omit<DiffTarget, 'staged'>, header: string, action: HunkAction, env?: NodeJS.ProcessEnv): Promise<void> {
+export async function applyHunk(
+  cwd: string,
+  t: Omit<DiffTarget, 'staged'>,
+  header: string,
+  action: HunkAction,
+  env?: NodeJS.ProcessEnv,
+  lines?: number[]
+): Promise<void> {
   const staged = action === 'unstage'
-  const patch = hunkPatch(await getDiff(cwd, { ...t, staged, untracked: t.untracked && !staged }, env), header)
+  const diff = await getDiff(cwd, { ...t, staged, untracked: t.untracked && !staged }, env)
+  const patch = lines ? linesPatch(diff, header, lines, action !== 'stage') : hunkPatch(diff, header)
   if (!patch) throw new Error('The file changed since the diff was shown; try again')
   const args = ['apply', '--whitespace=nowarn', ...(action === 'discard' ? [] : ['--cached']), ...(action === 'stage' ? [] : ['--reverse']), '-']
   await git(args, { cwd, env, stdin: patch })

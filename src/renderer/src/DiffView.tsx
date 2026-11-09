@@ -1,8 +1,8 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
-import { Decoration, Diff, Hunk, parseDiff, type HunkData } from 'react-diff-view'
+import { Decoration, Diff, getChangeKey, Hunk, parseDiff, type GutterOptions, type HunkData } from 'react-diff-view'
 import 'react-diff-view/style/index.css'
-import { Button } from 'react-aria-components'
+import { Button, Checkbox } from 'react-aria-components'
 import type { FileChange } from '../../shared/ipc'
 import s from './Changes.module.css'
 import { Toggle, useSettings } from './Settings'
@@ -86,8 +86,34 @@ function DiffSection(p: { repo: string; file: FileChange; act: Act; staged: bool
       window.mendel['changes:diff']({ repo: p.repo, path: file.path, origPath: file.origPath, staged, untracked: file.unstaged === '?' && !staged })
   })
   const { parsed, gate } = useParsedDiff(q.data)
-  const hunkAction = (hunk: string, action: 'stage' | 'unstage' | 'discard') =>
-    p.act(window.mendel['changes:applyHunk']({ repo: p.repo, path: file.path, origPath: file.origPath, untracked: file.unstaged === '?', hunk, action }))
+  // Picked change lines (by change key) for line staging; dropped whenever the diff text changes.
+  const [pick, setPick] = useState<{ data?: string; keys: Set<string> }>({ keys: new Set() })
+  const picked = pick.data === q.data ? pick.keys : new Set<string>()
+  const toggleLine = (key: string, on: boolean) => {
+    const keys = new Set(picked)
+    if (on) keys.add(key)
+    else keys.delete(key)
+    setPick({ data: q.data, keys })
+  }
+  const hunkAction = (hunk: string, action: 'stage' | 'unstage' | 'discard', lines?: number[]) =>
+    p.act(window.mendel['changes:applyHunk']({ repo: p.repo, path: file.path, origPath: file.origPath, untracked: file.unstaged === '?', hunk, action, lines }))
+  const pickedIn = (h: HunkData) => h.changes.flatMap((c, i) => (picked.has(getChangeKey(c)) ? [i] : []))
+  const renderGutter = ({ change, side, renderDefault }: GutterOptions) =>
+    side === 'old' && change.type !== 'normal' ? (
+      <Checkbox
+        aria-label={`${change.type === 'insert' ? 'Added' : 'Removed'} line ${change.lineNumber}`}
+        isSelected={picked.has(getChangeKey(change))}
+        onChange={(on) => toggleLine(getChangeKey(change), on)}
+        className={s.checkbox}
+      >
+        <span className={s.box} aria-hidden>
+          {picked.has(getChangeKey(change)) ? '✓' : ''}
+        </span>
+        {renderDefault()}
+      </Checkbox>
+    ) : (
+      renderDefault()
+    )
 
   let body
   if (q.error) body = <p role="alert" className={s.empty}>{q.error.message}</p>
@@ -97,12 +123,24 @@ function DiffSection(p: { repo: string; file: FileChange; act: Act; staged: bool
   else if (!parsed || parsed.hunks.length === 0) body = <p className={s.empty}>No content changes</p>
   else
     body = (
-      <Diff viewType="unified" diffType={parsed.type} hunks={visible(parsed.hunks, p.whitespace)} className={s.diff}>
+      <Diff
+        viewType="unified"
+        diffType={parsed.type}
+        hunks={visible(parsed.hunks, p.whitespace)}
+        selectedChanges={[...picked]}
+        renderGutter={renderGutter}
+        className={s.diff}
+      >
         {(hunks) =>
           hunks.flatMap((h) => [
             <Decoration key={`d${h.content}`} className={s.hunkHeader}>
               <span>
                 <span className={s.hunkText}>{h.content}</span>
+                {pickedIn(h).length > 0 && (
+                  <Button onPress={() => hunkAction(h.content, staged ? 'unstage' : 'stage', pickedIn(h))}>
+                    {staged ? 'Unstage lines' : 'Stage lines'}
+                  </Button>
+                )}
                 {staged ? (
                   <Button onPress={() => hunkAction(h.content, 'unstage')}>Unstage hunk</Button>
                 ) : (
