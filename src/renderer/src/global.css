@@ -438,14 +438,11 @@ textarea {
   }
 }
 
-/* Cursors (concept): actions get --cursor-action (arrow on mac, hand elsewhere); only selectable text gets the I-beam.
+/* Cursors (concept): actions get --cursor-action (the hand on every platform, so hover feedback is visible on mac too);
+   only selectable text gets the I-beam.
    :where() keeps these at zero specificity so a nested action (button in a row) still wins over the inherit rule. */
 :root {
   --cursor-action: pointer;
-}
-
-html[data-platform='darwin'] {
-  --cursor-action: default;
 }
 
 body {
