@@ -9,7 +9,7 @@ describe('repo fixture', () => {
   it('creates an isolated work clone pushing to a bare remote', () => {
     fx = createRepoFixture()
     expect(fx.git(['config', 'user.email'])).toBe('test@example.com')
-    expect(fx.git(['config', '--show-origin', 'user.email'])).toContain(fx.dir)
+    expect(fx.git(['config', '--show-origin', 'user.email']).replaceAll('\\\\', '\\')).toContain(fx.dir) // git escapes `\` on Windows
     expect(fx.git(['branch', '--show-current'])).toBe('main')
     const sha = fx.commitFile('src/a.txt', 'a\n')
     fx.git(['push', '-q', 'origin', 'main'])
