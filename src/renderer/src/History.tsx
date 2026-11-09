@@ -22,6 +22,9 @@ export function HistoryView(p: { repo: string; decorate?: (c: CommitSummary) => 
   const branches = useBranches(p.repo)
   /** '' = current branch. */
   const [ref, setRef] = useState('')
+  // Picked branch deleted, or checked out (now current): back to the current branch.
+  const br = branches.data
+  if (ref && br && !(br.remote.includes(ref) || br.local.some((x) => x.name === ref && x.name !== br.current))) setRef('')
   // Keyed by HEAD: a new commit/checkout starts a fresh first page, and `--skip` pages stay consistent within one HEAD.
   // Not stale on its own (no all-pages refetch on focus); refreshRepo trims it to page 1 before invalidating.
   // Applied filters (search fields apply on Enter, not per keystroke); empty = unfiltered.

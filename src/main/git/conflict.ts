@@ -13,8 +13,19 @@ export async function opInProgress(cwd: string, env?: NodeJS.ProcessEnv): Promis
 }
 
 /** `git cherry-pick` / `git revert --no-edit` one commit onto HEAD; a conflict leaves it in progress for the banner. */
-export const pickCommit = (cwd: string, op: 'cherry-pick' | 'revert', sha: string, env?: NodeJS.ProcessEnv): Promise<SyncResult> =>
-  conflictAware(cwd, git([op, ...(op === 'revert' ? ['--no-edit'] : []), ...endOfOptions(sha)], { cwd, env }), env)
+export async function pickCommit(cwd: string, op: 'cherry-pick' | 'revert', sha: string, env?: NodeJS.ProcessEnv): Promise<SyncResult> {
+  const rev = endOfOptions(sha)
+  if (op === 'cherry-pick' && (await git(['merge-base', '--is-ancestor', ...rev, 'HEAD'], { cwd, env }).then(() => true, () => false)))
+    throw new Error('This commit is already on the current branch')
+  try {
+    return await conflictAware(cwd, git([op, ...(op === 'revert' ? ['--no-edit'] : []), ...rev], { cwd, env }), env)
+  } catch (err) {
+    // An empty pick (changes already in HEAD) stops with <op>_HEAD set and nothing to resolve: drop it, else the banner is stuck.
+    if ((await opInProgress(cwd, env)) !== op) throw err
+    await git([op, '--skip'], { cwd, env })
+    throw new Error(`Nothing to ${op}: the commit's changes are already applied`)
+  }
+}
 
 const unmerged = (cwd: string, env?: NodeJS.ProcessEnv) => git(['ls-files', '--unmerged'], { cwd, env }).then((r) => r.stdout.trim() !== '')
 

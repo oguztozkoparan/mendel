@@ -86,6 +86,23 @@ describe('conflicts', () => {
     expect(fx.git(['log', '--format=%s', '-1'])).toBe('Revert "add a"')
   })
 
+  it('cherry-pick: a commit already in HEAD is refused; an empty pick leaves nothing in progress', async () => {
+    fx = createRepoFixture()
+    const base = fx.git(['rev-parse', 'HEAD'])
+    await expect(pickCommit(fx.work, 'cherry-pick', base, fx.env)).rejects.toThrow('already on the current branch')
+    expect(await opInProgress(fx.work, fx.env)).toBeNull()
+
+    fx.git(['switch', '-q', '-c', 'other'])
+    const b = fx.commitFile('b.txt', 'bee\n', 'add b')
+    fx.git(['switch', '-q', 'main'])
+    fx.commitFile('c.txt', 'sea\n', 'add c') // diverge, so the pick below is a new commit, not b itself
+    expect(await pickCommit(fx.work, 'cherry-pick', b, fx.env)).toBe('ok')
+    const head = fx.git(['rev-parse', 'HEAD'])
+    await expect(pickCommit(fx.work, 'cherry-pick', b, fx.env)).rejects.toThrow('already applied')
+    expect(await opInProgress(fx.work, fx.env)).toBeNull()
+    expect(fx.git(['rev-parse', 'HEAD'])).toBe(head)
+  })
+
   it('pickCommit: a leading-dash sha is rejected before git runs', async () => {
     fx = createRepoFixture()
     await expect(pickCommit(fx.work, 'cherry-pick', '-n', fx.env)).rejects.toThrow()
