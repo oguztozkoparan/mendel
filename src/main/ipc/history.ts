@@ -1,12 +1,12 @@
 import { fullBranchRef } from '../git/branch'
-import { pickCommit } from '../git/conflict'
+import { opInProgress, pickCommit } from '../git/conflict'
 import { getBlame, getCommit, getCommitDiff, getLog } from '../git/log'
 import { interactiveRebase } from '../git/rebase'
 import { hasLocalChanges } from '../git/sync'
 import { unpushedCommits } from '../providers/gerrit/git'
 import { repoRoot } from '../repos'
 import { checkPath } from './changes'
-import { confirmStash } from './sync'
+import { confirmStash, exclusive } from './sync'
 import type { Handlers } from '.'
 
 export const historyHandlers: Handlers<'history:log' | 'history:commit' | 'history:diff' | 'history:blame' | 'history:pick' | 'history:unpushed' | 'history:rebase'> = {
@@ -20,9 +20,12 @@ export const historyHandlers: Handlers<'history:log' | 'history:commit' | 'histo
   'history:unpushed': async ({ repo }) => (await unpushedCommits(repoRoot(repo))).reverse(),
   'history:rebase': async ({ repo, steps }, e) => {
     const root = repoRoot(repo)
+    // Before the stash confirm, so nobody agrees to stash for a rebase that cannot start.
+    if (await opInProgress(root)) throw new Error('Finish or abort the operation in progress first')
     const dirty = await hasLocalChanges(root)
     if (dirty && !(await confirmStash(e, 'Stash & rebase'))) return null
-    return interactiveRebase(root, steps, dirty)
+    // Same lock as pull/push/sync rebase: two rebases must not race on the index.
+    return exclusive(() => interactiveRebase(root, steps, dirty))
   },
   'history:commit': ({ repo, sha }) => getCommit(repoRoot(repo), sha),
   'history:diff': ({ repo, sha, path, origPath }) => {
