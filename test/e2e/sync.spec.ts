@@ -58,6 +58,7 @@ test('push, fetch + pull, rejected push banner, publish', async () => {
 })
 
 test('auth prompt names the op and repo, and closes when that op is cancelled (S5, R15)', async () => {
+  test.skip(process.platform === 'win32', 'askpass bridge is off on Windows')
   const fx = createRepoFixture()
   const remote = await startAuthRemote()
   fx.git(['remote', 'set-url', 'origin', `${remote.url}/repo.git`])
@@ -80,6 +81,7 @@ test('auth prompt names the op and repo, and closes when that op is cancelled (S
 })
 
 test('cancelling an auth prompt during fetch ends the op with a message', async () => {
+  test.skip(process.platform === 'win32', 'askpass bridge is off on Windows')
   const fx = createRepoFixture()
   const remote = await startAuthRemote()
   fx.git(['remote', 'set-url', 'origin', `${remote.url}/repo.git`])

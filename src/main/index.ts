@@ -62,7 +62,9 @@ function startApp(): void {
     if (!getSettings().reopenLastRepo) clearCurrent()
     nativeTheme.themeSource = getSettings().theme
     onSettingsChanged((s) => (nativeTheme.themeSource = s.theme))
-    const askpass = await startAskpassServer({
+    // Windows: Electron (a GUI-subsystem exe) cannot write to the pipe git reads the answer from, so the bridge
+    // never works there; git uses its own credential helper (Git Credential Manager) and ssh-agent instead.
+    const askpass = process.platform === 'win32' ? null : await startAskpassServer({
       // Outside packaged builds the executable is plain Electron and needs our main script.
       command: app.isPackaged ? [process.execPath] : [process.execPath, __filename],
       onPrompt: askUser
