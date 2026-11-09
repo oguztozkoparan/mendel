@@ -67,7 +67,7 @@ async function openByChangeId(repo: string, ids: (string | null)[]): Promise<Map
   }
 }
 
-export const gerritHandlers: Handlers<'gerrit:checkout' | 'gerrit:badges' | 'gerrit:pending' | 'gerrit:send' | 'gerrit:commitHint' | 'gerrit:addChangeId' | 'gerrit:connect' | 'gerrit:disconnect' | 'gerrit:open' | 'gerrit:changes' | 'gerrit:change' | 'gerrit:files' | 'gerrit:diff' | 'gerrit:comments' | 'gerrit:review' | 'gerrit:action' | 'gerrit:attention' | 'gerrit:hashtags'> = {
+export const gerritHandlers: Handlers<'gerrit:checkout' | 'gerrit:badges' | 'gerrit:pending' | 'gerrit:send' | 'gerrit:commitHint' | 'gerrit:addChangeId' | 'gerrit:connect' | 'gerrit:disconnect' | 'gerrit:open' | 'gerrit:changes' | 'gerrit:change' | 'gerrit:files' | 'gerrit:diff' | 'gerrit:comments' | 'gerrit:related' | 'gerrit:review' | 'gerrit:action' | 'gerrit:attention' | 'gerrit:hashtags'> = {
   'gerrit:commitHint': async ({ repo }) => {
     const { root } = await gerritRoot(repo)
     const [hook, commits] = await Promise.all([hasCommitMsgHook(root), unpushedCommits(root)])
@@ -103,6 +103,7 @@ export const gerritHandlers: Handlers<'gerrit:checkout' | 'gerrit:badges' | 'ger
   'gerrit:change': async ({ repo, change }) => (await gerritFor(repo)).change(change),
   'gerrit:files': async ({ repo, change, revision, base }) => (await gerritFor(repo)).files(change, revision, base),
   'gerrit:comments': async ({ repo, change }) => (await gerritFor(repo)).comments(change),
+  'gerrit:related': async ({ repo, change }) => (await gerritFor(repo)).related(change),
   'gerrit:review': async ({ repo, change, patchSet, message, labels, comments }) => {
     const client = await gerritFor(repo)
     const toInput = (ds: GerritDraft[]) => {

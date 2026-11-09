@@ -5,7 +5,7 @@
 // Main must implement every `invoke` channel (see src/main/ipc/index.ts); preload exposes each one as
 // `window.mendel['<channel>'](req)` and `window.mendel.on('<event>', cb)`.
 import { z } from 'zod'
-import { draftSchema, HASHTAG, PUSH_OPTION_VALUE, type GerritChange, type GerritCommit, type GerritSent, type GerritChangeLists, type GerritComment, type GerritConnected, type GerritDiff, type GerritFiles } from './gerrit'
+import { draftSchema, HASHTAG, PUSH_OPTION_VALUE, type GerritChange, type GerritCommit, type GerritSent, type GerritChangeLists, type GerritComment, type GerritConnected, type GerritDiff, type GerritFiles, type GerritRelated } from './gerrit'
 
 const res = <Res>() => <Req extends z.ZodType>(req: Req) => ({ req, res: null as unknown as Res })
 
@@ -445,6 +445,8 @@ export const invoke = {
   'gerrit:files': res<GerritFiles>()(z.object({ repo: repoId, change: changeNum, revision, base: changeNum.optional() }).strict()),
   'gerrit:diff': res<GerritDiff>()(z.object({ repo: repoId, change: changeNum, revision, path: z.string().min(1).max(4096), base: changeNum.optional() }).strict()),
   'gerrit:comments': res<GerritComment[]>()(z.object({ repo: repoId, change: changeNum }).strict()),
+  /** Related changes (relation chain) of the current patch set. */
+  'gerrit:related': res<GerritRelated[]>()(z.object({ repo: repoId, change: changeNum }).strict()),
   /** Reply: one review POST on `patchSet` with message, votes and its inline comments (drafts on older patch sets go to those). */
   'gerrit:review': res<void>()(
     z

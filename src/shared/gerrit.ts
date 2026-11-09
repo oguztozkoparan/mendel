@@ -175,3 +175,15 @@ export const draftSchema = z
   })
   .strict()
 export type GerritDraft = z.infer<typeof draftSchema>
+
+/** `GET …/revisions/current/related` entry (RelatedChangeAndCommitInfo): one commit of the chain, newest first. */
+export const relatedSchema = z.object({
+  /** Absent when the commit is not a Gerrit change. */
+  _change_number: z.number().optional(),
+  /** Patch set the chain uses vs. the change's latest: older = outdated. */
+  _revision_number: z.number().optional(),
+  _current_revision_number: z.number().optional(),
+  status: z.string().optional(),
+  commit: z.object({ commit: z.string(), subject: z.string().optional() })
+})
+export type GerritRelated = z.infer<typeof relatedSchema>

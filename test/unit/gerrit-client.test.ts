@@ -59,6 +59,13 @@ describe('gerrit client', () => {
     for (const bad of ['', 'a b', 'a,b', 'a\tb', 'a\u0000', 'x'.repeat(101)]) expect(ok(bad)).toBe(false)
   })
 
+  it('lists related changes of the current patch set (empty when standalone)', async () => {
+    expect(await client().related(102)).toEqual([])
+    mock.changes.find((c) => c._number === 101)!.related = [{ project: 'p/q', change_id: 'I1', commit: { commit: 'f'.repeat(40), parents: [], subject: 'Child' }, _change_number: 103, _revision_number: 1, _current_revision_number: 2, status: 'NEW' }]
+    expect(await client().related(101)).toEqual([{ commit: { commit: 'f'.repeat(40), subject: 'Child' }, _change_number: 103, _revision_number: 1, _current_revision_number: 2, status: 'NEW' }])
+    expect(mock.find('GET', '/a/changes/101/revisions/current/related')).toHaveLength(1)
+  })
+
   it('reports unreachable servers', async () => {
     await expect(gerritClient('http://127.0.0.1:1', { username: 'u', password: 'p' }, fetch).self()).rejects.toThrow(/Cannot reach Gerrit/)
   })

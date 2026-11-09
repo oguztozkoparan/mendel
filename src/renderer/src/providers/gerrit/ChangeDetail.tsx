@@ -30,8 +30,8 @@ export const revisionsOf = (ch: GerritChange): Revision[] =>
 
 const statusText = (st: string) => (st === 'NEW' ? 'Open' : st.charAt(0) + st.slice(1).toLowerCase())
 
-/** Change detail (PLAN.md §3.8): header, labels, reviewers, files, side-by-side diff with comment threads. */
-export function ChangeDetail({ repo, number, me, onBack }: { repo: string; number: number; me: string | null; onBack(): void }) {
+/** Change detail (PLAN.md §3.8): header, labels, reviewers, related changes, files, side-by-side diff with comment threads. */
+export function ChangeDetail({ repo, number, me, onBack, onOpen }: { repo: string; number: number; me: string | null; onBack(): void; onOpen(change: number): void }) {
   const q = useQuery({ queryKey: ['gerrit', repo, 'change', number], queryFn: () => window.mendel['gerrit:change']({ repo, change: number }) })
   const [psSel, setPs] = useState<number | null>(null)
   const [base, setBase] = useState<number | undefined>(undefined)
@@ -46,6 +46,7 @@ export function ChangeDetail({ repo, number, me, onBack }: { repo: string; numbe
     enabled: !!ps
   })
   const comments = useQuery({ queryKey: ['gerrit', repo, 'comments', number], queryFn: () => window.mendel['gerrit:comments']({ repo, change: number }) })
+  const related = useQuery({ queryKey: ['gerrit', repo, 'related', number], queryFn: () => window.mendel['gerrit:related']({ repo, change: number }) })
   const pending = usePending(repo, number)
   const [replying, setReplying] = useState(false)
 
@@ -135,6 +136,36 @@ export function ChangeDetail({ repo, number, me, onBack }: { repo: string; numbe
         </div>
         <AttentionHashtags repo={repo} change={ch} me={me} />
       </section>
+
+      {!!related.data?.length && (
+        <section aria-label="Related changes" className={s.block}>
+          <strong>Related changes</strong>
+          <ul className={s.related}>
+            {related.data.map((r) => {
+              const n = r._change_number
+              const self = n === ch._number
+              const subject = r.commit.subject ?? r.commit.commit.slice(0, 7)
+              const outdated = !!r._revision_number && !!r._current_revision_number && r._revision_number < r._current_revision_number
+              return (
+                <li key={r.commit.commit} aria-current={self || undefined}>
+                  {n && !self ? (
+                    <Button className={s.link} onPress={() => onOpen(n)}>
+                      {subject}
+                    </Button>
+                  ) : (
+                    <span>{subject}</span>
+                  )}
+                  <span className={s.meta}>
+                    {n ? ` #${n}` : ''}
+                    {r.status ? ` · ${statusText(r.status)}` : ''}
+                    {outdated ? ` · Outdated (PS ${r._revision_number} of ${r._current_revision_number})` : ''}
+                  </span>
+                </li>
+              )
+            })}
+          </ul>
+        </section>
+      )}
 
       <ListBox
         aria-label="Files"

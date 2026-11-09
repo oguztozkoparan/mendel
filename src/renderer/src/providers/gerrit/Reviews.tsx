@@ -61,7 +61,7 @@ export function Reviews({ repo, state, focus }: { repo: RepoEntry; state: Provid
         <Button onPress={() => void lists.refetch()}>Retry</Button>
       </div>
     )
-  else main = selected ? <ChangeDetail key={selected} repo={repo.id} number={selected} me={state.credentialUser} onBack={() => setSelected(null)} /> : <p className={s.empty}>Select a change</p>
+  else main = selected ? <ChangeDetail key={selected} repo={repo.id} number={selected} me={state.credentialUser} onBack={() => setSelected(null)} onOpen={setSelected} /> : <p className={s.empty}>Select a change</p>
 
   const sections: [string, GerritChange[]][] = lists.data
     ? [

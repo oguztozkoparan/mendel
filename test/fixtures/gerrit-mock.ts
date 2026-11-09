@@ -31,6 +31,8 @@ export interface MockChange {
   comments: Record<string, Json[]>
   /** POST /rebase answers 409 like a real merge conflict. */
   rebaseConflict?: boolean
+  /** RelatedChangeAndCommitInfo[] answered by GET …/related (absent = standalone). */
+  related?: Json[]
 }
 
 function commitMsg(subject: string, number: number): MockFile {
@@ -196,11 +198,11 @@ export async function startGerritMock(opts: GerritMockOptions = {}): Promise<Ger
   const revOf = (c: MockChange, rev: string) =>
     rev === 'current' ? c.current_revision : Object.keys(c.revisions).find((s) => s === rev || String(c.revisions[s]._number) === rev)
   const summary = (c: MockChange) => {
-    const { files: _f, comments: _c, rebaseConflict: _r, messages: _m, revisions, ...rest } = c
+    const { files: _f, comments: _c, rebaseConflict: _r, related: _rel, messages: _m, revisions, ...rest } = c
     return { ...rest, revisions: { [c.current_revision]: revisions[c.current_revision] } }
   }
   const detail = (c: MockChange) => {
-    const { files: _f, comments: _c, rebaseConflict: _r, ...rest } = c
+    const { files: _f, comments: _c, rebaseConflict: _r, related: _rel, ...rest } = c
     return rest
   }
   const query = (q: string) => {
@@ -258,6 +260,8 @@ export async function startGerritMock(opts: GerritMockOptions = {}): Promise<Ger
         return json(detail(c))
       case 'GET comments':
         return json(c.comments)
+      case 'GET rev/related':
+        return json({ changes: c.related ?? [] })
       case 'GET rev/files': {
         const fs = Object.fromEntries(Object.entries(c.files[rev!] ?? {}).map(([p, f]) => [p, { status: f.status, lines_inserted: f.lines_inserted, lines_deleted: f.lines_deleted, size_delta: 0, size: 100 }]))
         return json(fs)
