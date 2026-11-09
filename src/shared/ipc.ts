@@ -310,7 +310,8 @@ export const invoke = {
   'changes:unstage': res<void>()(pathsOrAll),
   /**
    * Apply one hunk, identified by its `@@ ... @@` header line as shown in the diff. `discard` asks a native confirm first.
-   * `lines`: only these change lines (indexes into the hunk's lines, `\ No newline` markers not counted).
+   * `lines`: only these change lines (indexes into the hunk's lines, `\ No newline` markers not counted);
+   * `texts`: those lines as shown, sign included (`+x`), so main refuses if the fresh diff has other lines there.
    */
   'changes:applyHunk': res<void>()(
     z
@@ -321,9 +322,11 @@ export const invoke = {
         untracked: z.boolean(),
         hunk: z.string().startsWith('@@').max(4096),
         action: z.enum(['stage', 'unstage', 'discard']),
-        lines: z.array(z.number().int().nonnegative()).min(1).max(100_000).optional()
+        lines: z.array(z.number().int().nonnegative()).min(1).max(100_000).optional(),
+        texts: z.array(z.string().max(1_000_000)).max(100_000).optional()
       })
       .strict()
+      .refine((r) => r.lines?.length === r.texts?.length, { message: 'texts must match lines' })
   ),
   /** Discard all changes to these files after a native confirm; false = user cancelled. */
   'changes:discard': res<boolean>()(paths),

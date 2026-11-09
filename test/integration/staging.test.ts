@@ -1,4 +1,4 @@
-import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { execFileSync } from 'node:child_process'
@@ -133,12 +133,13 @@ describe('line staging', () => {
   afterEach(() => fx?.cleanup())
   const t = { path: 'f.txt', untracked: false }
   const index = () => execFileSync('git', ['show', ':f.txt'], { cwd: fx.work, env: fx.env, encoding: 'utf8' })
-  /** Stage (or unstage) the change lines whose text is in `texts`, in the file's only hunk. */
-  const apply = async (action: 'stage' | 'unstage', texts: string[]) => {
+  /** Stage, unstage or discard the change lines whose text is in `texts`, in the file's only hunk. */
+  const apply = async (action: 'stage' | 'unstage' | 'discard', texts: string[]) => {
     const diff = await getDiff(fx.work, { ...t, staged: action === 'unstage' }, fx.env)
     const [h] = headers(diff)
     const body = diff.slice(diff.indexOf(h!)).split('\n').slice(1).filter((l) => l && !l.startsWith('\\'))
-    await applyHunk(fx.work, t, h!, action, fx.env, body.flatMap((l, i) => (texts.includes(l) ? [i] : [])))
+    const picked = body.flatMap((l, i) => (texts.includes(l) ? [i] : []))
+    await applyHunk(fx.work, t, h!, action, fx.env, picked, picked.map((i) => body[i]!))
   }
   const setup = (before: string, after: string) => {
     fx = createRepoFixture()
@@ -188,6 +189,40 @@ describe('line staging', () => {
     expect(index()).toBe('a\n')
     await apply('unstage', ['-b'])
     expect(index()).toBe('a\nb')
+  })
+
+  it('keeps a picked no-newline line last on its side', async () => {
+    setup('a\nb\n', 'c')
+    await apply('stage', ['-a', '+c'])
+    expect(index()).toBe('b\nc')
+
+    fx.git(['reset', '-q', '--hard'])
+    fx.commitFile('f.txt', 'x')
+    writeFileSync(path.join(fx.work, 'f.txt'), 'b\n')
+    fx.git(['add', 'f.txt'])
+    await apply('unstage', ['-x'])
+    expect(index()).toBe('b\nx')
+
+    fx.git(['reset', '-q', '--hard'])
+    fx.commitFile('f.txt', 'y')
+    writeFileSync(path.join(fx.work, 'f.txt'), 'b\n')
+    await apply('discard', ['-y'])
+    expect(readFileSync(path.join(fx.work, 'f.txt'), 'utf8')).toBe('b\ny')
+  })
+
+  it('refuses when the picked lines are no longer those lines', async () => {
+    setup('a\nb\n', 'a\nB\n')
+    const [h] = headers(await getDiff(fx.work, { ...t, staged: false }, fx.env))
+    writeFileSync(path.join(fx.work, 'f.txt'), 'a\nC\n')
+    await expect(applyHunk(fx.work, t, h!, 'stage', fx.env, [2], ['+B'])).rejects.toThrow(/changed/)
+    expect(index()).toBe('a\nb\n')
+    await applyHunk(fx.work, t, h!, 'stage', fx.env, [2], ['+C'])
+    expect(index()).toBe('a\nb\nC\n')
+    const req = { repo: 'r', path: 'f.txt', untracked: false, hunk: h!, action: 'stage' }
+    expect(() => invoke['changes:applyHunk'].req.parse({ ...req, lines: [1] })).toThrow()
+    expect(() => invoke['changes:applyHunk'].req.parse({ ...req, lines: [1], texts: ['+B', '-b'] })).toThrow()
+    expect(invoke['changes:applyHunk'].req.parse({ ...req, lines: [1], texts: ['+B'] })).toMatchObject({ texts: ['+B'] })
+    expect(invoke['changes:applyHunk'].req.parse(req)).toEqual(req)
   })
 
   it('unstages some lines of an added file and stages part of a deleted one', async () => {

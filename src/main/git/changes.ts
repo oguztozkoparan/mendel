@@ -80,9 +80,10 @@ const NO_EOL = '\\ No newline at end of file'
 /**
  * `hunkPatch` cut down to the picked change lines (indexes into the hunk's lines, `\` markers not counted).
  * The fixed side (old for stage; new for unstage, which is applied with --reverse) must keep matching the file:
- * unpicked fixed-side lines become context, unpicked other-side lines are dropped. null if the hunk is gone or nothing changes.
+ * unpicked fixed-side lines become context, unpicked other-side lines are dropped. null if the hunk is gone or nothing changes,
+ * or if `texts` (the picked lines as the user saw them, sign included) no longer match those lines.
  */
-export function linesPatch(diff: string, header: string, picked: number[], reverse: boolean): string | null {
+export function linesPatch(diff: string, header: string, picked: number[], reverse: boolean, texts?: string[]): string | null {
   const patch = hunkPatch(diff, header)
   const m = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@(.*)$/.exec(header)
   if (!patch || !m) return null
@@ -92,9 +93,11 @@ export function linesPatch(diff: string, header: string, picked: number[], rever
   for (let i = body.length - 1; i > 0; i--) if (body[i]!.text === NO_EOL) ((body[i - 1]!.eol = false), body.splice(i, 1))
   const fixed = reverse ? '+' : '-'
   const want = new Set(picked)
+  if (texts && picked.some((p, k) => body[p]?.text !== texts[k])) return null
   if (!body.some((l, i) => want.has(i) && l.text[0] !== ' ')) return null
   // Per run of changed lines: fixed-side lines keep their order; picked other-side lines go after the last picked
   // fixed line (stage) or before the first (unstage), so a partly picked replacement lands where it was.
+  // A no-newline picked line is its side's last line, so the picked lines then go after the whole run.
   const kept: typeof body = []
   for (let i = 0; i < body.length; ) {
     if (body[i]!.text[0] === ' ') {
@@ -109,7 +112,7 @@ export function linesPatch(diff: string, header: string, picked: number[], rever
       else if (want.has(i)) moving.push(l)
     }
     const last = fix.map((l) => l.text[0]).lastIndexOf(fixed)
-    const pos = reverse ? fix.findIndex((l) => l.text[0] === fixed) : last < 0 ? fix.length : last + 1
+    const pos = moving.some((l) => !l.eol) ? fix.length : reverse ? fix.findIndex((l) => l.text[0] === fixed) : last < 0 ? fix.length : last + 1
     kept.push(...fix.slice(0, Math.max(pos, 0)), ...moving, ...fix.slice(Math.max(pos, 0)))
   }
   const out: string[] = []
@@ -162,7 +165,7 @@ export type HunkAction = 'stage' | 'unstage' | 'discard'
 /**
  * Re-diff the file in main, pick the hunk the user saw (by its `@@` line) and `git apply` it:
  * stage = unstaged hunk -> index; unstage = staged hunk reversed out of the index;
- * discard = unstaged hunk reversed out of the working tree. `lines` = only these change lines of the hunk (see linesPatch).
+ * discard = unstaged hunk reversed out of the working tree. `lines`/`texts` = only these change lines of the hunk (see linesPatch).
  */
 export async function applyHunk(
   cwd: string,
@@ -170,11 +173,12 @@ export async function applyHunk(
   header: string,
   action: HunkAction,
   env?: NodeJS.ProcessEnv,
-  lines?: number[]
+  lines?: number[],
+  texts?: string[]
 ): Promise<void> {
   const staged = action === 'unstage'
   const diff = await getDiff(cwd, { ...t, staged, untracked: t.untracked && !staged }, env)
-  const patch = lines ? linesPatch(diff, header, lines, action !== 'stage') : hunkPatch(diff, header)
+  const patch = lines ? linesPatch(diff, header, lines, action !== 'stage', texts) : hunkPatch(diff, header)
   if (!patch) throw new Error('The file changed since the diff was shown; try again')
   const args = ['apply', '--whitespace=nowarn', ...(action === 'discard' ? [] : ['--cached']), ...(action === 'stage' ? [] : ['--reverse']), '-']
   await git(args, { cwd, env, stdin: patch })
