@@ -145,7 +145,6 @@ button {
   font-weight: 500;
   white-space: nowrap;
   user-select: none;
-  cursor: default;
   background: linear-gradient(180deg, var(--face-top), var(--face-bot));
   box-shadow: inset 0 1px 0 var(--hi), 0 0 0 1px var(--edge), 0 2px 0 var(--lip), 0 3px 6px var(--drop);
   transition: box-shadow .09s ease-out, filter .15s, background-color .15s;
@@ -396,4 +395,42 @@ textarea {
 
 .segmented > button[data-focus-visible] {
   box-shadow: var(--focus);
+}
+
+/* Cursors (concept): actions get --cursor-action (arrow on mac, hand elsewhere); only selectable text gets the I-beam.
+   :where() keeps these at zero specificity so a nested action (button in a row) still wins over the inherit rule. */
+:root {
+  --cursor-action: pointer;
+}
+
+html[data-platform='darwin'] {
+  --cursor-action: default;
+}
+
+body {
+  cursor: default;
+}
+
+/* inside an actionable element every descendant (kbd, badge, chip, text) follows the ancestor's cursor */
+:where(button, select, [role='tab'], [role='menuitem'], [role='menuitemradio'], [role='menuitemcheckbox'], [role='option'], [role='row'], label:has(input[type='checkbox'], input[type='radio'])) * {
+  cursor: inherit;
+}
+
+:where(button, select, [role='tab'], [role='menuitem'], [role='menuitemradio'], [role='menuitemcheckbox'], [role='option'], [role='row'], label:has(input[type='checkbox'], input[type='radio'])) {
+  cursor: var(--cursor-action);
+}
+
+/* already selected: nothing to do */
+:where([role='tab'], [role='row'], [role='option'], .segmented > button):where([aria-selected='true'], [data-selected]) {
+  cursor: default;
+}
+
+:where(button:disabled, button:disabled *, [data-disabled], [data-disabled] *) {
+  cursor: not-allowed;
+}
+
+input:not([type='checkbox'], [type='radio']),
+textarea,
+.diff-code {
+  cursor: text;
 }

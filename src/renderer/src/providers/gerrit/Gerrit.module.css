@@ -40,7 +40,7 @@
   box-shadow: none;
   color: var(--accent);
   text-decoration: underline;
-  cursor: pointer;
+  cursor: var(--cursor-action);
 }
 
 .sectionHeader {
@@ -120,6 +120,7 @@
   margin: 0 0 4px;
   font-size: 15px;
   overflow-wrap: anywhere;
+  cursor: text;
 }
 
 .toolbarRow {
@@ -238,6 +239,7 @@
 
 .comment p {
   margin: 4px 0;
+  cursor: text;
   overflow-wrap: anywhere;
 }
 

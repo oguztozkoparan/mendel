@@ -40,6 +40,13 @@
   overflow-wrap: anywhere;
 }
 
+/* commit detail text is selectable: I-beam */
+.title,
+.message,
+.fields dd {
+  cursor: text;
+}
+
 .message {
   margin: 0;
   padding: 0 12px 8px;
@@ -90,7 +97,7 @@
   line-height: 20px;
   padding: 0 10px;
   white-space: pre;
-  cursor: pointer;
+  cursor: var(--cursor-action);
 }
 
 .blameRow[data-focused] {
