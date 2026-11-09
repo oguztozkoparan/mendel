@@ -45,7 +45,7 @@ export function SendForReview(p: { repo: string; onClose(): void; onSent(r: Gerr
             Send for review
           </Heading>
           <label className={a.field}>
-            Target branch
+            <span>Target branch</span>
             <input value={target ?? q.data?.target ?? ''} onChange={(e) => setTarget(e.target.value)} spellCheck={false} disabled={busy} />
           </label>
           {q.data && (
