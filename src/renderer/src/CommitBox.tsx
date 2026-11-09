@@ -19,8 +19,10 @@ export function CommitBox(p: { repo: string; hasStaged: boolean; hint?: CommitHi
   const { repo, hasStaged, hint } = p
   const qc = useQueryClient()
   const info = useQuery({ queryKey: ['commitInfo', repo], queryFn: () => window.mendel['commit:info']({ repo }) })
-  // Same query as the conflict banner: while a rebase is stopped, Continue there is the primary and this commit also continues.
-  const rebasing = useQuery({ queryKey: ['conflict', repo], queryFn: () => window.mendel['conflict:state']({ repo }) }).data === 'rebase'
+  // Same query as the conflict banner: while any op is stopped, Continue there is the primary (one primary per screen).
+  // Only a rebase goes on after a commit; a commit itself concludes a merge, cherry-pick or revert.
+  const op = useQuery({ queryKey: ['conflict', repo], queryFn: () => window.mendel['conflict:state']({ repo }) }).data ?? null
+  const rebasing = op === 'rebase'
   const settings = useSettings().data
   const limit = settings?.summaryLimit ?? 72
   const [summary, setSummary] = useState('')
@@ -29,7 +31,8 @@ export function CommitBox(p: { repo: string; hasStaged: boolean; hint?: CommitHi
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const head = info.data?.head ?? null
-  const canCommit = !busy && summary.trim() !== '' && (hasStaged || amend)
+  const amending = amend && op === null
+  const canCommit = !busy && summary.trim() !== '' && (hasStaged || amending)
 
   const toggleAmend = (on: boolean) => {
     setAmend(on)
@@ -55,7 +58,7 @@ export function CommitBox(p: { repo: string; hasStaged: boolean; hint?: CommitHi
     if (!canCommit) return
     setBusy(true)
     setError(null)
-    window.mendel['commit:create']({ repo, summary, description, amend }).then(
+    window.mendel['commit:create']({ repo, summary, description, amend: amending }).then(
       () => {
         setSummary('')
         setDescription('')
@@ -97,7 +100,8 @@ export function CommitBox(p: { repo: string; hasStaged: boolean; hint?: CommitHi
           spellCheck={settings?.spellcheck}
         />
       </TextField>
-      <Checkbox isSelected={amend} onChange={toggleAmend} isDisabled={head === null} className={s.amend}>
+      {/* Amending mid-operation would fold the resolution into the previous commit. */}
+      <Checkbox isSelected={amend} onChange={toggleAmend} isDisabled={head === null || op !== null} className={s.amend}>
         <span className={s.box} aria-hidden>
           {amend ? '✓' : ''}
         </span>
@@ -122,8 +126,8 @@ export function CommitBox(p: { repo: string; hasStaged: boolean; hint?: CommitHi
           {error}
         </p>
       )}
-      <Button type="submit" className={rebasing ? undefined : 'primary'} isDisabled={!canCommit}>
-        {rebasing ? 'Commit and continue rebase' : amend ? 'Amend last commit' : branch ? `Commit to ${branch}` : 'Commit'}
+      <Button type="submit" className={op ? undefined : 'primary'} isDisabled={!canCommit}>
+        {rebasing ? 'Commit and continue rebase' : amending ? 'Amend last commit' : branch ? `Commit to ${branch}` : 'Commit'}
       </Button>
       {info.data?.author && <small className={s.author}>Committing as {info.data.author}</small>}
     </form>
