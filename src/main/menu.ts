@@ -1,5 +1,6 @@
 import { app, BrowserWindow, Menu, type MenuItemConstructorOptions } from 'electron'
 import type { MenuCommand } from '../shared/ipc'
+import { installCli } from './cli'
 import { checkForUpdates } from './ipc/update'
 
 const send = (cmd: MenuCommand) => (BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0])?.webContents.send('menu:command', cmd)
@@ -10,6 +11,8 @@ const item = (label: string, cmd: MenuCommand, accelerator?: string): MenuItemCo
 export function buildMenu(): void {
   const mac = process.platform === 'darwin'
   const updates: MenuItemConstructorOptions = { id: 'update:check', label: 'Check for Updates…', click: checkForUpdates }
+  // Windows: no shell command (the installer's shortcut is the launcher).
+  const cli: MenuItemConstructorOptions[] = process.platform === 'win32' ? [] : [{ id: 'cli:install', label: 'Install `mendel` Command…', click: () => void installCli() }]
   const settings = item(mac ? 'Settings…' : 'Settings', 'settings', 'CmdOrCtrl+,')
   const template: MenuItemConstructorOptions[] = [
     ...(mac
@@ -19,6 +22,7 @@ export function buildMenu(): void {
             submenu: [
               { role: 'about' },
               updates,
+              ...cli,
               { type: 'separator' },
               settings,
               { type: 'separator' },
@@ -39,7 +43,7 @@ export function buildMenu(): void {
         item('Open Local Repository…', 'repo:open', 'CmdOrCtrl+O'),
         item('Clone Repository…', 'repo:clone', 'CmdOrCtrl+Shift+O'),
         { type: 'separator' },
-        ...(mac ? [] : [settings, { type: 'separator' } as const]),
+        ...(mac ? [] : [...cli, settings, { type: 'separator' } as const]),
         mac ? { role: 'close' } : { role: 'quit' }
       ]
     },

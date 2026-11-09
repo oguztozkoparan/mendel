@@ -17,7 +17,7 @@ function inRepo(id: string, rel?: string): string {
 }
 
 /** repoTopLevel; on "dubious ownership" ask (native, in main) to trust exactly that folder, then retry (S16). */
-async function topLevelTrusting(dir: string, win: BrowserWindow | null): Promise<string> {
+export async function topLevelTrusting(dir: string, win: BrowserWindow | null): Promise<string> {
   try {
     return await repoTopLevel(dir)
   } catch (err) {

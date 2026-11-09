@@ -14,6 +14,7 @@ Git work goes through your installed `git`, so SSH keys, `~/.ssh/config`, creden
 - History with commit detail and diffs
 - Gerrit: detection, HTTP-password login (OS keychain), **Send for review** (topic, reviewers, WIP), Change-Id added when the hook is missing, new-patchset hints, Reviews list, change detail with side-by-side diff, comment threads, votes, submit / abandon / rebase, checkout a change locally
 - Native menus and shortcuts, light/dark theme, in-app update checker
+- `mendel .` opens a repo from the terminal (also into a running app): macOS/Linux install it via the menu (Install `mendel` Command…, writes `~/.local/bin/mendel`, no sudo); on Windows run `Mendel.exe <dir>` instead
 
 ## Requirements
 Node 24+, git ≥ 2.30 (2.50.1+ recommended).

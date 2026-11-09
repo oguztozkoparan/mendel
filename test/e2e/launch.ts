@@ -13,12 +13,12 @@ export interface LaunchedApp {
 /**
  * Launch the built app (`out/main/index.js`) with a throwaway userData dir and git isolated from the
  * developer's config. Pass a RepoFixture's `env` to share its git config; extra vars override
- * (pass `MENDEL_E2E_USERDATA` to relaunch with the same app state).
+ * (pass `MENDEL_E2E_USERDATA` to relaunch with the same app state). `args` follow the main script (`mendel <dir>`).
  */
-export async function launchApp(env: NodeJS.ProcessEnv = {}): Promise<LaunchedApp> {
+export async function launchApp(env: NodeJS.ProcessEnv = {}, args: string[] = []): Promise<LaunchedApp> {
   const tmp = mkdtempSync(path.join(tmpdir(), 'mendel-e2e-'))
   const app = await electron.launch({
-    args: ['out/main/index.js'],
+    args: ['out/main/index.js', ...args],
     env: { ...isolatedGitEnv(tmp), MENDEL_E2E_USERDATA: path.join(tmp, 'userData'), ...env }
   })
   const win = await app.firstWindow()

@@ -49,7 +49,7 @@ Cross-platform desktop git client (Electron + React + Vite + TypeScript), GitHub
 - **Review notifications (new incoming review) → later.** MVP refreshes on focus and on an interval.
 
 ### Later
-Line staging, stash list, 3-way merge editor, multiple accounts per host, review notifications, Gerrit attention set / hashtags / drafts sync / edit commit message on server / related changes / cherry-pick to branch, history search & file history, blame, tags, cherry-pick/revert UI, interactive rebase, `mendel` CLI launcher (`mendel .`), jump lists / dock recent items, beta update channel, GitHub provider (PRs), Bitbucket provider (PRs), i18n (Turkish), SSH setup in Gerrit settings (connection check via `ssh -p 29418 <user>@<host> gerrit version`, show key from `ssh -G`, generate key, upload via `POST /a/accounts/self/sshkeys`; never write `~/.ssh/config`).
+Line staging, stash list, 3-way merge editor, multiple accounts per host, review notifications, Gerrit attention set / hashtags / drafts sync / edit commit message on server / related changes / cherry-pick to branch, history search & file history, blame, tags, cherry-pick/revert UI, interactive rebase, jump lists / dock recent items, beta update channel, GitHub provider (PRs), Bitbucket provider (PRs), i18n (Turkish), SSH setup in Gerrit settings (connection check via `ssh -p 29418 <user>@<host> gerrit version`, show key from `ssh -G`, generate key, upload via `POST /a/accounts/self/sshkeys`; never write `~/.ssh/config`).
 
 ---
 
@@ -331,7 +331,7 @@ Native expectations:
 - **Dialogs**: native folder picker; native message boxes for destructive confirms (discard, delete branch, abandon, submit).
 - **Notifications**: OS notification only when the window is unfocused and a long op finishes (clone, push/send for review, pull) or an update is ready.
 - **Theme**: follow OS light/dark live (`System` default); user override in settings.
-- **Window**: restore size/position/maximized per display; single instance (second launch focuses existing window); minimum size 960×600.
+- **Window**: restore size/position/maximized per display; single instance (second launch focuses existing window and opens its path argument, `mendel <dir>`); minimum size 960×600.
 - **Other**: drag a folder onto the window to open it; external links open in default browser; correct app icon per OS; macOS universal behavior (window close ≠ quit).
 
 ---

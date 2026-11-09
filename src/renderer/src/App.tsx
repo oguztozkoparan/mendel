@@ -36,6 +36,7 @@ export function App() {
   const [sending, setSending] = useState(false)
   /** "Open change #N" from the send toast: RepoView switches to Reviews and selects it. */
   const [focus, setFocus] = useState<{ change: number } | null>(null)
+  useEffect(() => window.mendel.on('repo:opened', () => void qc.invalidateQueries({ queryKey: ['repos'] })), [qc])
   useEffect(() => window.mendel.on('repo:changed', (e) => void refreshLocal(qc, e.repo)), [qc])
   useEffect(
     () =>
