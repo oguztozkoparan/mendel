@@ -46,7 +46,7 @@ export function Composer(p: { label: string; onSave(text: string): void; onCance
       <textarea aria-label={p.label} autoFocus rows={3} value={text} onChange={(e) => setText(e.target.value)} />
       <div className={s.threadActions}>
         <Button onPress={p.onCancel}>Cancel</Button>
-        <Button className="primary" isDisabled={!text.trim()} onPress={() => p.onSave(text.trim())}>
+        <Button isDisabled={!text.trim()} onPress={() => p.onSave(text.trim())}>
           Save draft
         </Button>
       </div>

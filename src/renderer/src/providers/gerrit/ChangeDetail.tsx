@@ -35,6 +35,8 @@ const statusText = (st: string) => (st === 'NEW' ? 'Open' : st.charAt(0) + st.sl
 /** Change detail (PLAN.md §3.8): header, labels, reviewers, related changes, files, side-by-side diff with comment threads. */
 export function ChangeDetail({ repo, number, me, onBack, onOpen }: { repo: string; number: number; me: number | null; onBack(): void; onOpen(change: number): void }) {
   const q = useQuery({ queryKey: ['gerrit', repo, 'change', number], queryFn: () => window.mendel['gerrit:change']({ repo, change: number }) })
+  // Same query as the conflict banner: while an op is stopped, its Continue is the one primary.
+  const op = useQuery({ queryKey: ['conflict', repo], queryFn: () => window.mendel['conflict:state']({ repo }) }).data ?? null
   const [psSel, setPs] = useState<number | null>(null)
   const [base, setBase] = useState<number | undefined>(undefined)
   const [picked, setPicked] = useState<string | null>(null)
@@ -115,7 +117,7 @@ export function ChangeDetail({ repo, number, me, onBack, onOpen }: { repo: strin
           </select>
         </div>
         <div className={s.toolbarRow}>
-          <Button className="primary" onPress={() => setReplying(true)}>
+          <Button className={op ? undefined : 'primary'} onPress={() => setReplying(true)}>
             Reply…{pending.list.length ? ` (${pending.list.length} pending)` : ''}
           </Button>
           <ChangeActions repo={repo} change={ch} current={current} ps={ps._number} />

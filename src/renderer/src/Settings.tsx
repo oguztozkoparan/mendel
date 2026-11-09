@@ -248,7 +248,7 @@ export function IdentityForm() {
           {error}
         </p>
       )}
-      <Button type="submit" className="primary" isDisabled={!name.trim() || !email.trim()}>
+      <Button type="submit" isDisabled={!name.trim() || !email.trim()}>
         Save
       </Button>
     </form>

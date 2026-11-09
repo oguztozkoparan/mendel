@@ -22,6 +22,8 @@ export function Reviews({ repo, state, focus }: { repo: RepoEntry; state: Provid
   useEffect(() => void (focus && setSelected(focus.change)), [focus])
   const d = state.detection!
   const ready = !!d.baseUrl && !!state.credentialUser
+  // Same query as the conflict banner: while an op is stopped, its Continue is the one primary.
+  const primary = useQuery({ queryKey: ['conflict', repo.id], queryFn: () => window.mendel['conflict:state']({ repo: repo.id }) }).data ? undefined : 'primary'
   const refreshMinutes = useSettings().data?.reviewsRefreshMinutes ?? 5
   const lists = useQuery({
     queryKey: ['gerrit', repo.id, 'changes', projectOnly],
@@ -40,7 +42,7 @@ export function Reviews({ repo, state, focus }: { repo: RepoEntry; state: Provid
       <div className={s.card} role="region" aria-label="Set Gerrit URL">
         <strong>Set Gerrit URL</strong>
         <p>{d.host} looks like Gerrit, but its web address could not be found.</p>
-        <Button className="primary" onPress={() => setDialog('provider')}>
+        <Button className={primary} onPress={() => setDialog('provider')}>
           Set Gerrit URL…
         </Button>
       </div>
@@ -54,7 +56,7 @@ export function Reviews({ repo, state, focus }: { repo: RepoEntry; state: Provid
             ? 'Gerrit rejected the saved HTTP password / token; it may have expired.'
             : `Sign in to ${d.baseUrl} with your username and HTTP password to see reviews.`}
         </p>
-        <Button className="primary" onPress={() => setDialog('connect')}>
+        <Button className={primary} onPress={() => setDialog('connect')}>
           Connect…
         </Button>
       </div>
