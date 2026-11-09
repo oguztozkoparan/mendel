@@ -19,6 +19,18 @@ describe('history', () => {
     expect((await getLog(fx.work, 1, fx.env)).map((c) => c.summary)).toEqual(['initial commit'])
   })
 
+  it('lists another branch by full ref', async () => {
+    fx = createRepoFixture()
+    fx.git(['switch', '-q', '-c', 'other'])
+    fx.commitFile('a.txt', 'a\n', 'on other')
+    fx.git(['switch', '-q', 'main'])
+    expect((await getLog(fx.work, 0, fx.env, undefined, { ref: 'refs/heads/other' })).map((c) => [c.summary, c.unpushed])).toEqual([
+      ['on other', true],
+      ['initial commit', false]
+    ])
+    expect((await getLog(fx.work, 0, fx.env)).map((c) => c.summary)).toEqual(['initial commit'])
+  })
+
   it('pages a 500-commit repo quickly', async () => {
     fx = createRepoFixture()
     // fast-import: 499 more commits without spawning git 500 times

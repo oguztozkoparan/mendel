@@ -153,8 +153,8 @@ export interface BlameLine {
   text: string
 }
 
-/** A merge or rebase stopped on conflicts (or otherwise waiting to be continued). */
-export type OpInProgress = 'merge' | 'rebase' | null
+/** A merge, rebase, cherry-pick or revert stopped on conflicts (or otherwise waiting to be continued). */
+export type OpInProgress = 'merge' | 'rebase' | 'cherry-pick' | 'revert' | null
 
 /** User preferences (PLAN.md §6), persisted in userData/settings.json. Each field is validated on load and on change. */
 const prefs = z
@@ -361,9 +361,9 @@ export const invoke = {
   /** Fetch + rebase the current branch onto its upstream; a dirty tree asks "Stash & rebase" (null = cancelled). */
   'sync:rebase': res<SyncResult | null>()(inRepo),
   'sync:cancel': res<void>()(z.undefined()),
-  /** Current branch history, newest first, pages of 100. `grep`/`author`: case-insensitive literal filters (ANDed); `path`: one file, following renames. */
+  /** Current branch history (or `ref` = listed local/remote branch), newest first, pages of 100. `grep`/`author`: case-insensitive literal filters (ANDed); `path`: one file, following renames. */
   'history:log': res<CommitSummary[]>()(
-    z.object({ repo: repoId, skip: z.number().int().min(0).max(10_000_000), grep: logQuery.optional(), author: logQuery.optional(), path: relPath.optional() }).strict()
+    z.object({ repo: repoId, skip: z.number().int().min(0).max(10_000_000), grep: logQuery.optional(), author: logQuery.optional(), path: relPath.optional(), ref: branchName.optional() }).strict()
   ),
   'history:commit': res<CommitDetail>()(z.object({ repo: repoId, sha }).strict()),
   /** Read-only diff of one file of a commit (against its first parent). */
@@ -377,8 +377,10 @@ export const invoke = {
   'tag:push': res<void>()(z.object({ repo: repoId, name: branchName }).strict()),
   /** Per-line author/commit of a file as of a commit. */
   'history:blame': res<BlameLine[]>()(z.object({ repo: repoId, sha, path: relPath }).strict()),
+  /** Apply one commit onto HEAD (`cherry-pick`) or undo it with a new commit (`revert`); 'conflict' = the conflict banner takes over. */
+  'history:pick': res<SyncResult>()(z.object({ repo: repoId, sha, op: z.enum(['cherry-pick', 'revert']) }).strict()),
   'conflict:state': res<OpInProgress>()(inRepo),
-  /** Continue the merge/rebase once all files are marked resolved (`changes:stage`); 'conflict' = stopped again. */
+  /** Continue the merge/rebase/cherry-pick/revert once all files are marked resolved (`changes:stage`); 'conflict' = stopped again. */
   'conflict:continue': res<SyncResult>()(inRepo),
   /** Abort after a native confirm; false = cancelled. */
   'conflict:abort': res<boolean>()(inRepo),

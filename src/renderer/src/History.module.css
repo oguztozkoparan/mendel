@@ -142,3 +142,7 @@
   align-self: flex-start;
   margin: 6px 12px;
 }
+
+.branch {
+  margin: 6px 10px;
+}

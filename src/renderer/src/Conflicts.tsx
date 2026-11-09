@@ -3,7 +3,7 @@ import { Button } from 'react-aria-components'
 import a from './App.module.css'
 import { refreshRepo } from './Branches'
 
-/** Banner while a merge/rebase is stopped (PLAN.md §4.8): conflicted files with Mark resolved, Continue, Abort. */
+/** Banner while a merge/rebase/cherry-pick/revert is stopped (PLAN.md §4.8): conflicted files with Mark resolved, Continue, Abort. */
 export function ConflictBanner(p: { repo: string; onError(e: unknown): void }) {
   const qc = useQueryClient()
   const op = useQuery({ queryKey: ['conflict', p.repo], queryFn: () => window.mendel['conflict:state']({ repo: p.repo }) }).data
@@ -14,7 +14,7 @@ export function ConflictBanner(p: { repo: string; onError(e: unknown): void }) {
   return (
     <div role="status" aria-label="Conflicts" className={`${a.banner} ${a.notice} ${a.conflicts}`}>
       <span>
-        <strong>{op === 'merge' ? 'Merge' : 'Rebase'} in progress.</strong>{' '}
+        <strong>{op[0]!.toUpperCase() + op.slice(1)} in progress.</strong>{' '}
         {conflicted.length ? `Resolve conflicts in ${conflicted.length} file${conflicted.length > 1 ? 's' : ''}, mark them resolved, then continue.` : 'All conflicts resolved.'}
         <ul>
           {conflicted.map((f) => (
