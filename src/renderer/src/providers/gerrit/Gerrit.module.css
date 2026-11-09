@@ -163,7 +163,7 @@
 }
 
 .vote[data-vote='1'] {
-  color: #2da44e;
+  color: var(--git-add);
 }
 
 .vote[data-vote='-1'] {
@@ -193,7 +193,7 @@
 }
 
 .added {
-  color: #2da44e;
+  color: var(--git-add);
   font-family: var(--mono);
   font-size: 11px;
 }
@@ -223,7 +223,7 @@
 }
 
 .thread[data-unresolved] {
-  border-left-color: #bf8700;
+  border-left-color: var(--git-mod);
 }
 
 .comment {

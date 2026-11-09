@@ -36,30 +36,33 @@
 }
 
 .letter {
-  width: 14px;
+  font: 600 10.5px/18px var(--mono);
   text-align: center;
-  font-family: var(--mono);
-  font-weight: 700;
-  border-radius: 3px;
-  font-size: 11px;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 5px;
 }
 
 .letter[data-status='A'] {
-  color: #2da44e;
+  color: var(--git-add);
+  background: color-mix(in srgb, var(--git-add) 14%, transparent);
 }
 
 .letter[data-status='D'],
 .letter[data-status='U'] {
   color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 14%, transparent);
 }
 
 .letter[data-status='M'] {
-  color: #bf8700;
+  color: var(--git-mod);
+  background: color-mix(in srgb, var(--git-mod) 14%, transparent);
 }
 
 .letter[data-status='R'],
 .letter[data-status='C'] {
-  color: #0969da;
+  color: var(--git-ren);
+  background: color-mix(in srgb, var(--git-ren) 14%, transparent);
 }
 
 .empty {
@@ -73,17 +76,12 @@
   --diff-font-family: var(--mono);
   --diff-background-color: var(--bg);
   --diff-text-color: var(--fg);
+  --diff-gutter-insert-background-color: var(--diff-add-gutter);
+  --diff-code-insert-background-color: var(--diff-add-bg);
+  --diff-gutter-delete-background-color: var(--diff-del-gutter);
+  --diff-code-delete-background-color: var(--diff-del-bg);
+  --diff-selection-background-color: var(--diff-sel);
   font-size: 12px;
-}
-
-@media (prefers-color-scheme: dark) {
-  .diffPane {
-    --diff-gutter-insert-background-color: #1d4428;
-    --diff-code-insert-background-color: #12261e;
-    --diff-gutter-delete-background-color: #542426;
-    --diff-code-delete-background-color: #25171c;
-    --diff-selection-background-color: #264f78;
-  }
 }
 
 .fileHeader {

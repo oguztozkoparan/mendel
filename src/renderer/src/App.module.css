@@ -55,7 +55,7 @@
   width: 420px;
   padding: 16px;
   border-radius: 8px;
-  background: Canvas;
+  background: var(--bg-raised);
   box-shadow: 0 8px 32px rgb(0 0 0 / 0.3);
   overflow-wrap: anywhere;
 }

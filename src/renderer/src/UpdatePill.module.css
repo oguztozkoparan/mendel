@@ -24,7 +24,7 @@
 }
 
 .error {
-  color: #c62828;
+  color: var(--danger);
 }
 
 .panel {
@@ -39,7 +39,7 @@
   width: 320px;
   padding: 12px;
   border-radius: 8px;
-  background: Canvas;
+  background: var(--bg-raised);
   box-shadow: 0 8px 32px rgb(0 0 0 / 0.3);
 }
 
