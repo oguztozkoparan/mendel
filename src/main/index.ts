@@ -10,6 +10,7 @@ import { clearCurrent } from './repos'
 import { getSettings, onSettingsChanged } from './settings'
 import { applyLoginShellPath } from './shell-path'
 import { buildMenu } from './menu'
+import { openCliRepo } from './cli'
 import { createMainWindow } from './window'
 import { hardenSession, registerAppScheme, testSeams } from './security'
 
@@ -38,7 +39,8 @@ function startApp(): void {
   if (e2e) app.commandLine.appendSwitch('use-mock-keychain')
   // Second launch: hand over to the running instance (keyed by userData) and quit.
   if (!app.requestSingleInstanceLock()) return app.quit()
-  app.on('second-instance', () => {
+  app.on('second-instance', (_e, argv, cwd) => {
+    if (app.isReady()) void openCliRepo(argv, cwd) // `mendel <dir>` while running
     const win = BrowserWindow.getAllWindows()[0]
     if (!win) return void (app.isReady() && createMainWindow())
     if (win.isMinimized()) win.restore()
@@ -71,6 +73,7 @@ function startApp(): void {
     }
     // e2e-only seam: lets Playwright drive the real git runner from the main process.
     if (e2e) Object.assign(globalThis, { __mendelTest: { git } })
+    await openCliRepo(process.argv, process.cwd()) // `mendel <dir>`: before the window reads the current repo
     buildMenu()
     createMainWindow()
     startUpdater()
