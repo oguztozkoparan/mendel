@@ -4,7 +4,7 @@ import path from 'node:path'
 import { appEntryUrl } from './security'
 import { getWindowState, setWindowState } from './settings'
 
-const MIN = { width: 960, height: 600 }
+const MIN = { width: 720, height: 600 }
 
 /** Saved bounds fitted into the work area of the display they overlap most (a display may have been removed). */
 export function fitBounds(b: Rectangle, workArea: Rectangle): Rectangle {

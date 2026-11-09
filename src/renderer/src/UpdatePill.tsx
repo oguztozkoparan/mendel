@@ -2,6 +2,11 @@ import { useEffect, useState } from 'react'
 import type { UpdateState } from '../../shared/ipc'
 import s from './UpdatePill.module.css'
 
+/** Shift the panel left so it stays 12px inside the window (react-aria popovers clamp themselves). */
+const clampToWindow = (el: HTMLElement | null) => {
+  if (el) el.style.translate = `${-Math.max(0, el.getBoundingClientRect().right - document.documentElement.clientWidth + 12)}px`
+}
+
 /** Self-contained update pill + panel (PLAN.md §3.12, §4.10). Place it anywhere in the toolbar. */
 export function UpdatePill() {
   const [state, setState] = useState<UpdateState>({ status: 'idle' })
@@ -35,7 +40,7 @@ export function UpdatePill() {
             Update v{state.version} available
           </button>
           {open && (
-            <div className={s.panel} role="dialog" aria-label={`mendel ${state.version}`}>
+            <div className={s.panel} ref={clampToWindow} role="dialog" aria-label={`mendel ${state.version}`}>
               <strong>mendel {state.version}</strong>
               {state.notes && <pre className={s.notes}>{state.notes}</pre>}
               {!state.canInstall && <p className={s.hint}>Opens the download page; install the new version by hand.</p>}

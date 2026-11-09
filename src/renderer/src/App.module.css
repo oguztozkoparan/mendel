@@ -137,8 +137,8 @@
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: 300px 1fr;
-  grid-template-rows: auto 1fr;
+  grid-template-columns: 300px minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
   grid-template-areas: 'tabs main' 'side main';
 }
 
@@ -212,4 +212,10 @@
   font-size: 11px;
   color: var(--fg);
   white-space: pre-wrap;
+}
+
+@media (max-width: 1080px) {
+  .repoView {
+    grid-template-columns: 260px minmax(0, 1fr);
+  }
 }
