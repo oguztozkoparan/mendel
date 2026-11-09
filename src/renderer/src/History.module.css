@@ -74,3 +74,40 @@
   border-bottom: 1px solid var(--border);
   outline: none;
 }
+
+.blame {
+  max-height: 60vh;
+  overflow: auto;
+  font-family: var(--mono);
+  font-size: 12px;
+  outline: none;
+}
+
+.blameRow {
+  display: flex;
+  gap: 8px;
+  height: 20px;
+  line-height: 20px;
+  padding: 0 10px;
+  white-space: pre;
+  cursor: pointer;
+}
+
+.blameRow[data-focused] {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+.blameWho {
+  flex: none;
+  width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--muted);
+}
+
+.blameNo {
+  flex: none;
+  width: 4em;
+  text-align: right;
+  color: var(--muted);
+}
