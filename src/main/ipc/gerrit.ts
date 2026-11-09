@@ -14,10 +14,11 @@ import type { Handlers } from '.'
 
 // net.fetch: Chromium network stack (OS cert store, system proxy); TLS errors are never overridden (TECH.md §6.6).
 const fetchFn: Fetch = (url, init) => net.fetch(url, init)
-const hostOf = (baseUrl: string) => new URL(baseUrl).host
+/** Credential key of a Gerrit base URL. */
+export const hostOf = (baseUrl: string) => new URL(baseUrl).host
 
 /** Active Gerrit base URL of a repo (from main's detection; the renderer never supplies it). */
-async function baseOf(repo: string): Promise<string> {
+export async function baseOf(repo: string): Promise<string> {
   const d = (await activeState(repo)).detection
   if (d?.provider !== 'gerrit') throw new Error('Gerrit is not active for this repository')
   if (!d.baseUrl) throw new Error('Gerrit URL is not set')
