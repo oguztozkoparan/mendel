@@ -10,6 +10,7 @@ import { credentialUser } from './providers/gerrit/credentials'
 import { providerStore, saveProviderStore } from './providers/store'
 import { listRepos } from './repos'
 import { getSettings, onSettingsChanged } from './settings'
+import { createMainWindow } from './window'
 
 /** Changes in `incoming` not in `seen`; a host never polled before (`seen` undefined) notifies nothing (no burst). */
 export function freshIncoming(seen: number[] | undefined, incoming: GerritChange[]): GerritChange[] {
@@ -29,24 +30,32 @@ async function poll(): Promise<void> {
   const host = new URL(d.baseUrl).host
   if (!credentialUser(host)) return
   const { incoming } = await (await gerritFor(repo)).listChanges(null)
+  if (!getSettings().reviewNotifications) return // turned off (and seen ids cleared) while the query ran
   const store = providerStore()
   const fresh = freshIncoming(store.seenIncoming[host], incoming)
-  store.seenIncoming[host] = incoming.map((c) => c._number) // current set only: stays bounded
-  saveProviderStore()
+  const ids = incoming.map((c) => c._number) // current set only: stays bounded
+  if (ids.join() !== store.seenIncoming[host]?.join()) {
+    store.seenIncoming[host] = ids
+    saveProviderStore() // only on change: the store also holds the encrypted credentials
+  }
   if (!Notification.isSupported() || BrowserWindow.getAllWindows().some((w) => w.isFocused())) return
   for (const c of fresh) {
     // Subject, number and project only (no comment bodies or account details).
-    const n = new Notification({ title: `Review requested: #${c._number}`, body: `${c.subject}\n${c.project}` })
+    // Linux (libnotify) renders markup in the body; Gerrit subjects are untrusted text.
+    const text = (s: string) => (process.platform === 'linux' ? s.replace(/[&<>]/g, (ch) => `&#${ch.charCodeAt(0)};`) : s)
+    const n = new Notification({ title: `Review requested: #${c._number}`, body: text(`${c.subject}\n${c.project}`) })
     live.add(n)
     n.on('close', () => live.delete(n))
     n.on('click', () => {
       live.delete(n)
+      const open = () => emit('gerrit:openChange', { repo, change: c._number })
       const win = BrowserWindow.getAllWindows()[0]
-      if (!win) return
+      // macOS keeps running with every window closed: reopen one, then open the change once it has loaded.
+      if (!win) return void createMainWindow().webContents.once('did-finish-load', open)
       if (win.isMinimized()) win.restore()
       win.show()
       win.focus()
-      emit('gerrit:openChange', { repo, change: c._number })
+      open()
     })
     n.show()
   }
