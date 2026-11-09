@@ -95,9 +95,16 @@ function DiffSection(p: { repo: string; file: FileChange; act: Act; staged: bool
     else keys.delete(key)
     setPick({ data: q.data, keys })
   }
-  const hunkAction = (hunk: string, action: 'stage' | 'unstage' | 'discard', lines?: number[]) =>
-    p.act(window.mendel['changes:applyHunk']({ repo: p.repo, path: file.path, origPath: file.origPath, untracked: file.unstaged === '?', hunk, action, lines }))
+  const hunkAction = (hunk: string, action: 'stage' | 'unstage' | 'discard', lines?: number[], texts?: string[]) =>
+    p.act(
+      window.mendel['changes:applyHunk']({ repo: p.repo, path: file.path, origPath: file.origPath, untracked: file.unstaged === '?', hunk, action, lines, texts })
+    )
   const pickedIn = (h: HunkData) => h.changes.flatMap((c, i) => (picked.has(getChangeKey(c)) ? [i] : []))
+  // Picked lines' raw text (not the `visible` display form) so main can check they are still those lines.
+  const pickedTexts = (h: HunkData) => {
+    const raw = parsed!.hunks.find((r) => r.content === h.content)!
+    return pickedIn(h).map((i) => (raw.changes[i]!.type === 'insert' ? '+' : '-') + raw.changes[i]!.content)
+  }
   const renderGutter = ({ change, side, renderDefault }: GutterOptions) =>
     side === 'old' && change.type !== 'normal' ? (
       <Checkbox
@@ -137,7 +144,7 @@ function DiffSection(p: { repo: string; file: FileChange; act: Act; staged: bool
               <span>
                 <span className={s.hunkText}>{h.content}</span>
                 {pickedIn(h).length > 0 && (
-                  <Button onPress={() => hunkAction(h.content, staged ? 'unstage' : 'stage', pickedIn(h))}>
+                  <Button onPress={() => hunkAction(h.content, staged ? 'unstage' : 'stage', pickedIn(h), pickedTexts(h))}>
                     {staged ? 'Unstage lines' : 'Stage lines'}
                   </Button>
                 )}
