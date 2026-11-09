@@ -20,6 +20,7 @@ const runGit = (app: Awaited<ReturnType<typeof launchApp>>['app'], args: string[
 const uiReady = (win: Awaited<ReturnType<typeof launchApp>>['win']) => win.getByRole('button', { name: 'Open local repository…' }).waitFor()
 
 test('git credential prompts show as modal and reach git', async () => {
+  test.skip(process.platform === 'win32', 'askpass bridge is off on Windows')
   const fx = createRepoFixture()
   const remote = await startAuthRemote()
   const { app, win, close } = await launchApp(fx.env)
@@ -44,6 +45,7 @@ test('git credential prompts show as modal and reach git', async () => {
 })
 
 test('cancelling the prompt aborts git quickly', async () => {
+  test.skip(process.platform === 'win32', 'askpass bridge is off on Windows')
   const fx = createRepoFixture()
   const remote = await startAuthRemote()
   const { app, win, close } = await launchApp(fx.env)

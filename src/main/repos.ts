@@ -74,7 +74,13 @@ export function cloneParent(set?: string): string {
     s.cloneParent = set
     save()
   }
-  return s.cloneParent ?? app.getPath('documents')
+  if (s.cloneParent) return s.cloneParent
+  // Windows throws when the Documents known folder can't be resolved (redirected or missing profile).
+  try {
+    return app.getPath('documents')
+  } catch {
+    return app.getPath('home')
+  }
 }
 
 /** "Reopen last repo on start" off: start on the welcome screen. */
