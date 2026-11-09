@@ -102,7 +102,7 @@ test('theme follows the OS by default', async () => {
     expect(await win.evaluate(() => matchMedia('(prefers-color-scheme: dark)').matches)).toBe(osDark)
     // An OS appearance change reaches the renderer as a prefers-color-scheme change; the UI restyles live.
     // The root is transparent when native vibrancy/Mica is on, so check the toolbar's --bg-side.
-    for (const [colorScheme, bg] of [['dark', 'rgba(22, 28, 34, 0.55)'], ['light', 'rgba(246, 248, 250, 0.62)']] as const) {
+    for (const [colorScheme, bg] of [['dark', 'rgba(22, 28, 34, 0.44)'], ['light', 'rgba(246, 248, 250, 0.5)']] as const) {
       await win.emulateMedia({ colorScheme })
       await expect(win.locator('header[aria-label="Toolbar"]')).toHaveCSS('background-color', bg)
     }
