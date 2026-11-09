@@ -32,6 +32,35 @@ describe('interactive rebase of unpushed commits', () => {
     expect(fx.git(['ls-files'])).toContain('c.txt')
   })
 
+  it("squash keeps only the target's Change-Id (Gerrit takes the last one); reword then squash keeps the new message", async () => {
+    fx = createRepoFixture()
+    const id = (n: number) => `Change-Id: I${String(n).repeat(40)}`
+    const a = fx.commitFile('a.txt', 'a\n', `A\n\n${id(1)}`)
+    const b = fx.commitFile('b.txt', 'b\n', `B body\n\n${id(2)}`)
+    expect(await run([pick(a), { sha: b, action: 'squash' }])).toBe('ok')
+    expect(fx.git(['log', '--format=%B', '-1']).trim()).toBe(`A\n\n${id(1)}\n\nB body`)
+    const c = fx.commitFile('c.txt', 'c\n', `C\n\n${id(3)}`)
+    const head = fx.git(['rev-parse', 'HEAD~1'])
+    expect(await run([{ sha: head, action: 'reword', message: `New\n\n${id(1)}` }, { sha: c, action: 'squash' }])).toBe('ok')
+    expect(fx.git(['log', '--format=%B', '-1']).trim()).toBe(`New\n\n${id(1)}\n\nC`)
+  })
+
+  it('a rejected reword stops the rebase and is retried on continue, never skipped; an empty commit can be reworded', async () => {
+    const [a, b, c] = setup()
+    const hook = path.join(fx.work, '.git/hooks/commit-msg')
+    writeFileSync(hook, '#!/bin/sh\ngrep -q ok "$1"\n', { mode: 0o755 })
+    await expect(run([{ sha: a!, action: 'reword', message: 'bad' }, pick(b!), pick(c!)])).rejects.toThrow()
+    expect(await opInProgress(fx.work, fx.env)).toBe('rebase')
+    await expect(continueOp(fx.work, fx.env)).rejects.toThrow()
+    expect(await opInProgress(fx.work, fx.env)).toBe('rebase')
+    fx.git(['rebase', '--abort'])
+    writeFileSync(hook, '#!/bin/sh\nexit 0\n', { mode: 0o755 })
+    fx.git(['commit', '-q', '--allow-empty', '-m', 'empty'])
+    const empty = fx.git(['rev-parse', 'HEAD'])
+    expect(await run([pick(a!), pick(b!), pick(c!), { sha: empty, action: 'reword', message: 'still empty' }])).toBe('ok')
+    expect(fx.git(['log', '--format=%s', '-1'])).toBe('still empty')
+  })
+
   it('drops', async () => {
     const [a, b, c] = setup()
     expect(await run([pick(a!), { sha: b!, action: 'drop' }, pick(c!)])).toBe('ok')
