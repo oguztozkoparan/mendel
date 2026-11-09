@@ -1,6 +1,6 @@
 import { keepPreviousData, useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useMemo, useState, type FormEvent, type ReactNode } from 'react'
-import { Button, Collection, GridList, GridListItem, GridListLoadMoreItem, Input, Label, ListBox, ListBoxItem, ListLayout, TextField, Virtualizer } from 'react-aria-components'
+import { Button, Collection, GridList, GridListItem, GridListLoadMoreItem, Input, Label, ListBox, ListBoxItem, ListLayout, SearchField, TextField, Virtualizer } from 'react-aria-components'
 import { Diff, Hunk } from 'react-diff-view'
 import type { CommitDetail, CommitSummary } from '../../shared/ipc'
 import a from './App.module.css'
@@ -21,9 +21,13 @@ export function HistoryView(p: { repo: string; decorate?: (c: CommitSummary) => 
   const branches = useBranches(p.repo)
   // Keyed by HEAD: a new commit/checkout starts a fresh first page, and `--skip` pages stay consistent within one HEAD.
   // Not stale on its own (no all-pages refetch on focus); refreshRepo trims it to page 1 before invalidating.
+  // Applied filters (search fields apply on Enter, not per keystroke); empty = unfiltered.
+  const [filter, setFilter] = useState<{ grep?: string; author?: string; path?: string }>({})
+  const set = (k: keyof typeof filter, v: string) => setFilter((f) => ({ ...f, [k]: v.trim() || undefined }))
+  const filtered = !!(filter.grep || filter.author || filter.path)
   const q = useInfiniteQuery({
-    queryKey: ['history', p.repo, branches.data?.head],
-    queryFn: ({ pageParam }) => window.mendel['history:log']({ repo: p.repo, skip: pageParam }),
+    queryKey: ['history', p.repo, branches.data?.head, filter],
+    queryFn: ({ pageParam }) => window.mendel['history:log']({ repo: p.repo, skip: pageParam, ...filter }),
     initialPageParam: 0,
     getNextPageParam: (last, all) => (last.length === PAGE ? all.length * PAGE : undefined),
     enabled: !!branches.data,
@@ -37,6 +41,22 @@ export function HistoryView(p: { repo: string; decorate?: (c: CommitSummary) => 
   return (
     <>
       <aside className={a.side}>
+        <div className={s.filters}>
+          <SearchField aria-label="Search messages" onSubmit={(v) => set('grep', v)} onClear={() => set('grep', '')}>
+            <Input placeholder="Search messages" />
+          </SearchField>
+          <SearchField aria-label="Filter by author" onSubmit={(v) => set('author', v)} onClear={() => set('author', '')}>
+            <Input placeholder="Author" />
+          </SearchField>
+          {filter.path && (
+            <p className={s.fileFilter}>
+              <span>
+                History of <code>{filter.path}</code>
+              </span>
+              <Button onPress={() => set('path', '')}>All files</Button>
+            </p>
+          )}
+        </div>
         <Virtualizer layout={ListLayout} layoutOptions={{ rowHeight: 44 }}>
           <GridList
             aria-label="Commits"
@@ -46,7 +66,7 @@ export function HistoryView(p: { repo: string; decorate?: (c: CommitSummary) => 
             selectedKeys={selected ? [selected.sha] : []}
             onSelectionChange={(keys) => keys !== 'all' && keys.size && setPicked(String([...keys][0]))}
             className={c.list}
-            renderEmptyState={() => (q.data ? <p className={c.empty}>No commits yet</p> : null)}
+            renderEmptyState={() => (q.data ? <p className={c.empty}>{filtered ? 'No matching commits' : 'No commits yet'}</p> : null)}
           >
             <Collection items={commits} dependencies={[p.decorate]}>
               {(x) => (
@@ -71,14 +91,15 @@ export function HistoryView(p: { repo: string; decorate?: (c: CommitSummary) => 
           </p>
         ) : (
           selected && (
-            // Amend only HEAD, and only while it is unpushed (PLAN.md 3.6).
+            // Amend only HEAD, and only while it is unpushed (PLAN.md 3.6); a filtered list's first row need not be HEAD.
             <CommitView
               key={selected.sha}
               repo={p.repo}
               sha={selected.sha}
-              onAmend={selected === commits[0] && selected.unpushed ? p.onAmend : undefined}
+              onAmend={!filtered && selected === commits[0] && selected.unpushed ? p.onAmend : undefined}
               // Blame jumps only to commits already loaded in the list.
               onPick={(sha) => commits.some((x) => x.sha === sha) && setPicked(sha)}
+              onFileHistory={(path) => set('path', path)}
             />
           )
         )}
@@ -147,7 +168,7 @@ export function StashesView(p: { repo: string }) {
   )
 }
 
-function CommitView(p: { repo: string; sha: string; onAmend?: () => void; onPick?: (sha: string) => void }) {
+function CommitView(p: { repo: string; sha: string; onAmend?: () => void; onPick?: (sha: string) => void; onFileHistory?(path: string): void }) {
   const q = useQuery({ queryKey: ['commit', p.repo, p.sha], queryFn: () => window.mendel['history:commit']({ repo: p.repo, sha: p.sha }) })
   const [file, setFile] = useState<string | null>(null)
   const [blame, setBlame] = useState(false)
@@ -214,6 +235,11 @@ function CommitView(p: { repo: string; sha: string; onAmend?: () => void; onPick
           )}
         </ListBox>
       </Virtualizer>
+      {f && p.onFileHistory && (
+        <Button className={s.fileHistory} onPress={() => p.onFileHistory?.(f.path)}>
+          File history
+        </Button>
+      )}
       {/* A deleted file has nothing to blame at this commit. */}
       {f && f.status !== 'D' && (
         <div>

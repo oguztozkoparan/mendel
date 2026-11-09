@@ -111,3 +111,34 @@
   text-align: right;
   color: var(--muted);
 }
+
+.filters {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.filters input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.fileFilter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.fileFilter span {
+  flex: 1;
+  min-width: 0;
+}
+
+.fileHistory {
+  align-self: flex-start;
+  margin: 6px 12px;
+}

@@ -260,6 +260,7 @@ const inRepo = z.object({ repo: repoId }).strict()
 /** Main validates further (known branch, `git check-ref-format --branch`, no leading `-`). */
 const branchName = z.string().min(1).max(255)
 const sha = z.string().regex(/^[0-9a-f]{7,64}$/)
+const logQuery = z.string().min(1).max(1000).regex(/^[^\0]*$/)
 const paths = z.object({ repo: repoId, paths: z.array(relPath).min(1).max(100_000) }).strict()
 /** `all`: Stage all / Unstage all on the whole tree, no path list (so no 100k cap). */
 const pathsOrAll = z.union([paths, z.object({ repo: repoId, all: z.literal(true) }).strict()])
@@ -360,8 +361,10 @@ export const invoke = {
   /** Fetch + rebase the current branch onto its upstream; a dirty tree asks "Stash & rebase" (null = cancelled). */
   'sync:rebase': res<SyncResult | null>()(inRepo),
   'sync:cancel': res<void>()(z.undefined()),
-  /** Current branch history, newest first, pages of 100. */
-  'history:log': res<CommitSummary[]>()(z.object({ repo: repoId, skip: z.number().int().min(0).max(10_000_000) }).strict()),
+  /** Current branch history, newest first, pages of 100. `grep`/`author`: case-insensitive literal filters (ANDed); `path`: one file, following renames. */
+  'history:log': res<CommitSummary[]>()(
+    z.object({ repo: repoId, skip: z.number().int().min(0).max(10_000_000), grep: logQuery.optional(), author: logQuery.optional(), path: relPath.optional() }).strict()
+  ),
   'history:commit': res<CommitDetail>()(z.object({ repo: repoId, sha }).strict()),
   /** Read-only diff of one file of a commit (against its first parent). */
   'history:diff': res<string>()(z.object({ repo: repoId, sha, path: relPath, origPath: relPath.optional() }).strict()),

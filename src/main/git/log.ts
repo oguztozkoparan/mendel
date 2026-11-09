@@ -7,18 +7,35 @@ const US = '\x1f'
 const hasHead = (cwd: string, env?: NodeJS.ProcessEnv) =>
   git(['rev-parse', '--verify', '-q', 'HEAD'], { cwd, env, background: true }).then(() => true, () => false)
 
+/** History filters: case-insensitive literal match on message (`grep`) and author (ANDed, as git does); `path` = one file, following renames. */
+export interface LogFilter {
+  grep?: string
+  author?: string
+  path?: string
+}
+
 /** One page of the current branch's history, newest first; `unpushed` = on no remote-tracking branch. */
-export async function getLog(cwd: string, skip: number, env?: NodeJS.ProcessEnv, limit = LOG_PAGE): Promise<CommitSummary[]> {
+export async function getLog(cwd: string, skip: number, env?: NodeJS.ProcessEnv, limit = LOG_PAGE, f: LogFilter = {}): Promise<CommitSummary[]> {
   if (!(await hasHead(cwd, env))) return []
   const o = { cwd, env, background: true }
+  // Single `--opt=value` args: a value starting with '-' cannot become an option.
+  const match = [...(f.grep ? [`--grep=${f.grep}`] : []), ...(f.author ? [`--author=${f.author}`] : [])]
+  const filter = match.length ? ['-i', '-F', ...match] : []
+  const lit = f.path ? ['--literal-pathspecs'] : []
+  const paths = f.path ? [f.path] : []
+  // --follow only tracks a rename on commits it walks, and --skip'd commits are not walked: read the skipped part too and drop it below.
+  // shortcut: file history page N re-reads N-1 pages, upgrade to a sha cursor if huge single-file histories get slow.
+  const page = f.path ? ['--follow', '-n', String(skip + limit)] : [`--skip=${skip}`, '-n', String(limit)]
   const [log, local] = await Promise.all([
-    git(['log', '-z', `--format=%H${US}%h${US}%an${US}%at${US}%s`, `--skip=${skip}`, '-n', String(limit), 'HEAD', '--'], o),
-    git(['rev-list', `--max-count=${skip + limit}`, 'HEAD', '--not', '--remotes'], o)
+    git([...lit, 'log', '-z', `--format=%H${US}%h${US}%an${US}%at${US}%s`, ...filter, ...page, 'HEAD', '--', ...paths], o),
+    // Same filters so the unpushed set covers this page (rev-list has no --follow; pre-rename commits are rarely local-only).
+    git([...lit, 'rev-list', ...filter, `--max-count=${skip + limit}`, 'HEAD', '--not', '--remotes', '--', ...paths], o)
   ])
   const unpushed = new Set(local.stdout.split('\n'))
   return log.stdout
     .split('\0')
     .filter(Boolean)
+    .slice(f.path ? skip : 0)
     .map((rec) => {
       const [sha = '', short = '', author = '', at = '0', summary = ''] = rec.replace(/^\n/, '').split(US)
       return { sha, short, author, date: Number(at) * 1000, summary, unpushed: unpushed.has(sha) }

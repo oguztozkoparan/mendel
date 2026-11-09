@@ -36,6 +36,42 @@ test('history lists commits newest first; selecting shows message, files and dif
   }
 })
 
+test('history search by message and author; file history from a commit file', async () => {
+  const fx = createRepoFixture()
+  fx.commitFile('a.txt', 'one\n', 'Add a')
+  fx.commitFile('b.txt', 'bee\n', 'Add b')
+  fx.commitFile('a.txt', 'two\n', 'Tweak a')
+  const app = await launchApp(fx.env)
+  const { win } = app
+  try {
+    await openRepo(app, fx.work)
+    await win.getByRole('tab', { name: 'History' }).click()
+    const list = win.getByRole('grid', { name: 'Commits' })
+    await expect(list.getByRole('row')).toHaveCount(4)
+    const msg = win.getByRole('searchbox', { name: 'Search messages' })
+    await msg.fill('ADD')
+    await msg.press('Enter')
+    await expect(list.getByRole('row')).toHaveText([/Add b/, /Add a/])
+    const author = win.getByRole('searchbox', { name: 'Filter by author' })
+    await author.fill('nobody')
+    await author.press('Enter')
+    await expect(list).toContainText('No matching commits')
+    await author.press('Escape')
+    await msg.press('Escape')
+    await expect(list.getByRole('row')).toHaveCount(4)
+
+    await expect(win.getByLabel('Commit detail').getByRole('heading', { name: 'Tweak a' })).toBeVisible()
+    await win.getByLabel('Commit detail').getByRole('button', { name: 'File history' }).click()
+    await expect(list.getByRole('row')).toHaveText([/Tweak a/, /Add a/])
+    await expect(win.getByText('History of a.txt')).toBeVisible()
+    await win.getByRole('button', { name: 'All files' }).click()
+    await expect(list.getByRole('row')).toHaveCount(4)
+  } finally {
+    await app.close()
+    fx.cleanup()
+  }
+})
+
 test('500-commit history: first page fast, scrolling pages in the rest', async () => {
   const fx = createRepoFixture()
   const stream = Array.from(
