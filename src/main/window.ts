@@ -5,6 +5,8 @@ import { appEntryUrl } from './security'
 import { getWindowState, setWindowState } from './settings'
 
 const MIN = { width: 720, height: 600 }
+/** global.css --toolbar-h: 6px drag strip + 44px toolbar row. */
+const TOOLBAR_H = 50
 
 /** Saved bounds fitted into the work area of the display they overlap most (a display may have been removed). */
 export function fitBounds(b: Rectangle, workArea: Rectangle): Rectangle {
@@ -25,7 +27,7 @@ export const glass = process.platform === 'darwin' || (process.platform === 'win
 const overlay = () => {
   const dark = nativeTheme.shouldUseDarkColors
   const color = glass ? (dark ? '#161c228c' : '#f6f8fa9e') : dark ? '#141a1f' : '#f9fbfc'
-  return { color, symbolColor: dark ? '#e8eef2' : '#0f171e', height: 40 }
+  return { color, symbolColor: dark ? '#e8eef2' : '#0f171e', height: TOOLBAR_H }
 }
 
 export function createMainWindow(): BrowserWindow {
@@ -39,7 +41,8 @@ export function createMainWindow(): BrowserWindow {
     show: false,
     title: 'Mendel',
     titleBarStyle: mac ? 'hiddenInset' : 'hidden',
-    ...(mac ? {} : { titleBarOverlay: overlay() }),
+    // mac: traffic lights (14px frames) centred in the 44px row below the drag strip; elsewhere the overlay spans the whole toolbar.
+    ...(mac ? { trafficLightPosition: { x: 16, y: TOOLBAR_H - 22 - 7 } } : { titleBarOverlay: overlay() }),
     // Transparent page so the material shows through --bg-side; .main paints --bg (opaque diff/detail).
     ...(glass && { backgroundColor: '#00000000', ...(mac ? { vibrancy: 'sidebar' as const } : { backgroundMaterial: 'mica' as const }) }),
     webPreferences: {

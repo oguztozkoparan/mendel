@@ -27,6 +27,7 @@
 
 .item :global(.hl) {
   background: var(--bg-hover);
+  box-shadow: none;
 }
 
 .info {

@@ -3,6 +3,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  padding: 0 8px;
   font-size: 12px;
   -webkit-app-region: no-drag;
 }

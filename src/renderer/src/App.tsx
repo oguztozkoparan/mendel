@@ -109,6 +109,7 @@ export function App() {
             primary={gerrit ? { label: 'Send for review', run: () => setSending(true) } : null}
           />
         )}
+        <div className={s.spacer} />
         <UpdatePill />
         <Button className={`icon ${s.settings}`} aria-label="Settings" onPress={() => setSettings(true)}>
           <Gear size={16} />
