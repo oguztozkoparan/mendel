@@ -24,6 +24,9 @@ test('preferences persist across restart and drive the app', async () => {
     await dialog.getByText('Light', { exact: true }).click()
     await expect.poll(() => dark(app.win)).toBe(false)
     await dialog.getByText('Dark', { exact: true }).click()
+    await expect(app.win.locator('html')).toHaveAttribute('data-accent', 'cyan')
+    await dialog.getByRole('radio', { name: 'Violet' }).click()
+    await expect(app.win.locator('html')).toHaveAttribute('data-accent', 'violet')
 
     await dialog.getByRole('tab', { name: 'Commit' }).click()
     await dialog.getByLabel('Summary soft limit').fill('50')
@@ -51,13 +54,14 @@ test('preferences persist across restart and drive the app', async () => {
     expect(fx.git(['rev-list', '--parents', '-n1', 'HEAD']).split(' ')).toHaveLength(2)
 
     await app.close()
-    expect(JSON.parse(readFileSync(path.join(userData, 'settings.json'), 'utf8'))).toMatchObject({ theme: 'dark', summaryLimit: 50, pullStrategy: 'rebase' })
+    expect(JSON.parse(readFileSync(path.join(userData, 'settings.json'), 'utf8'))).toMatchObject({ theme: 'dark', accent: 'violet', summaryLimit: 50, pullStrategy: 'rebase' })
     // S9: app state files are owner-only (POSIX modes only).
     const json = readdirSync(userData).filter((f) => f.endsWith('.json'))
     expect(json).toEqual(expect.arrayContaining(['settings.json', 'repos.json']))
     if (process.platform !== 'win32') for (const f of json) expect([f, statSync(path.join(userData, f)).mode & 0o777]).toEqual([f, 0o600])
     app = await launchApp({ ...fx.env, MENDEL_E2E_USERDATA: userData })
     await expect.poll(() => dark(app.win)).toBe(true)
+    await expect(app.win.locator('html')).toHaveAttribute('data-accent', 'violet')
   } finally {
     await app.close()
     fx.cleanup()

@@ -15,7 +15,7 @@ import { RepoList, RepoSelector, type RepoActions } from './Repos'
 import { useMenuCommand } from './menu'
 import { SendForReview } from './providers/gerrit/SendForReview'
 import { RepoView } from './RepoView'
-import { IdentityForm, SettingsDialog } from './Settings'
+import { IdentityForm, SettingsDialog, useSettings } from './Settings'
 import { SyncButton, type Notice } from './SyncButton'
 import { UpdatePill } from './UpdatePill'
 
@@ -45,6 +45,10 @@ export function App() {
       ),
     []
   )
+  const accent = useSettings().data?.accent
+  useEffect(() => {
+    if (accent) document.documentElement.dataset.accent = accent
+  }, [accent])
   const check = (recheck = false) => void window.mendel['git:info']({ recheck }).then(setGit)
   useEffect(() => check(), [])
   const usable = git?.found === true && git.supported

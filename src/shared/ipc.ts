@@ -169,6 +169,7 @@ export type OpInProgress = 'merge' | 'rebase' | 'cherry-pick' | 'revert' | null
 const prefs = z
   .object({
     theme: z.enum(['system', 'light', 'dark']),
+    accent: z.enum(['cyan', 'cobalt', 'violet', 'fuchsia', 'graphite']),
     reopenLastRepo: z.boolean(),
     confirmDiscard: z.boolean(),
     /** 0 = off. */

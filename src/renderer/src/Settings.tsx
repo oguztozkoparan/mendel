@@ -7,6 +7,7 @@ import c from './Changes.module.css'
 import { GerritConnectDialog } from './providers/gerrit/GerritConnectDialog'
 import { RepoProviderDialog } from './providers/gerrit/RepoProviderDialog'
 import s from './Settings.module.css'
+import { Segmented } from './controls'
 
 export const useSettings = () => useQuery({ queryKey: ['settings'], queryFn: () => window.mendel['settings:get']() })
 
@@ -60,6 +61,14 @@ export function SettingsDialog(p: { repo?: string; onClose(): void }) {
             </TabList>
             <TabPanel id="General" className={s.panel}>
               <Choice label="Theme" value={st.theme} options={[['system', 'System'], ['light', 'Light'], ['dark', 'Dark']]} onChange={(theme) => set({ theme })} />
+              <Row label="Accent">
+                <Segmented
+                  label="Accent"
+                  value={st.accent}
+                  options={[['cyan', 'Cyan'], ['cobalt', 'Cobalt'], ['violet', 'Violet'], ['fuchsia', 'Fuchsia'], ['graphite', 'Graphite']]}
+                  onChange={(accent) => set({ accent })}
+                />
+              </Row>
               <CloneFolder />
               <ToolChoice kind="editor" st={st} set={set} onError={setError} />
               <ToolChoice kind="terminal" st={st} set={set} onError={setError} />
