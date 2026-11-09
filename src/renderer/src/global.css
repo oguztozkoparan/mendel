@@ -1,36 +1,119 @@
+@font-face {
+  font-family: 'Geist';
+  src: url('./assets/fonts/Geist-Variable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Geist Mono';
+  src: url('./assets/fonts/GeistMono-Variable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+}
+
 :root {
   color-scheme: light dark;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
+  font-family: var(--sans);
   font-size: 13px;
-  --border: light-dark(#d0d0d0, #3a3a3a);
-  --bg: light-dark(#ffffff, #1e1e1e);
-  --bg-side: light-dark(#f5f5f7, #252526);
-  --bg-hover: light-dark(rgb(0 0 0 / 0.06), rgb(255 255 255 / 0.08));
-  --fg: light-dark(#1d1d1f, #e8e8e8);
-  --muted: light-dark(#6e6e73, #9a9a9a);
-  --danger: light-dark(#c42b1c, #ff6b5e);
-  --accent: #0a84ff;
-  --on-accent: #ffffff;
+  --sans: 'Geist', -apple-system, 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
+  --mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   /* Platform tokens (TECH.md §2): mac default, overridden per data-platform below. */
   --radius: 6px;
-  --control-h: 24px;
-  --focus: 0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent);
-  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
+  --ctl-h: 30px;
+  --ctl-radius: 9px;
+  /* concentric radii: outer = inner + padding */
+  --pad-panel: 12px;
+  --r-panel: calc(var(--ctl-radius) + var(--pad-panel));
+  --r-banner: calc(var(--ctl-radius) + 6px);
+  --r-menu: calc(var(--ctl-radius) + 4px);
+  --r-toast: calc(var(--ctl-radius) + 8px);
+  --r-dialog: calc(var(--ctl-radius) + 16px);
+  --focus: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent);
+  /* glass neutrals: light */
+  --border: rgb(15 23 30 / 0.1);
+  --bg: #ffffff;
+  --bg-side: rgb(246 248 250 / 0.62);
+  --bg-raised: #ffffff;
+  --bg-hover: rgb(15 23 30 / 0.05);
+  --fg: #0f171e;
+  --muted: #5b6772;
+  --danger: #d12d2d;
+  --git-add: #15803d;
+  --git-mod: #a16207;
+  --git-ren: #0369a1;
+  --diff-add-bg: #e8f7ee;
+  --diff-add-gutter: #cdeedb;
+  --diff-del-bg: #fdecec;
+  --diff-del-gutter: #f8d3d3;
+  /* tactile */
+  --face-top: color-mix(in srgb, var(--bg-raised), #fff 70%);
+  --face-bot: color-mix(in srgb, var(--bg-raised), var(--fg) 7%);
+  --lip: color-mix(in srgb, var(--bg-raised), var(--fg) 24%);
+  --edge: color-mix(in srgb, var(--fg) 17%, transparent);
+  --hi: rgb(255 255 255 / .95);
+  --hi-low: rgb(255 255 255 / .9);
+  --drop: rgb(0 0 0 / .14);
+  --well: color-mix(in srgb, #f3f5f7, var(--fg) 5%);
+  --a-top: color-mix(in srgb, var(--accent), #fff 22%);
+  --a-bot: color-mix(in srgb, var(--accent), #000 4%);
+  --a-lip: color-mix(in srgb, var(--accent), #000 40%);
+  /* accents (light-dark pairs); cyan is the default */
+  --accent: light-dark(#0e7490, #67e8f9);
+  --on-accent: light-dark(#ffffff, #062a33);
   background: var(--bg);
   color: var(--fg);
 }
 
+@media (prefers-color-scheme: dark) {
+  :root {
+    --border: rgb(255 255 255 / 0.08);
+    --bg: #12171c;
+    --bg-side: rgb(22 28 34 / 0.55);
+    --bg-raised: #1a2026;
+    --bg-hover: rgb(255 255 255 / 0.06);
+    --fg: #e8eef2;
+    --muted: #8a98a3;
+    --danger: #ff6b6b;
+    --git-add: #4ade80;
+    --git-mod: #fbbf24;
+    --git-ren: #7cc4ff;
+    --diff-add-bg: #10261c;
+    --diff-add-gutter: #163625;
+    --diff-del-bg: #2c1518;
+    --diff-del-gutter: #3d1c20;
+    --face-top: color-mix(in srgb, var(--bg-raised), #fff 11%);
+    --face-bot: color-mix(in srgb, var(--bg-raised), #000 8%);
+    --lip: color-mix(in srgb, var(--bg-raised), #000 62%);
+    --edge: rgb(0 0 0 / .6);
+    --hi: rgb(255 255 255 / .14);
+    --hi-low: rgb(255 255 255 / .07);
+    --drop: rgb(0 0 0 / .5);
+    --well: color-mix(in srgb, #161c22, #000 35%);
+    --a-top: color-mix(in srgb, var(--accent), #fff 18%);
+    --a-bot: color-mix(in srgb, var(--accent), #000 10%);
+    --a-lip: color-mix(in srgb, var(--accent), #000 55%);
+  }
+}
+
+:root[data-accent='cyan'] { --accent: light-dark(#0e7490, #67e8f9); --on-accent: light-dark(#ffffff, #062a33); }
+:root[data-accent='cobalt'] { --accent: light-dark(#2457d6, #7aa7ff); --on-accent: light-dark(#ffffff, #071a3d); }
+:root[data-accent='violet'] { --accent: light-dark(#6d28d9, #c4b5fd); --on-accent: light-dark(#ffffff, #1e1037); }
+:root[data-accent='fuchsia'] { --accent: light-dark(#a21caf, #f0abfc); --on-accent: light-dark(#ffffff, #2e0a33); }
+:root[data-accent='graphite'] { --accent: light-dark(#27272a, #e4e4e7); --on-accent: light-dark(#ffffff, #18181b); }
+
+:root {
+  --bg-selected: color-mix(in srgb, var(--accent) 14%, transparent);
+  --diff-sel: color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
 html[data-platform='win32'] {
-  --accent: #0067c0;
   --radius: 4px;
-  --control-h: 30px;
   --focus: 0 0 0 2px var(--fg);
 }
 
 html[data-platform='linux'] {
-  --accent: #3584e4;
   --radius: 5px;
-  --control-h: 30px;
 }
 
 html,
@@ -47,7 +130,7 @@ textarea {
 }
 
 button {
-  min-height: var(--control-h);
+  min-height: var(--ctl-h);
   padding: 0 10px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
