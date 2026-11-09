@@ -33,7 +33,9 @@ export function ConflictBanner(p: { repo: string; onError(e: unknown): void }) {
           <Button className="primary" isDisabled={conflicted.length > 0 || !status.data} onPress={() => run(window.mendel['conflict:continue']({ repo: p.repo }))}>
             Continue {op}
           </Button>
-          <Button onPress={() => run(window.mendel['conflict:abort']({ repo: p.repo }))}>Abort…</Button>
+          <Button className="ghost" onPress={() => run(window.mendel['conflict:abort']({ repo: p.repo }))}>
+            Abort…
+          </Button>
         </>
       )}
     </div>

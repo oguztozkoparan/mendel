@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState, type FormEvent, type KeyboardEvent } from 'react'
 import { Button, Checkbox, Input, TextArea, TextField } from 'react-aria-components'
+import { refreshRepo } from './Branches'
 import s from './Changes.module.css'
 import { useSettings } from './Settings'
 
@@ -18,6 +19,8 @@ export function CommitBox(p: { repo: string; hasStaged: boolean; hint?: CommitHi
   const { repo, hasStaged, hint } = p
   const qc = useQueryClient()
   const info = useQuery({ queryKey: ['commitInfo', repo], queryFn: () => window.mendel['commit:info']({ repo }) })
+  // Same query as the conflict banner: while a rebase is stopped, Continue there is the primary and this commit also continues.
+  const rebasing = useQuery({ queryKey: ['conflict', repo], queryFn: () => window.mendel['conflict:state']({ repo }) }).data === 'rebase'
   const settings = useSettings().data
   const limit = settings?.summaryLimit ?? 72
   const [summary, setSummary] = useState('')
@@ -57,8 +60,14 @@ export function CommitBox(p: { repo: string; hasStaged: boolean; hint?: CommitHi
         setSummary('')
         setDescription('')
         setAmend(false)
-        setBusy(false)
-        for (const key of ['status', 'diff', 'commitInfo']) void qc.invalidateQueries({ queryKey: [key, repo] })
+        if (!rebasing) {
+          setBusy(false)
+          for (const key of ['status', 'diff', 'commitInfo']) void qc.invalidateQueries({ queryKey: [key, repo] })
+          return
+        }
+        window.mendel['conflict:continue']({ repo })
+          .catch((err: Error) => setError(err.message))
+          .finally(() => (setBusy(false), refreshRepo(qc, repo)))
       },
       (err: Error) => {
         setBusy(false)
@@ -113,8 +122,8 @@ export function CommitBox(p: { repo: string; hasStaged: boolean; hint?: CommitHi
           {error}
         </p>
       )}
-      <Button type="submit" className="primary" isDisabled={!canCommit}>
-        {amend ? 'Amend last commit' : branch ? `Commit to ${branch}` : 'Commit'}
+      <Button type="submit" className={rebasing ? undefined : 'primary'} isDisabled={!canCommit}>
+        {rebasing ? 'Commit and continue rebase' : amend ? 'Amend last commit' : branch ? `Commit to ${branch}` : 'Commit'}
       </Button>
       {info.data?.author && <small className={s.author}>Committing as {info.data.author}</small>}
     </form>
