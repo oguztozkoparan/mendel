@@ -126,6 +126,8 @@ export function StashesView(p: { repo: string }) {
   const q = useQuery({ queryKey: ['stashes', p.repo], queryFn: () => window.mendel['stash:list']({ repo: p.repo }) })
   const [picked, setPicked] = useState<string | null>(null)
   const [error, setError] = useState<BannerError | null>(null)
+  // A second apply/pop over unmerged files would conflict again: resolve first (conflict banner).
+  const unmerged = useQuery({ queryKey: ['status', p.repo], queryFn: () => window.mendel['changes:status']({ repo: p.repo }) }).data?.some((f) => f.conflicted) ?? false
   const stashes = q.data ?? []
   const selected = stashes.find((x) => x.sha === picked) ?? stashes[0]
   const act = (action: 'apply' | 'pop' | 'drop') => {
@@ -167,8 +169,8 @@ export function StashesView(p: { repo: string }) {
           selected && (
             <>
               <div className={c.fileHeader}>
-                <Button onPress={() => act('apply')}>Apply</Button>
-                <Button onPress={() => act('pop')}>Pop</Button>
+                <Button isDisabled={unmerged} onPress={() => act('apply')}>Apply</Button>
+                <Button isDisabled={unmerged} onPress={() => act('pop')}>Pop</Button>
                 <Button onPress={() => act('drop')}>Drop…</Button>
               </div>
               <CommitView key={selected.sha} repo={p.repo} sha={selected.sha} />

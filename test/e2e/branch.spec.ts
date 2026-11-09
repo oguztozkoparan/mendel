@@ -130,3 +130,29 @@ test('Stashes tab: list, show diff, apply, pop, drop with confirm', async () => 
     fx.cleanup()
   }
 })
+
+test('Stashes tab: conflicting pop shows the conflict banner without Continue/Abort, Pop disabled until resolved', async () => {
+  const fx = createRepoFixture()
+  writeFileSync(path.join(fx.work, 'README.md'), 'stashed\n')
+  fx.git(['stash', 'push', '-q'])
+  fx.commitFile('README.md', 'committed\n')
+  const app = await launchApp(fx.env)
+  const { win } = app
+  const banner = win.getByRole('status', { name: 'Conflicts' })
+  try {
+    await openRepo(app, fx.work)
+    await win.getByRole('tab', { name: 'Stashes' }).click()
+    await win.getByRole('button', { name: 'Pop' }).click()
+    await expect(banner).toContainText('README.md')
+    await expect(banner.getByRole('button', { name: /Continue|Abort/ })).toHaveCount(0)
+    await expect(win.getByRole('button', { name: 'Pop' })).toBeDisabled()
+    await expect(win.getByRole('button', { name: 'Apply' })).toBeDisabled()
+    await banner.getByRole('button', { name: 'Mark resolved' }).click()
+    await expect(banner).toBeHidden()
+    await expect(win.getByRole('button', { name: 'Pop' })).toBeEnabled()
+    expect(fx.git(['stash', 'list'])).not.toBe('')
+  } finally {
+    await app.close()
+    fx.cleanup()
+  }
+})
