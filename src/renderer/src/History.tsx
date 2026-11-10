@@ -271,15 +271,16 @@ function CommitView(p: { repo: string; sha: string; pick?: 'cherry-pick' | 'reve
           className={s.files}
         >
           {(x) => (
-            <ListBoxItem id={x.path} textValue={x.path} className={c.row}>
-              {({ isSelected }) => (
-                <>
-                  {isSelected && <Highlight id="sel-commit-files" />}
-                  <span className={c.letter} data-status={x.status}>
-                    {x.status}
-                  </span>
-                  <span className={c.path}>{x.origPath ? `${x.origPath} → ${x.path}` : x.path}</span>
-                </>
+            // Row-fill selection, not the floating plate: rows sit inside a bordered table. Hairline above every row but the first.
+            <ListBoxItem id={x.path} textValue={x.path} className={x === d.files[0] ? s.fileRow : `${s.fileRow} ${s.divided}`}>
+              <span className={c.letter} data-status={x.status}>
+                {x.status}
+              </span>
+              <span className={s.filePath}>{x.origPath ? `${x.origPath} → ${x.path}` : x.path}</span>
+              {x.add !== undefined && (
+                <span className={s.fileStat}>
+                  <span className={c.statAdd}>+{x.add}</span> <span className={c.statDel}>−{x.del}</span>
+                </span>
               )}
             </ListBoxItem>
           )}

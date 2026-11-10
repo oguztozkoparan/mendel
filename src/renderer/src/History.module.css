@@ -132,15 +132,51 @@
   overflow-wrap: anywhere;
 }
 
-/* concept .ftable: bordered, rounded file table inside the detail padding */
+/* concept .ftable: bordered, rounded file table inside the detail padding; a real border so row fills sit inside it */
 .files {
   flex: none;
   max-height: 200px;
   margin: 18px 26px 12px;
   overflow: auto;
+  border: 1px solid var(--border);
   border-radius: var(--ctl-radius);
-  box-shadow: inset 0 0 0 1px var(--border);
   outline: none;
+}
+
+.fileRow {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  height: 30px;
+  padding: 0 12px;
+  box-sizing: border-box;
+  outline: none;
+}
+
+.divided {
+  border-top: 1px solid var(--border);
+}
+
+.fileRow[data-selected] {
+  background: var(--bg-selected);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.fileRow[data-focus-visible] {
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+.filePath {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 12px var(--mono);
+}
+
+.fileStat {
+  font: 11px var(--mono);
+  white-space: nowrap;
 }
 
 /* bar above the file's diff/blame, same as the Changes diff header */

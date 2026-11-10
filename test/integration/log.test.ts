@@ -1,4 +1,6 @@
 import { execFileSync } from 'node:child_process'
+import { writeFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { getBlame, getCommit, getCommitDiff, getLog } from '../../src/main/git/log'
 import { createRepoFixture, type RepoFixture } from '../fixtures/repo'
@@ -49,18 +51,21 @@ describe('history', () => {
     fx = createRepoFixture()
     fx.commitFile('a.txt', 'a\n')
     fx.git(['mv', 'a.txt', 'b.txt'])
+    writeFileSync(join(fx.work, 'bin.dat'), Buffer.from([0, 1, 2, 0]))
+    fx.git(['add', 'bin.dat'])
     fx.commitFile('c.txt', 'c\n', 'rename and add\n\ndetails')
     const sha = fx.git(['rev-parse', 'HEAD'])
     const d = await getCommit(fx.work, sha, fx.env)
     expect(d).toMatchObject({ sha, message: 'rename and add\n\ndetails', author: 'Test User <test@example.com>' })
     expect(d.parents).toHaveLength(1)
     expect(d.files).toEqual([
-      { status: 'R', origPath: 'a.txt', path: 'b.txt' },
-      { status: 'A', path: 'c.txt' }
+      { status: 'R', origPath: 'a.txt', path: 'b.txt', add: 0, del: 0 },
+      { status: 'A', path: 'bin.dat' }, // binary: no counts
+      { status: 'A', path: 'c.txt', add: 1, del: 0 }
     ])
     expect(await getCommitDiff(fx.work, sha, { path: 'c.txt' }, fx.env)).toContain('+c')
     const root = fx.git(['rev-list', '--max-parents=0', 'HEAD'])
-    expect((await getCommit(fx.work, root, fx.env)).files).toEqual([{ status: 'A', path: 'README.md' }])
+    expect((await getCommit(fx.work, root, fx.env)).files).toEqual([{ status: 'A', path: 'README.md', add: 1, del: 0 }])
     expect(await getCommitDiff(fx.work, root, { path: 'README.md' }, fx.env)).toContain('+# fixture')
   })
 

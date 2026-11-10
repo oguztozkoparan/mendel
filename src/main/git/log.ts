@@ -57,6 +57,19 @@ export function parseNameStatus(out: string): CommitDetail['files'] {
   return files
 }
 
+/** Parse `diff-tree --numstat -z` into +/- counts by (new) path; binary files ("-\t-") get none. */
+export function parseNumstat(out: string): Map<string, { add: number; del: number }> {
+  const t = out.split('\0')
+  const m = new Map<string, { add: number; del: number }>()
+  for (let i = 0; i < t.length - 1; ) {
+    const [add = '-', del = '-', path = ''] = t[i++]!.split('\t')
+    // Renames/copies leave the path empty and follow with old and new path.
+    const p = path || (i++, t[i++]!)
+    if (add !== '-') m.set(p, { add: Number(add), del: Number(del) })
+  }
+  return m
+}
+
 /** Diff against the first parent (root commits: against the empty tree). */
 const treeRange = (d: { sha: string; parents: string[] }) => (d.parents[0] ? endOfOptions(d.parents[0], d.sha) : ['--root', ...endOfOptions(d.sha)])
 
@@ -65,7 +78,10 @@ export async function getCommit(cwd: string, sha: string, env?: NodeJS.ProcessEn
   const { stdout } = await git(['show', '-s', '--format=%H%x00%P%x00%an%x00%ae%x00%at%x00%cn%x00%ce%x00%ct%x00%B', ...endOfOptions(sha)], o)
   const [full = '', parents = '', an = '', ae = '', at = '0', cn = '', ce = '', ct = '0', message = ''] = stdout.split('\0')
   const base = { sha: full, parents: parents.split(' ').filter(Boolean) }
-  const files = await git(['diff-tree', '-r', '-z', '-M', '--name-status', '--no-commit-id', ...treeRange(base)], o)
+  const [files, num] = await Promise.all(
+    ['--name-status', '--numstat'].map((f) => git(['diff-tree', '-r', '-z', '-M', f, '--no-commit-id', ...treeRange(base)], o))
+  )
+  const counts = parseNumstat(num!.stdout)
   return {
     ...base,
     author: `${an} <${ae}>`,
@@ -73,7 +89,7 @@ export async function getCommit(cwd: string, sha: string, env?: NodeJS.ProcessEn
     committer: `${cn} <${ce}>`,
     committerDate: Number(ct) * 1000,
     message: message.replace(/\n+$/, ''),
-    files: parseNameStatus(files.stdout)
+    files: parseNameStatus(files!.stdout).map((f) => ({ ...f, ...counts.get(f.path) }))
   }
 }
 

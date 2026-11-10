@@ -142,8 +142,8 @@ export interface CommitDetail {
   committer: string
   committerDate: number
   message: string
-  /** Changes against the first parent. status: git's letter (A/M/D/R/C/T). */
-  files: { path: string; origPath?: string; status: string }[]
+  /** Changes against the first parent. status: git's letter (A/M/D/R/C/T); add/del: line counts (absent for binary files). */
+  files: { path: string; origPath?: string; status: string; add?: number; del?: number }[]
 }
 
 export interface TagInfo {
