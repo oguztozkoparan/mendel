@@ -290,18 +290,34 @@ function GerritSection({ repo }: { repo?: string }) {
 
 function UpdatesSection() {
   const version = useQuery({ queryKey: ['appInfo'], queryFn: () => window.mendel['app:info']() }).data?.version
-  const [state, setState] = useState<UpdateState | null>(null)
-  useEffect(() => window.mendel.on('update:state', setState), [])
-  const text: Partial<Record<UpdateState['status'], string>> = { checking: 'Checking…', 'up-to-date': "You're up to date", available: 'An update is available (see the toolbar)' }
+  const [state, setState] = useState<UpdateState>({ status: 'idle' })
+  useEffect(() => {
+    void window.mendel['update:state']().then(setState)
+    return window.mendel.on('update:state', setState)
+  }, [])
+  const check = () => void window.mendel['update:check']().then(setState)
+  const busy = state.status === 'checking' || state.status === 'downloading'
   return (
     <>
       <Row label="Current version">
         <span>v{version}</span>
       </Row>
-      <div className={a.row}>
-        <Button onPress={() => void window.mendel['update:check']().then(setState)}>Check now</Button>
-        {state && <span role="status">{state.status === 'error' ? state.message : (text[state.status] ?? '')}</span>}
+      <div className={`${a.row} ${s.status}`}>
+        <Button isDisabled={busy} onPress={check}>
+          Check for updates
+        </Button>
+        {state.status === 'checking' && <span role="status">Checking for updates…</span>}
+        {state.status === 'up-to-date' && <span role="status">You're up to date (v{state.version})</span>}
+        {state.status === 'available' && <span role="status">Update v{state.version} available: open it from the toolbar</span>}
+        {state.status === 'downloading' && <span role="status">Downloading update…</span>}
+        {state.status === 'downloaded' && <span role="status">Update ready: restart from the toolbar</span>}
       </div>
+      {state.status === 'error' && (
+        <p role="alert" className={a.error}>
+          Update check failed: {state.message}{' '}
+          <Button onPress={check}>Retry</Button>
+        </p>
+      )}
     </>
   )
 }

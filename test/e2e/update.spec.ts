@@ -1,4 +1,4 @@
-import { expect, test, type ElectronApplication } from '@playwright/test'
+import { expect, test, type ElectronApplication, type Page } from '@playwright/test'
 import { startMockServer, type MockServer } from '../fixtures/mock-server'
 import { launchApp, type LaunchedApp } from './launch'
 
@@ -27,6 +27,18 @@ async function launch(feedUrl: string, selfInstall: boolean): Promise<LaunchedAp
   return launched
 }
 
+/** Settings → Updates → Check for updates; `close` shuts the dialog so the toolbar pill is reachable. */
+async function checkNow(win: Page, close = true) {
+  await win.getByRole('button', { name: 'Settings' }).click()
+  const dialog = win.getByRole('dialog', { name: 'Settings' })
+  await dialog.getByRole('tab', { name: 'Updates' }).click()
+  await dialog.getByRole('button', { name: 'Check for updates' }).click()
+  if (!close) return dialog
+  await expect(dialog.getByRole('status')).toHaveText(/available/)
+  await dialog.getByRole('button', { name: 'Done' }).click()
+  return dialog
+}
+
 const stubInstall = (app: ElectronApplication) =>
   app.evaluate(() => {
     const g = globalThis as unknown as { __mendelUpdater: NodeJS.EventEmitter & Record<string, unknown>; __installed?: boolean }
@@ -44,7 +56,8 @@ test('newer version: pill, notes, download progress, restart to update', async (
   version = '99.0.0'
   const { app, win } = await launch(feed.url, true)
   await stubInstall(app)
-  await win.getByRole('button', { name: 'Check for updates' }).click()
+  await expect(win.getByRole('button', { name: /^Update v/ })).toHaveCount(0)
+  await checkNow(win)
   await win.getByRole('button', { name: 'Update v99.0.0 available' }).click()
   await expect(win.getByRole('dialog', { name: 'mendel 99.0.0' })).toContainText('New stuff')
   await win.getByRole('button', { name: 'Download' }).click()
@@ -69,7 +82,8 @@ test('restart to update asks first while a git operation is running', async () =
       const g = globalThis as unknown as { __asked: string[]; __installed?: boolean }
       return { asked: g.__asked, installed: g.__installed ?? false }
     })
-  await win.getByRole('button', { name: 'Check for updates' }).click()
+  await expect(win.getByRole('button', { name: /^Update v/ })).toHaveCount(0)
+  await checkNow(win)
   await win.getByRole('button', { name: 'Update v99.0.0 available' }).click()
   await win.getByRole('button', { name: 'Download' }).click()
   await win.getByRole('button', { name: 'Restart to update' }).click()
@@ -86,7 +100,8 @@ test('newer version without self-install opens the download page', async () => {
   await app.evaluate(({ shell }) => {
     shell.openExternal = async (url: string) => void ((globalThis as { __opened?: string }).__opened = url)
   })
-  await win.getByRole('button', { name: 'Check for updates' }).click()
+  await expect(win.getByRole('button', { name: /^Update v/ })).toHaveCount(0)
+  await checkNow(win)
   await win.getByRole('button', { name: 'Update v99.0.0 available' }).click()
   await win.getByRole('button', { name: 'Download' }).click()
   await expect.poll(() => app.evaluate(() => (globalThis as { __opened?: string }).__opened)).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/mendel-99\.0\.0-arm64\.dmg$/)
@@ -95,17 +110,20 @@ test('newer version without self-install opens the download page', async () => {
 test('same version: up to date', async () => {
   const { app, win } = await launch(feed.url, true)
   version = await app.evaluate(({ app }) => app.getVersion())
-  await win.getByRole('button', { name: 'Check for updates' }).click()
-  await expect(win.getByRole('status')).toHaveText(`You're up to date (v${version})`)
+  const dialog = await checkNow(win, false)
+  await expect(dialog.getByRole('status')).toHaveText(`You're up to date (v${version})`)
+  await dialog.getByRole('button', { name: 'Done' }).click()
+  await expect(win.getByLabel('Toolbar')).not.toContainText('date')
 })
 
 test('unreachable feed: error with retry, app unaffected', async () => {
   const dead = await startMockServer({})
   await dead.close()
   const { win } = await launch(dead.url, true)
-  await win.getByRole('button', { name: 'Check for updates' }).click()
-  await expect(win.getByRole('alert')).toContainText('Update check failed')
-  await win.getByRole('button', { name: 'Retry' }).click()
-  await expect(win.getByRole('alert')).toContainText('Update check failed')
+  const dialog = await checkNow(win, false)
+  await expect(dialog.getByRole('alert')).toContainText('Update check failed')
+  await dialog.getByRole('button', { name: 'Retry' }).click()
+  await expect(dialog.getByRole('alert')).toContainText('Update check failed')
+  await dialog.getByRole('button', { name: 'Done' }).click()
   await expect(win.getByRole('button', { name: 'Open local repository…' })).toBeVisible()
 })

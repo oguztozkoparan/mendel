@@ -81,3 +81,7 @@
 .number {
   width: 80px;
 }
+
+.status {
+  align-items: center;
+}

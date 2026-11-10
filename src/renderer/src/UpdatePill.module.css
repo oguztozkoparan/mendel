@@ -15,20 +15,6 @@
   font-size: 12px;
 }
 
-.link {
-  border: none;
-  background: none;
-  box-shadow: none;
-  padding: 0;
-  font-size: 12px;
-  opacity: 0.7;
-  cursor: var(--cursor-action);
-}
-
-.error {
-  color: var(--danger);
-}
-
 .panel {
   position: absolute;
   top: calc(100% + 6px);

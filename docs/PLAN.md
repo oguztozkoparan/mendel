@@ -310,7 +310,7 @@ All via `<baseUrl>/a/...` with HTTP Basic (username + HTTP password); strip the 
 | Commit | Summary soft limit (default 72) · Show 72-col ruler in description · Spellcheck on/off |
 | Providers → Gerrit | Hosts list: host, base URL (editable), username, connection status, "Test", "Remove credentials" · Reviews refresh interval (default 5 min) · "Only this project" default |
 | Repository (per repo, opened from repo menu) | Provider override: Auto / Gerrit / None · Gerrit base URL override · Remote used for provider · Gerrit hook status + Install |
-| Updates | Check automatically (on) · Last checked time · "Check now" · Current version |
+| Updates | Check automatically (on) · Last checked time · "Check for updates" (status and Retry shown beside it) · Current version |
 | Advanced | Open logs folder · Log level · Reset app state |
 
 Secrets never appear in plain text once saved (shown as "••• saved").

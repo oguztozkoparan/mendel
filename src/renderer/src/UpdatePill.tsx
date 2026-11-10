@@ -12,7 +12,7 @@ const clampToWindow = (el: HTMLElement | null) => {
   el.style.translate = `${-Math.max(0, right - document.documentElement.clientWidth + 12)}px`
 }
 
-/** Self-contained update pill + panel (PLAN.md §3.12, §4.10). Place it anywhere in the toolbar. */
+/** Self-contained update pill + panel (PLAN.md §3.12, §4.10), shown once an update is found. Place it anywhere in the toolbar. */
 export function UpdatePill() {
   const [state, setState] = useState<UpdateState>({ status: 'idle' })
   const [open, setOpen] = useState(false)
@@ -20,25 +20,11 @@ export function UpdatePill() {
     void window.mendel['update:state']().then(setState)
     return window.mendel.on('update:state', setState)
   }, [])
-  const check = () => void window.mendel['update:check']().then(setState)
 
+  // Checking and its result live in Settings → Updates; the toolbar only shows a found update.
+  if (state.status !== 'available' && state.status !== 'downloading' && state.status !== 'downloaded') return null
   return (
     <div className={s.root}>
-      {state.status === 'idle' && (
-        <button type="button" className={s.link} onClick={check}>
-          Check for updates
-        </button>
-      )}
-      {state.status === 'checking' && <span role="status">Checking for updates…</span>}
-      {state.status === 'up-to-date' && <span role="status">You're up to date (v{state.version})</span>}
-      {state.status === 'error' && (
-        <span role="alert" className={s.error}>
-          Update check failed: {state.message}{' '}
-          <button type="button" onClick={check}>
-            Retry
-          </button>
-        </span>
-      )}
       {state.status === 'available' && (
         <>
           <button type="button" className={s.pill} aria-expanded={open} onClick={() => setOpen(!open)}>
