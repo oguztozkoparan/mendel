@@ -7,7 +7,7 @@ import { createRepoFixture, type RepoFixture } from '../fixtures/repo'
 const userData = mkdtempSync(path.join(tmpdir(), 'mendel-wt-userdata-'))
 vi.mock('electron', () => ({ app: { getPath: () => userData } }))
 vi.mock('../../src/main/log', () => ({ default: { warn: () => {} } }))
-const { listBranches, switchBranch } = await import('../../src/main/git/branch')
+const { listBranches, nativePath, switchBranch } = await import('../../src/main/git/branch')
 const { repoTopLevel } = await import('../../src/main/git/repo')
 const { addWorktree, listWorktrees, parseWorktrees, pruneWorktrees, removeWorktree } = await import('../../src/main/git/worktree')
 const { forgetPath, linkedWorktree, listRepos, rememberRepo } = await import('../../src/main/repos')
@@ -20,11 +20,11 @@ describe('worktrees', () => {
   it('parses porcelain -z: main, branch, detached, locked reason, prunable; bare main skipped', () => {
     const out = ['worktree /r', 'HEAD ' + 'a'.repeat(40), 'branch refs/heads/main', '', 'worktree /r-x', 'HEAD ' + 'b'.repeat(40), 'detached', 'locked on usb', 'prunable gitdir file points to non-existent location', ''].join('\0') + '\0'
     expect(parseWorktrees(out, '/r-x')).toEqual([
-      { path: '/r', branch: 'main', head: 'a'.repeat(40), main: true, current: false, locked: null, prunable: false },
-      { path: '/r-x', branch: null, head: 'b'.repeat(40), main: false, current: true, locked: 'on usb', prunable: true }
+      { path: nativePath('/r'), branch: 'main', head: 'a'.repeat(40), main: true, current: false, locked: null, prunable: false },
+      { path: nativePath('/r-x'), branch: null, head: 'b'.repeat(40), main: false, current: true, locked: 'on usb', prunable: true }
     ])
     expect(parseWorktrees(['worktree /b.git', 'bare', '', 'worktree /w', 'HEAD ' + 'c'.repeat(40), 'branch refs/heads/x', 'locked', ''].join('\0') + '\0', '/w')).toEqual([
-      { path: '/w', branch: 'x', head: 'c'.repeat(40), main: false, current: true, locked: '', prunable: false }
+      { path: nativePath('/w'), branch: 'x', head: 'c'.repeat(40), main: false, current: true, locked: '', prunable: false }
     ])
   })
 
