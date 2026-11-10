@@ -6,7 +6,8 @@ import type { Remote } from './remotes'
 export type { Detection, ProviderId }
 
 /** Result of an unauthenticated GET; null = network/TLS error or timeout. */
-export type ProbeResult = { status: number; body: string } | null
+/** `auth`: the WWW-Authenticate header, when the server sent one. */
+export type ProbeResult = { status: number; body: string; auth?: string } | null
 export type Probe = (url: string) => Promise<ProbeResult>
 
 export interface Provider {

@@ -55,8 +55,10 @@ test('menu accelerators match PLAN §7 and trigger their actions', async () => {
     await expect(win.getByRole('dialog', { name: 'New branch' })).toBeVisible()
     await win.keyboard.press('Escape')
     await click(app, 'settings')
-    await expect(win.getByRole('dialog', { name: 'Settings' })).toBeVisible()
+    // focus moves into the dialog a moment after it shows; Escape before that reaches nothing
+    await expect(win.getByRole('dialog', { name: 'Settings' })).toBeFocused()
     await win.keyboard.press('Escape')
+    await expect(win.getByRole('dialog', { name: 'Settings' })).toHaveCount(0)
     await click(app, 'repo:clone')
     await expect(win.getByRole('dialog', { name: 'Clone repository' })).toBeVisible()
     await win.getByRole('dialog', { name: 'Clone repository' }).getByRole('button', { name: 'Cancel' }).click()
@@ -101,9 +103,10 @@ test('theme follows the OS by default', async () => {
     expect(source).toBe('system')
     expect(await win.evaluate(() => matchMedia('(prefers-color-scheme: dark)').matches)).toBe(osDark)
     // An OS appearance change reaches the renderer as a prefers-color-scheme change; the UI restyles live.
-    for (const [colorScheme, bg] of [['dark', 'rgb(30, 30, 30)'], ['light', 'rgb(255, 255, 255)']] as const) {
+    // The root is transparent when native vibrancy/Mica is on, so check the toolbar's --bg-side.
+    for (const [colorScheme, bg] of [['dark', 'rgba(22, 28, 34, 0.9)'], ['light', 'rgba(246, 248, 250, 0.85)']] as const) {
       await win.emulateMedia({ colorScheme })
-      await expect(win.locator('html')).toHaveCSS('background-color', bg)
+      await expect(win.locator('header[aria-label="Toolbar"]')).toHaveCSS('background-color', bg)
     }
   } finally {
     await close()

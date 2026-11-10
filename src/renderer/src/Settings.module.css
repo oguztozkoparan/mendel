@@ -1,11 +1,14 @@
 .dialog {
   width: 620px;
+  /* fixed height: switching sections never resizes the dialog; the section panel scrolls instead */
+  height: min(640px, calc(100vh - 80px));
 }
 
 .tabs {
+  flex: 1;
+  min-height: 0;
   display: flex;
   gap: 16px;
-  min-height: 300px;
 }
 
 .sections {
@@ -21,16 +24,23 @@
 }
 
 .sections [role='tab'][data-selected] {
-  background: color-mix(in srgb, var(--accent) 22%, transparent);
   font-weight: 600;
 }
 
 .panel {
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 12px;
+  overflow: auto;
+  /* room for the controls' focus rings and key shadows inside the scroller */
+  padding: 3px 6px 8px 3px;
   outline: none;
+}
+
+.panel > * {
+  flex: none;
 }
 
 .radios {
@@ -48,23 +58,63 @@
 .radio {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 9px;
 }
 
+/* Tactile radio (concept .radio): raised round key; on = pressed accent with an on-accent dot. */
 .radio::before {
   content: '';
-  width: 12px;
-  height: 12px;
-  border: 1px solid var(--border);
+  flex: none;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
+  background: linear-gradient(180deg, var(--face-top), var(--face-bot));
+  box-shadow: inset 0 1px 0 var(--hi), 0 0 0 1px var(--edge), 0 1px 0 var(--lip), 0 2px 3px var(--drop);
+  transition: box-shadow .12s, background .12s;
 }
 
 .radio[data-selected]::before {
-  border: 4px solid var(--accent);
-  width: 6px;
-  height: 6px;
+  background: radial-gradient(circle, var(--on-accent) 3px, transparent 3.5px), linear-gradient(180deg, var(--a-bot), var(--a-top));
+  box-shadow: inset 0 1px 2px rgb(0 0 0 / .32), 0 0 0 1px var(--a-edge), 0 1px 0 var(--hi-low);
 }
 
 .number {
   width: 80px;
+}
+
+.status {
+  align-items: center;
+}
+
+/* Git providers page: one card per provider (concept .provider: name, live dot, host). */
+.provider {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: var(--pad-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--r-panel);
+}
+
+.providerHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.live {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--git-add);
+}
+
+.providerHost {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.grow {
+  flex: 1;
+  align-self: center;
 }

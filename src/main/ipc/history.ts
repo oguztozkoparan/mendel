@@ -10,11 +10,12 @@ import { confirmStash, exclusive } from './sync'
 import type { Handlers } from '.'
 
 export const historyHandlers: Handlers<'history:log' | 'history:commit' | 'history:diff' | 'history:blame' | 'history:pick' | 'history:unpushed' | 'history:rebase'> = {
-  'history:log': async ({ repo, skip, grep, author, path, ref }) => {
+  'history:log': async ({ repo, skip, query, path, ref }) => {
     const root = repoRoot(repo)
     // Full ref name: a local branch called like a remote one ("origin/x") stays unambiguous.
     const full = ref && (await fullBranchRef(root, ref))
-    return getLog(root, skip, undefined, undefined, { grep, author, path: path && checkPath(root, path), ref: full })
+    const p = path ?? query?.path
+    return getLog(root, skip, undefined, undefined, { ...query, path: p && checkPath(root, p), ref: full })
   },
   'history:pick': ({ repo, sha, op }) => pickCommit(repoRoot(repo), op, sha),
   'history:unpushed': async ({ repo }) => (await unpushedCommits(repoRoot(repo))).reverse(),

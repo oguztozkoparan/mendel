@@ -1,9 +1,12 @@
 import { app, BrowserWindow, nativeTheme, screen, type Rectangle } from 'electron'
+import { release } from 'node:os'
 import path from 'node:path'
 import { appEntryUrl } from './security'
 import { getWindowState, setWindowState } from './settings'
 
-const MIN = { width: 960, height: 600 }
+const MIN = { width: 720, height: 600 }
+/** global.css --toolbar-h: 6px drag strip + 44px toolbar row. */
+const TOOLBAR_H = 50
 
 /** Saved bounds fitted into the work area of the display they overlap most (a display may have been removed). */
 export function fitBounds(b: Rectangle, workArea: Rectangle): Rectangle {
@@ -14,8 +17,18 @@ export function fitBounds(b: Rectangle, workArea: Rectangle): Rectangle {
   return { x, y, width, height }
 }
 
-/** Windows/Linux draw the window controls over our toolbar; match them to the theme. */
-const overlay = () => (nativeTheme.shouldUseDarkColors ? { color: '#1e1e1e', symbolColor: '#e8e8e8', height: 40 } : { color: '#ffffff', symbolColor: '#1d1d1f', height: 40 })
+/** Native glass behind the transparent page: macOS vibrancy, or Mica on Windows 11 22H2+ (build 22621). Linux stays opaque. */
+export const glass = process.platform === 'darwin' || (process.platform === 'win32' && Number(release().split('.')[2]) >= 22621)
+
+/**
+ * Windows/Linux draw the window controls over our toolbar; match them to its tokens (global.css):
+ * --bg-side (translucent over Mica, else pre-composited over --bg) and --fg.
+ */
+const overlay = () => {
+  const dark = nativeTheme.shouldUseDarkColors
+  const color = glass ? (dark ? '#161c22e6' : '#f6f8fad9') : dark ? '#141a1f' : '#f9fbfc'
+  return { color, symbolColor: dark ? '#e8eef2' : '#0f171e', height: TOOLBAR_H }
+}
 
 export function createMainWindow(): BrowserWindow {
   const mac = process.platform === 'darwin'
@@ -28,7 +41,10 @@ export function createMainWindow(): BrowserWindow {
     show: false,
     title: 'Mendel',
     titleBarStyle: mac ? 'hiddenInset' : 'hidden',
-    ...(mac ? {} : { titleBarOverlay: overlay() }),
+    // mac: traffic lights (14px frames) centred in the 44px row below the drag strip; elsewhere the overlay spans the whole toolbar.
+    ...(mac ? { trafficLightPosition: { x: 16, y: TOOLBAR_H - 22 - 7 } } : { titleBarOverlay: overlay() }),
+    // Transparent page so the material shows through --bg-side; .main paints --bg (opaque diff/detail).
+    ...(glass && { backgroundColor: '#00000000', ...(mac ? { vibrancy: 'sidebar' as const } : { backgroundMaterial: 'mica' as const }) }),
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.js'),
       contextIsolation: true,

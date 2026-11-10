@@ -1,15 +1,20 @@
+/* concept .crow: borderless two-line rows, selection plate inset 6px */
 .row {
   display: flex;
   flex-direction: column;
   justify-content: center;
   height: 44px;
-  padding: 0 10px;
+  padding: 0 14px;
   box-sizing: border-box;
-  border-bottom: 1px solid var(--border);
 }
 
-.row[data-selected] {
-  background: color-mix(in srgb, var(--accent) 22%, transparent);
+.row :global(.hl) {
+  inset: 0 6px;
+  border-radius: var(--ctl-radius);
+}
+
+.summary {
+  font-weight: 500;
 }
 
 .summary,
@@ -21,6 +26,11 @@
 
 .meta {
   color: var(--muted);
+  font-size: 12px;
+}
+
+.meta code {
+  font-size: 11px;
 }
 
 .badge {
@@ -33,46 +43,155 @@
   flex-direction: column;
 }
 
+/* concept .detail: 22px 26px header block; files and diff below run edge to edge */
 .title {
   margin: 0;
-  padding: 12px 12px 4px;
-  font-size: 15px;
+  padding: 22px 26px 0;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
   overflow-wrap: anywhere;
 }
 
-.message {
-  margin: 0;
-  padding: 0 12px 8px;
-  font-family: var(--mono);
+/* concept .who: one muted meta line under the title */
+.who {
+  margin: 6px 0 0;
+  padding: 0 26px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.who code {
   font-size: 12px;
+  color: var(--fg);
+}
+
+/* the short SHA is an inline copy button, not a raised key */
+.sha {
+  min-height: 0;
+  padding: 0 2px;
+  margin: 0 -2px;
+  color: inherit;
+  font-weight: inherit;
+  background: none;
+  box-shadow: none;
+  cursor: var(--cursor-action);
+}
+
+.sha:where(:hover) code {
+  text-decoration: underline;
+}
+
+.sha[data-focus-visible] {
+  box-shadow: var(--focus);
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 26px 0;
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 2px 2px 8px;
+  border-radius: var(--ctl-radius);
+  background: color-mix(in srgb, var(--fg) 5%, transparent);
+}
+
+.tag code {
+  font-size: 12px;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 14px 26px 0;
+}
+
+/* commit detail text is selectable: I-beam */
+.title,
+.who,
+.message {
+  cursor: text;
+}
+
+/* concept .detail p */
+.message {
+  max-width: 68ch;
+  margin: 0;
+  padding: 16px 26px 0;
+  font: inherit;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 
-.fields {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 4px 12px;
-  margin: 0;
-  padding: 8px 12px;
-  border-top: 1px solid var(--border);
-}
-
-.fields dt {
-  color: var(--muted);
-}
-
-.fields dd {
-  margin: 0;
-  overflow-wrap: anywhere;
-}
-
+/* concept .ftable: bordered, rounded file table inside the detail padding; a real border so row fills sit inside it */
 .files {
+  flex: none;
   max-height: 200px;
+  margin: 18px 26px 12px;
   overflow: auto;
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
+  border: 1px solid var(--border);
+  border-radius: var(--ctl-radius);
   outline: none;
+}
+
+.fileRow {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  height: 30px;
+  padding: 0 12px;
+  box-sizing: border-box;
+  outline: none;
+}
+
+.divided {
+  border-top: 1px solid var(--border);
+}
+
+.fileRow[data-selected] {
+  background: var(--bg-selected);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.fileRow[data-focus-visible] {
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+.fileRow[data-selected][data-focus-visible] {
+  box-shadow: inset 2px 0 0 var(--accent), inset 0 0 0 2px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+.filePath {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 12px var(--mono);
+}
+
+.fileStat {
+  font: 11px var(--mono);
+  white-space: nowrap;
+}
+
+.tagForm {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 260px;
+}
+
+.tagForm > button {
+  align-self: flex-end;
 }
 
 .blame {
@@ -90,7 +209,7 @@
   line-height: 20px;
   padding: 0 10px;
   white-space: pre;
-  cursor: pointer;
+  cursor: var(--cursor-action);
 }
 
 .blameRow[data-focused] {
@@ -114,10 +233,10 @@
 
 .filters {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 6px;
-  padding: 8px 10px;
-  border-bottom: 1px solid var(--border);
+  padding: 4px 10px 8px;
 }
 
 .filters input {
@@ -125,7 +244,66 @@
   box-sizing: border-box;
 }
 
+/* search and its "?" share one row */
+.grep {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.queryError {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--danger);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+/* the Gerrit list is taller than a short window: react-aria caps the popover's height, the rows scroll */
+.helpPopover {
+  overflow-y: auto;
+}
+
+.searchHelp {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 4px 6px;
+}
+
+.searchHelp div {
+  display: grid;
+  grid-template-columns: 210px 190px;
+  gap: 12px;
+  align-items: baseline;
+  min-height: 22px;
+}
+
+.searchHelp dt,
+.searchHelp dd {
+  margin: 0;
+  font-size: 12px;
+}
+
+.searchHelp code {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  white-space: nowrap;
+  user-select: text;
+  cursor: text;
+}
+
+.searchHelp dd {
+  color: var(--muted);
+}
+
+.searchHelpNote {
+  padding: 4px 6px 2px;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+}
+
 .fileFilter {
+  flex-basis: 100%;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -138,13 +316,23 @@
   min-width: 0;
 }
 
-.fileHistory {
-  align-self: flex-start;
-  margin: 6px 12px;
+.branchRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 6px 10px 4px;
+}
+
+.editUnpushed {
+  display: contents;
 }
 
 .branch {
-  margin: 6px 10px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .rebaseList {
@@ -169,4 +357,147 @@
 .rebaseList textarea {
   width: 100%;
   box-sizing: border-box;
+}
+
+/* concept .lane: the commit graph column left of the text; lines 4px at 30% of the lane colour, dot ringed by the raised surface */
+.graphRow {
+  position: relative;
+  padding-left: calc(6px + var(--graph-w) + 4px);
+}
+
+.graph {
+  position: absolute;
+  top: 0;
+  left: 6px;
+  width: var(--graph-w);
+  overflow: hidden;
+  fill: none;
+  stroke-width: 4;
+  stroke-linecap: round;
+}
+
+.graph circle {
+  fill: var(--c);
+  stroke: var(--bg-raised);
+  stroke-width: 2;
+}
+
+.graph circle.merge {
+  fill: var(--bg-raised);
+  stroke: var(--c);
+}
+
+/* changed-files filter above the files table; the negative bottom margin closes the table's 18px top margin to 8px */
+.filesFilter {
+  margin: 18px 26px -10px;
+}
+
+/* commit trailers (Trailers.tsx): one row per key, muted sentence-case label, flat chips like .tag */
+.trailers {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 68ch;
+  padding: 14px 26px 0;
+}
+
+.trailerGroup {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.trailerKey {
+  flex: none;
+  width: 92px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.trailerChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+.chip {
+  gap: 6px;
+  min-height: 22px;
+  max-width: 100%;
+  padding: 0 8px;
+  font-weight: inherit;
+  font-size: 12px;
+  background: color-mix(in srgb, var(--fg) 5%, transparent);
+  box-shadow: none;
+  cursor: var(--cursor-action);
+}
+
+.chip:where(:hover) {
+  filter: none;
+  background: color-mix(in srgb, var(--fg) 9%, transparent);
+}
+
+.chip[data-focus-visible] {
+  box-shadow: var(--focus);
+}
+
+.chip code,
+.chip span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chip:has(.avatar) {
+  padding-left: 2px;
+}
+
+.avatar {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+.chipNote {
+  color: var(--muted);
+}
+
+.trailerOther {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.personDialog {
+  outline: none;
+}
+
+.person {
+  min-width: 220px;
+  max-width: 320px;
+  gap: 2px;
+}
+
+.personEmail {
+  user-select: text;
+  cursor: text;
+  overflow-wrap: anywhere;
+}
+
+.personRoles {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.personCopy {
+  align-self: flex-start;
+  margin-top: 8px;
 }

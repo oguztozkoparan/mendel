@@ -15,6 +15,12 @@ test('git failure → friendly text by kind, Show details (redacted stderr), Cop
     await banner.getByRole('button', { name: 'Show details' }).click()
     await expect(banner.locator('pre')).toContainText('127.0.0.1')
     await expect(banner).not.toContainText('s3cret')
+    // The banner follows the open pane without remounting: expanded details survive a tab switch.
+    await win.getByRole('tab', { name: 'History' }).click()
+    await expect(win.getByRole('tabpanel')).toContainText('Could not reach the remote')
+    await expect(banner.locator('pre')).toBeVisible()
+    await win.getByRole('tab', { name: 'Changes' }).click()
+    await expect(banner.locator('pre')).toBeVisible()
     await banner.getByRole('button', { name: 'Copy' }).click()
     await expect.poll(() => app.evaluate(({ clipboard }) => clipboard.readText())).toContain('Could not reach the remote')
     expect(await app.evaluate(({ clipboard }) => clipboard.readText())).not.toContain('s3cret')

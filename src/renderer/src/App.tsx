@@ -1,23 +1,26 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { AnimatePresence } from 'motion/react'
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Settings as Gear } from 'lucide-react'
 import { Button } from 'react-aria-components'
 import type { GerritSent } from '../../shared/gerrit'
 import type { GitInfo } from '../../shared/ipc'
 import s from './App.module.css'
 import { AuthPromptDialog } from './AuthPromptDialog'
-import { BranchSelector, refreshLocal, refreshRepo, StashBanner } from './Branches'
+import { BranchSelector, refreshLocal, refreshRepo, StashBanner, WorktreeSelector } from './Branches'
 import { CloneDialog } from './CloneDialog'
 import logo from '../../../build/icon.svg'
-import { bannerError, ErrorBanner, type BannerError } from './ErrorBanner'
+import { AppBanners, bannerError, ErrorBanner, PaneBanners, type BannerError } from './ErrorBanner'
 import { ConflictBanner } from './Conflicts'
 import { RepoList, RepoSelector, type RepoActions } from './Repos'
 import { useMenuCommand } from './menu'
 import { SendForReview } from './providers/gerrit/SendForReview'
 import { RepoView } from './RepoView'
-import { IdentityForm, SettingsDialog } from './Settings'
+import { IdentityForm, SettingsDialog, useSettings } from './Settings'
 import { SyncButton, type Notice } from './SyncButton'
 import { UpdatePill } from './UpdatePill'
+import { Toast } from './motion'
 
 const INSTALL_HINT: Record<string, string> = {
   darwin: 'Install Git with Xcode Command Line Tools (xcode-select --install) or Homebrew (brew install git).',
@@ -32,7 +35,13 @@ export function App() {
   const onError = (e: unknown, retry?: () => void) => setError(bannerError(e, retry))
   const [cloning, setCloning] = useState(false)
   const [notice, setNotice] = useState<Notice | null>(null)
-  const [settings, setSettings] = useState(false)
+  /** Open Settings section: 'General' by default; null = closed. */
+  const [settings, setSettings] = useState<string | null>(null)
+  useEffect(() => {
+    const open = (e: Event) => setSettings((e as CustomEvent<string>).detail)
+    window.addEventListener('mendel:settings', open)
+    return () => window.removeEventListener('mendel:settings', open)
+  }, [])
   const [sending, setSending] = useState(false)
   /** "Open change #N" from the send toast: RepoView switches to Reviews and selects it. */
   const [focus, setFocus] = useState<{ change: number } | null>(null)
@@ -45,6 +54,10 @@ export function App() {
       ),
     []
   )
+  const accent = useSettings().data?.accent
+  useEffect(() => {
+    if (accent) document.documentElement.dataset.accent = accent
+  }, [accent])
   const check = (recheck = false) => void window.mendel['git:info']({ recheck }).then(setGit)
   useEffect(() => check(), [])
   const usable = git?.found === true && git.supported
@@ -79,7 +92,7 @@ export function App() {
     clone: () => setCloning(true)
   }
   useMenuCommand((cmd) => {
-    if (cmd === 'settings') setSettings(true)
+    if (cmd === 'settings') setSettings('General')
     else if (!usable) return
     else if (cmd === 'repo:open') actions.add()
     else if (cmd === 'repo:clone') actions.clone()
@@ -89,38 +102,56 @@ export function App() {
     else if (cmd === 'status:refresh' && current) void refreshRepo(qc, current.id)
   })
 
+  const [bannerHost] = useState(() => {
+    const el = document.createElement('div')
+    el.style.display = 'contents'
+    return el
+  })
+  const banners = (
+    <>
+      {error && <ErrorBanner error={error} onDismiss={() => setError(null)} />}
+      <AnimatePresence>
+        {notice && (
+          <Toast key={notice.text}>
+            <div role="alert" className={`${s.banner} ${s.notice}`}>
+              <span>{notice.text}</span>
+              {notice.action && <Button onPress={() => (setNotice(null), notice.action!.run())}>{notice.action.label}</Button>}
+              <Button onPress={() => setNotice(null)}>Dismiss</Button>
+            </div>
+          </Toast>
+        )}
+      </AnimatePresence>
+      {current && <ConflictBanner key={`conflict:${current.id}`} repo={current.id} onError={onError} />}
+      {current && <StashBanner key={`stash:${current.id}`} repo={current.id} onError={onError} />}
+    </>
+  )
+
   return (
     <div className={s.app}>
       <header className={s.toolbar} aria-label="Toolbar">
         {current && <RepoSelector repos={repos} current={current} actions={actions} />}
-        {current && <BranchSelector key={current.id} repo={current.id} onError={onError} />}
+        {current && <BranchSelector key={`branch:${current.id}`} repo={current.id} repoName={current.name} onError={onError} onNotice={setNotice} />}
+        {current && <WorktreeSelector key={`worktree:${current.id}`} repo={current.id} repoName={current.name} onError={onError} />}
         {current && (
           <SyncButton
-            key={current.id}
+            key={`sync:${current.id}`}
             repo={current.id}
             onError={onError}
             onNotice={setNotice}
             primary={gerrit ? { label: 'Send for review', run: () => setSending(true) } : null}
           />
         )}
+        <div className={s.spacer} />
         <UpdatePill />
-        <Button className={`icon ${s.settings}`} aria-label="Settings" onPress={() => setSettings(true)}>
+        <Button className={`icon ${s.settings}`} aria-label="Settings" onPress={() => setSettings('General')}>
           <Gear size={16} />
         </Button>
       </header>
-      {error && <ErrorBanner error={error} onDismiss={() => setError(null)} />}
-      {notice && (
-        <div role="alert" className={`${s.banner} ${s.notice}`}>
-          <span>{notice.text}</span>
-          {notice.action && <Button onPress={() => (setNotice(null), notice.action!.run())}>{notice.action.label}</Button>}
-          <Button onPress={() => setNotice(null)}>Dismiss</Button>
-        </div>
-      )}
-      {current && <ConflictBanner key={current.id} repo={current.id} onError={onError} />}
-      {current && <StashBanner key={current.id} repo={current.id} onError={onError} />}
-      {current ? (
-        <RepoView key={current.id} repo={current} focus={focus} />
-      ) : (
+      {createPortal(banners, bannerHost)}
+      <AppBanners.Provider value={bannerHost}>
+        {current ? <RepoView key={current.id} repo={current} focus={focus} onNotice={setNotice} /> : <PaneBanners />}
+      </AppBanners.Provider>
+      {!current && (
         <main className={s.welcome}>
           <img src={logo} alt="" width={96} height={96} />
           <h1>Mendel</h1>
@@ -154,14 +185,17 @@ export function App() {
           )}
         </main>
       )}
-      {cloning && (
-        <CloneDialog
-          onClose={() => setCloning(false)}
-          onCloned={() => (setCloning(false), void qc.invalidateQueries({ queryKey: ['repos'] }))}
-        />
-      )}
-      {sending && current && <SendForReview repo={current.id} onClose={() => setSending(false)} onSent={sent} />}
-      {settings && <SettingsDialog repo={current?.id} onClose={() => setSettings(false)} />}
+      <AnimatePresence>
+        {cloning && (
+          <CloneDialog
+            key="clone"
+            onClose={() => setCloning(false)}
+            onCloned={() => (setCloning(false), void qc.invalidateQueries({ queryKey: ['repos'] }))}
+          />
+        )}
+        {sending && current && <SendForReview key="send" repo={current.id} onClose={() => setSending(false)} onSent={sent} />}
+        {settings && <SettingsDialog key="settings" repo={current?.id} section={settings} onClose={() => setSettings(null)} />}
+      </AnimatePresence>
       <AuthPromptDialog />
     </div>
   )

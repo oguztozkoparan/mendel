@@ -1,7 +1,9 @@
+/* concept .listhead: 11/600 muted panel title, checkbox aligned with the rows' */
 .listHeader {
-  padding: 6px 10px;
+  padding: 6px 14px;
   color: var(--muted);
-  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+  font-weight: 600;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -12,19 +14,22 @@
   min-height: 0;
   overflow: auto;
   outline: none;
+  padding-bottom: 8px;
 }
 
+/* concept .file: 30px rows; the selection plate is inset 6px with the control radius (rows are full-width for the Virtualizer) */
 .row {
   display: flex;
   align-items: center;
-  gap: 6px;
-  height: 26px;
-  padding: 0 10px;
+  gap: 8px;
+  height: 30px;
+  padding: 0 14px;
   box-sizing: border-box;
 }
 
-.row[data-selected] {
-  background: color-mix(in srgb, var(--accent) 22%, transparent);
+.row :global(.hl) {
+  inset: 0 6px;
+  border-radius: var(--ctl-radius);
 }
 
 .path {
@@ -36,30 +41,33 @@
 }
 
 .letter {
-  width: 14px;
+  font: 600 10.5px/18px var(--mono);
   text-align: center;
-  font-family: var(--mono);
-  font-weight: 700;
-  border-radius: 3px;
-  font-size: 11px;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 5px;
 }
 
 .letter[data-status='A'] {
-  color: #2da44e;
+  color: color-mix(in srgb, var(--git-add), var(--fg) 35%);
+  background: color-mix(in srgb, var(--git-add) 14%, transparent);
 }
 
 .letter[data-status='D'],
 .letter[data-status='U'] {
-  color: var(--danger);
+  color: color-mix(in srgb, var(--danger), var(--fg) 35%);
+  background: color-mix(in srgb, var(--danger) 14%, transparent);
 }
 
 .letter[data-status='M'] {
-  color: #bf8700;
+  color: color-mix(in srgb, var(--git-mod), var(--fg) 35%);
+  background: color-mix(in srgb, var(--git-mod) 14%, transparent);
 }
 
 .letter[data-status='R'],
 .letter[data-status='C'] {
-  color: #0969da;
+  color: color-mix(in srgb, var(--git-ren), var(--fg) 35%);
+  background: color-mix(in srgb, var(--git-ren) 14%, transparent);
 }
 
 .empty {
@@ -73,39 +81,55 @@
   --diff-font-family: var(--mono);
   --diff-background-color: var(--bg);
   --diff-text-color: var(--fg);
+  --diff-gutter-insert-background-color: var(--diff-add-gutter);
+  --diff-code-insert-background-color: var(--diff-add-bg);
+  --diff-gutter-delete-background-color: var(--diff-del-gutter);
+  --diff-code-delete-background-color: var(--diff-del-bg);
+  --diff-selection-background-color: var(--diff-sel);
+  /* picked lines: react-diff-view's own pale yellow is unreadable under dark text colours */
+  --diff-gutter-selected-background-color: var(--diff-sel);
+  --diff-code-selected-background-color: var(--diff-sel);
   font-size: 12px;
 }
 
-@media (prefers-color-scheme: dark) {
-  .diffPane {
-    --diff-gutter-insert-background-color: #1d4428;
-    --diff-code-insert-background-color: #12261e;
-    --diff-gutter-delete-background-color: #542426;
-    --diff-code-delete-background-color: #25171c;
-    --diff-selection-background-color: #264f78;
-  }
-}
-
+/* concept .fhead: 44px bar, mono path left, actions right */
 .fileHeader {
   display: flex;
   align-items: center;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: 6px 10px;
   position: sticky;
   top: 0;
   z-index: 1;
+  box-sizing: border-box;
+  min-height: 44px;
   margin: 0;
-  padding: 8px 12px;
+  padding: 6px 12px 6px 16px;
   font-size: 13px;
-  font-weight: 600;
   background: var(--bg);
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
   overflow-wrap: anywhere;
 }
 
 .fileHeader h2 {
   flex: 1;
   margin: 0;
-  font-size: inherit;
+  font: 12px var(--mono);
+}
+
+.stat {
+  margin-left: 10px;
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.statAdd {
+  color: var(--git-add);
+}
+
+.statDel {
+  color: var(--danger);
 }
 
 .sectionTitle {
@@ -121,9 +145,28 @@
   width: 100%;
 }
 
+/* Line-staging checkbox gets its own slot at the left of the old-number gutter, so it never covers a line number. */
+.staging :global(col.diff-gutter-col:first-child) {
+  width: calc(7ch + 22px);
+}
+
+.staging :global(td.diff-gutter:first-child) {
+  position: relative;
+  padding-left: calc(1ch + 22px);
+}
+
+.staging .checkbox {
+  position: absolute;
+  top: 50%;
+  left: 6px;
+  transform: translateY(-50%);
+}
+
+/* concept .hunk: full-width tinted band, mono, muted */
 .hunkHeader {
-  background: var(--bg-side);
+  background: color-mix(in srgb, var(--git-ren) 8%, var(--bg));
   color: var(--muted);
+  font-family: var(--mono);
 }
 
 .hunkHeader td {
@@ -142,23 +185,28 @@
   -webkit-app-region: no-drag;
 }
 
+/* Tactile checkbox (concept .chk): small raised key, pressed in and accent when on. */
 .box {
-  width: 14px;
-  height: 14px;
-  border: 1px solid var(--border);
-  border-radius: 3px;
-  background: var(--bg);
+  flex: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 5px;
+  background: linear-gradient(180deg, var(--face-top), var(--face-bot));
+  box-shadow: inset 0 1px 0 var(--hi), 0 0 0 1px var(--edge), 0 1px 0 var(--lip), 0 2px 3px var(--drop);
+  transition: box-shadow .12s, background .12s;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   font-size: 11px;
+  font-weight: 700;
   line-height: 1;
 }
 
 .checkbox[data-selected] .box,
-.checkbox[data-indeterminate] .box {
-  background: var(--accent);
-  border-color: var(--accent);
+.checkbox[data-indeterminate] .box,
+.amend[data-selected] .box {
+  background: linear-gradient(180deg, var(--a-bot), var(--a-top));
+  box-shadow: inset 0 1px 2px rgb(0 0 0 / .32), 0 0 0 1px var(--a-edge), 0 1px 0 var(--hi-low);
   color: var(--on-accent);
 }
 
@@ -176,12 +224,19 @@
   font-size: 11px;
 }
 
+/* concept .commit */
 .commitBox {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 10px;
-  border-top: 1px solid var(--border);
+  gap: 8px;
+  padding: 12px 12px 14px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+}
+
+.commitLabel {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .summaryField {
@@ -209,17 +264,54 @@
   font-weight: 600;
 }
 
+.descriptionField {
+  position: relative;
+  display: flex;
+}
+
 .description {
   width: 100%;
   box-sizing: border-box;
-  resize: vertical;
+  resize: none;
   font-family: var(--mono);
   font-size: 12px;
 }
 
+/* bottom-right corner of the description, where the resize grip was; scoped to beat global .ghost sizing */
+.descriptionField .expand {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+}
+
+.messageDialog {
+  width: min(760px, calc(100vw - 80px));
+  height: min(560px, calc(100vh - 80px));
+  max-width: none;
+}
+
+.messageForm {
+  flex: 1;
+  min-height: 0;
+}
+
+/* the textarea takes the dialog's free height and scrolls itself */
+.messageDescription {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.messageDescription .description {
+  height: 100%;
+}
+
 .ruler {
-  /* 6px = textarea padding-left (global.css) */
-  background-image: linear-gradient(to right, transparent calc(6px + 72ch), var(--border) calc(6px + 72ch), var(--border) calc(7px + 72ch), transparent calc(7px + 72ch));
+  /* 10px = textarea padding-left (global.css) */
+  background-image: linear-gradient(to right, transparent calc(10px + 72ch), var(--border) calc(10px + 72ch), var(--border) calc(11px + 72ch), transparent calc(11px + 72ch));
   background-attachment: local;
 }
 
@@ -227,12 +319,6 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-}
-
-.amend[data-selected] .box {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--on-accent);
 }
 
 .amend[data-disabled] {
@@ -253,4 +339,66 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* concept .inp in .filter: recessed field, search icon, input drawn flat inside it */
+.filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: var(--ctl-h);
+  padding: 0 10px;
+  border-radius: var(--ctl-radius);
+  color: var(--muted);
+  background: var(--well);
+  box-shadow: inset 0 2px 3px rgb(0 0 0 / .16), inset 0 0 0 1px var(--edge), 0 1px 0 var(--hi-low);
+  transition: box-shadow .18s ease-out;
+}
+
+.filter:focus-within {
+  box-shadow: inset 0 2px 3px rgb(0 0 0 / .16), inset 0 0 0 1px var(--accent), 0 1px 0 var(--hi-low), 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent);
+}
+
+.filter svg {
+  flex: none;
+}
+
+.filter input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  background: transparent;
+  box-shadow: none !important;
+}
+
+.filter kbd {
+  flex: none;
+}
+
+/* concept .inp .count */
+.filterCount {
+  flex: none;
+  font: 11px var(--mono);
+}
+
+/* concept .filter: 4px 10px 6px around the field */
+.sideFilter {
+  margin: 4px 10px 6px;
+}
+
+/* Discard all (shown) changes: quiet icon key at the right of the list header; danger only on hover */
+.discardAll {
+  margin-left: auto;
+  min-height: 20px;
+  color: var(--muted);
+}
+
+.discardAll:where(:hover, [data-focus-visible]) {
+  color: var(--danger);
+}
+
+.confirmText {
+  margin: 0;
+  line-height: 1.5;
 }

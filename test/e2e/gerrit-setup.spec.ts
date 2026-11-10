@@ -27,8 +27,12 @@ test('port 29418 without reachable REST → "Set Gerrit URL"; override fixes it;
     await expect(win.getByRole('region', { name: 'Connect to Gerrit' })).toContainText(mock.url)
 
     await win.getByRole('button', { name: 'Gerrit settings…' }).click()
+    const settings = win.getByRole('dialog', { name: 'Settings' })
+    await settings.getByRole('button', { name: 'Repository provider…' }).click()
     await dialog.getByLabel('Provider').selectOption('none')
     await dialog.getByRole('button', { name: 'Save' }).click()
+    await expect(settings).toContainText('No provider')
+    await settings.getByRole('button', { name: 'Done' }).click()
     await expect(win.getByRole('tab', { name: 'Reviews' })).toBeHidden()
     await expect(win.getByRole('tab', { name: 'Changes' })).toBeVisible()
   } finally {

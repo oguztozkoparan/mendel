@@ -47,6 +47,8 @@ test('correct password → "Connected as …", secret stored encrypted, never in
     shell.openExternal = async (u: string) => void g.__opened.push(u)
   })
   await win.getByRole('button', { name: 'Account…' }).click()
+  const settings = win.getByRole('dialog', { name: 'Settings' })
+  await settings.getByRole('button', { name: 'Connect…' }).click()
   await win.getByRole('button', { name: 'Get your HTTP password' }).click()
   await win.evaluate(async () => {
     const { current } = await window.mendel['repo:list']()
@@ -57,6 +59,8 @@ test('correct password → "Connected as …", secret stored encrypted, never in
 
   // Remove deletes the stored secret.
   await win.getByRole('button', { name: 'Remove credentials' }).click()
+  await expect(settings).toContainText('Not connected')
+  await settings.getByRole('button', { name: 'Done' }).click()
   await expect(win.getByRole('region', { name: 'Connect to Gerrit' })).toBeVisible()
   expect(JSON.parse(providersJson()).credentials).toEqual({})
 })

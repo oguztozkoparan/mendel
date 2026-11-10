@@ -1,36 +1,148 @@
+@font-face {
+  font-family: 'Geist';
+  src: url('./assets/fonts/Geist-Variable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Geist Mono';
+  src: url('./assets/fonts/GeistMono-Variable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+}
+
 :root {
   color-scheme: light dark;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
+  font-family: var(--sans);
   font-size: 13px;
-  --border: light-dark(#d0d0d0, #3a3a3a);
-  --bg: light-dark(#ffffff, #1e1e1e);
-  --bg-side: light-dark(#f5f5f7, #252526);
-  --bg-hover: light-dark(rgb(0 0 0 / 0.06), rgb(255 255 255 / 0.08));
-  --fg: light-dark(#1d1d1f, #e8e8e8);
-  --muted: light-dark(#6e6e73, #9a9a9a);
-  --danger: light-dark(#c42b1c, #ff6b5e);
-  --accent: #0a84ff;
-  --on-accent: #ffffff;
+  --sans: 'Geist', -apple-system, 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
+  --mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   /* Platform tokens (TECH.md §2): mac default, overridden per data-platform below. */
   --radius: 6px;
-  --control-h: 24px;
-  --focus: 0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent);
-  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
+  --ctl-h: 30px;
+  --ctl-radius: 9px;
+  /* concentric radii: outer = inner + padding */
+  --pad-panel: 12px;
+  --r-panel: calc(var(--ctl-radius) + var(--pad-panel));
+  --r-banner: calc(var(--ctl-radius) + 6px);
+  --r-menu: calc(var(--ctl-radius) + 4px);
+  --r-toast: calc(var(--ctl-radius) + 8px);
+  --r-dialog: calc(var(--ctl-radius) + 16px);
+  --focus: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent);
+  /* window chrome: a light drag strip above the 44px toolbar row (window.ts mirrors these for the native controls) */
+  --drag-strip: 6px;
+  --toolbar-h: calc(44px + var(--drag-strip));
+  --scrim: rgb(5 10 14 / .38);
+  /* glass neutrals: light */
+  --border: rgb(15 23 30 / 0.1);
+  --bg: #ffffff;
+  /* glass alpha/muted hold --fg >= 7:1, muted >= 4.5:1 (also on --bg-selected) over a near-black material */
+  --bg-side: rgb(246 248 250 / 0.85);
+  --muted-glass: #444f59;
+  --bg-raised: #ffffff;
+  --bg-hover: rgb(15 23 30 / 0.05);
+  --fg: #0f171e;
+  --muted: #5b6772;
+  --danger: #d12d2d;
+  --git-add: #15803d;
+  --git-mod: #a16207;
+  --git-ren: #0369a1;
+  --diff-add-bg: #e8f7ee;
+  --diff-add-gutter: #cdeedb;
+  --diff-del-bg: #fdecec;
+  --diff-del-gutter: #f8d3d3;
+  /* tactile */
+  --face-top: color-mix(in srgb, var(--bg-raised), #fff 70%);
+  --face-bot: color-mix(in srgb, var(--bg-raised), var(--fg) 7%);
+  --lip: color-mix(in srgb, var(--bg-raised), var(--fg) 24%);
+  --edge: color-mix(in srgb, var(--fg) 17%, transparent);
+  --hi: rgb(255 255 255 / .95);
+  --hi-low: rgb(255 255 255 / .9);
+  --drop: rgb(0 0 0 / .14);
+  --well: color-mix(in srgb, #f3f5f7, var(--fg) 5%);
+  --a-top: color-mix(in srgb, var(--accent), #fff 22%);
+  --a-bot: color-mix(in srgb, var(--accent), #000 4%);
+  --a-lip: color-mix(in srgb, var(--accent), #000 40%);
+  /* accents (light-dark pairs); cyan is the default */
+  --accent: light-dark(#0e7490, #67e8f9);
+  --on-accent: light-dark(#ffffff, #062a33);
   background: var(--bg);
   color: var(--fg);
 }
 
+@media (prefers-color-scheme: dark) {
+  :root {
+    --border: rgb(255 255 255 / 0.08);
+    --bg: #12171c;
+    --bg-side: rgb(22 28 34 / 0.9);
+    --muted-glass: #afbac2;
+    --bg-raised: #1a2026;
+    --bg-hover: rgb(255 255 255 / 0.06);
+    --fg: #e8eef2;
+    --muted: #8a98a3;
+    --danger: #ff6b6b;
+    --git-add: #4ade80;
+    --git-mod: #fbbf24;
+    --git-ren: #7cc4ff;
+    --diff-add-bg: #10261c;
+    --diff-add-gutter: #163625;
+    --diff-del-bg: #2c1518;
+    --diff-del-gutter: #3d1c20;
+    --face-top: color-mix(in srgb, var(--bg-raised), #fff 11%);
+    --face-bot: color-mix(in srgb, var(--bg-raised), #000 8%);
+    --lip: color-mix(in srgb, var(--bg-raised), #000 62%);
+    --edge: rgb(0 0 0 / .6);
+    --hi: rgb(255 255 255 / .14);
+    --hi-low: rgb(255 255 255 / .07);
+    --drop: rgb(0 0 0 / .5);
+    --well: color-mix(in srgb, #161c22, #000 35%);
+    --a-top: color-mix(in srgb, var(--accent), #fff 18%);
+    --a-bot: color-mix(in srgb, var(--accent), #000 10%);
+    --a-lip: color-mix(in srgb, var(--accent), #000 55%);
+  }
+}
+
+:root[data-accent='cyan'] { --accent: light-dark(#0e7490, #67e8f9); --on-accent: light-dark(#ffffff, #062a33); }
+:root[data-accent='cobalt'] { --accent: light-dark(#2457d6, #7aa7ff); --on-accent: light-dark(#ffffff, #071a3d); }
+:root[data-accent='violet'] { --accent: light-dark(#6d28d9, #c4b5fd); --on-accent: light-dark(#ffffff, #1e1037); }
+:root[data-accent='fuchsia'] { --accent: light-dark(#a21caf, #f0abfc); --on-accent: light-dark(#ffffff, #2e0a33); }
+:root[data-accent='graphite'] { --accent: light-dark(#27272a, #e4e4e7); --on-accent: light-dark(#ffffff, #18181b); }
+
+:root {
+  --bg-selected: color-mix(in srgb, var(--accent) 14%, transparent);
+  --diff-sel: color-mix(in srgb, var(--accent) 20%, transparent);
+  /* edge ring of pressed accent keys (checkbox, radio); module CSS has no hex */
+  --a-edge: color-mix(in srgb, var(--accent), #000 32%);
+  /* syntax (Prism tokens in diffs/blame); each >= 4.5:1 on --bg, add/del rows and every accent's --diff-sel */
+  --syn-keyword: light-dark(#7c2fbf, #d19af5);
+  --syn-string: light-dark(#864d00, #f2c46d);
+  --syn-number: light-dark(#a4320e, #ff9d73);
+  --syn-comment: light-dark(#515c65, #a3aeb6);
+  --syn-function: light-dark(#1e54bd, #82b4ff);
+  --syn-type: light-dark(#0d655f, #5fd3c4);
+  --syn-property: light-dark(#035f91, #7cc4ff);
+  --syn-operator: light-dark(#4f5c67, #b5c0c8);
+  --syn-punctuation: light-dark(#515c66, #a6b1ba);
+  --syn-tag: light-dark(#1d6831, #6fdc8c);
+  --syn-attr: light-dark(#035f91, #7cc4ff);
+  --syn-variable: light-dark(#a02a6a, #f59ac7);
+  --syn-regex: light-dark(#a4320e, #ff9d73);
+  --syn-constant: light-dark(#a4320e, #ff9d73);
+}
+
 html[data-platform='win32'] {
-  --accent: #0067c0;
   --radius: 4px;
-  --control-h: 30px;
   --focus: 0 0 0 2px var(--fg);
 }
 
 html[data-platform='linux'] {
-  --accent: #3584e4;
   --radius: 5px;
-  --control-h: 30px;
+}
+
+/* Native vibrancy/Mica shows through toolbar and sidebar (--bg-side); without it (Linux, Win10) the opaque --bg stays. */
+html[data-glass] {
+  background: transparent;
 }
 
 html,
@@ -46,25 +158,184 @@ textarea {
   color: inherit;
 }
 
+/* Tactile (docs/ui-concept.html). State rules use :where() so module classes (.link, .trigger) still win. */
 button {
-  min-height: var(--control-h);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: var(--ctl-h);
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--ctl-radius);
+  color: var(--fg);
+  font-weight: 500;
+  white-space: nowrap;
+  user-select: none;
+  background: linear-gradient(180deg, var(--face-top), var(--face-bot));
+  box-shadow: inset 0 1px 0 var(--hi), 0 0 0 1px var(--edge), 0 2px 0 var(--lip), 0 3px 6px var(--drop);
+  transition: box-shadow .09s ease-out, filter .15s, background-color .15s;
+}
+
+button:where(:hover) {
+  filter: brightness(1.04);
+}
+
+button:where(:active, [data-pressed]) {
+  background: linear-gradient(180deg, var(--face-bot), var(--face-top));
+  box-shadow: inset 0 2px 3px rgb(0 0 0 / .2), 0 0 0 1px var(--edge), 0 0 0 var(--lip), 0 1px 1px var(--drop);
+}
+
+.danger {
+  color: var(--danger);
+}
+
+.primary {
+  color: var(--on-accent);
+  background: linear-gradient(180deg, var(--a-top), var(--a-bot));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / .38), inset 0 -1px 0 rgb(0 0 0 / .1), 0 0 0 1px color-mix(in srgb, var(--accent), #000 32%), 0 2px 0 var(--a-lip), 0 5px 12px color-mix(in srgb, var(--accent) 32%, transparent);
+}
+
+.primary:where(:active, [data-pressed]) {
+  background: linear-gradient(180deg, var(--a-bot), var(--a-top));
+  box-shadow: inset 0 2px 4px rgb(0 0 0 / .28), 0 0 0 1px color-mix(in srgb, var(--accent), #000 32%), 0 0 0 var(--a-lip), 0 1px 2px var(--drop);
+}
+
+@media (prefers-color-scheme: dark) {
+  button:where(:hover) {
+    filter: brightness(1.15);
+  }
+
+  .primary:where(:not(:active, [data-pressed])) {
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / .38), inset 0 -1px 0 rgb(0 0 0 / .1), 0 0 0 1px color-mix(in srgb, var(--accent), #000 32%), 0 2px 0 var(--a-lip), 0 4px 8px color-mix(in srgb, var(--accent) 18%, transparent);
+  }
+}
+
+/* tertiary: flush tinted plate at rest, rises to a 1px key on hover */
+.ghost {
+  min-height: 0;
+  height: calc(var(--ctl-h) - 4px);
   padding: 0 10px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg);
-  cursor: default;
+  color: color-mix(in srgb, var(--fg) 78%, transparent);
+  background: color-mix(in srgb, var(--fg) 6%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--fg) 5%, transparent);
+}
+
+html[data-platform='win32'] .ghost,
+html[data-platform='linux'] .ghost {
+  height: 28px;
+}
+
+.ghost:where(:hover) {
+  filter: none;
+  color: var(--fg);
+  background: linear-gradient(180deg, var(--face-top), var(--face-bot));
+  box-shadow: inset 0 1px 0 var(--hi), 0 0 0 1px var(--edge), 0 1px 0 var(--lip), 0 2px 4px var(--drop);
+}
+
+.ghost:where(:active, [data-pressed]) {
+  background: linear-gradient(180deg, var(--face-bot), var(--face-top));
+  box-shadow: inset 0 1px 2px rgb(0 0 0 / .18), 0 0 0 1px var(--edge), 0 0 0 var(--lip);
+}
+
+.ghost.danger {
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 9%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--danger) 14%, transparent);
+}
+
+.ghost.danger:where(:hover) {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--danger) 16%, var(--face-top)), color-mix(in srgb, var(--danger) 10%, var(--face-bot)));
+  box-shadow: inset 0 1px 0 var(--hi), 0 0 0 1px color-mix(in srgb, var(--danger) 45%, transparent), 0 1px 0 color-mix(in srgb, var(--danger) 55%, var(--lip)), 0 2px 4px var(--drop);
+}
+
+.ghost.danger:where(:active, [data-pressed]) {
+  box-shadow: inset 0 1px 2px rgb(0 0 0 / .2), 0 0 0 1px color-mix(in srgb, var(--danger) 45%, transparent);
 }
 
 button:disabled {
+  filter: none;
   opacity: 0.5;
 }
 
-input,
+:where(button:disabled),
+.ghost:disabled {
+  box-shadow: 0 0 0 1px var(--edge);
+  background: var(--face-bot);
+}
+
+/* Deviation: the concept greys a disabled primary under on-accent text (unreadable in light mode); keep the accent face, drop the lip. */
+.primary:disabled {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent), #000 32%);
+}
+
+.icon {
+  padding: 0 4px;
+  background: transparent;
+  box-shadow: none;
+}
+
+kbd {
+  font: 500 10.5px/1.5 var(--mono);
+  padding: 0 5px;
+  margin-bottom: 1px;
+  border-radius: 4px;
+  color: var(--muted);
+  background: linear-gradient(180deg, var(--face-top), var(--face-bot));
+  box-shadow: inset 0 1px 0 var(--hi), 0 0 0 1px var(--edge), 0 1px 0 var(--lip);
+}
+
+button kbd {
+  margin-left: 2px;
+}
+
+.primary kbd {
+  color: color-mix(in srgb, var(--on-accent) 80%, transparent);
+  background: rgb(255 255 255 / .16);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / .25), 0 1px 0 rgb(0 0 0 / .22);
+}
+
+/* Recessed fields; native checkboxes/radios keep their own look. */
+input:where(:not([type='checkbox'], [type='radio'])),
 textarea {
-  padding: 4px 6px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg);
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--ctl-radius);
+  outline: none;
+  color: var(--fg);
+  background: var(--well);
+  box-shadow: inset 0 2px 3px rgb(0 0 0 / .16), inset 0 0 0 1px var(--edge), 0 1px 0 var(--hi-low);
+  transition: box-shadow .18s ease-out;
+}
+
+input:where(:not([type='checkbox'], [type='radio'])) {
+  height: var(--ctl-h);
+  /* a placeholder (or unfocused value) longer than a narrow field ends in an ellipsis, not mid-word */
+  text-overflow: ellipsis;
+}
+
+textarea {
+  padding: 8px 10px;
+}
+
+:is(input, textarea)::placeholder {
+  color: var(--muted);
+}
+
+/* SearchField's clear (×) is the native cancel button: an action, so the hand, a hover tint and a 16px target */
+input[type='search']::-webkit-search-cancel-button {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  margin: 0 -4px 0 4px;
+  border-radius: 50%;
+  background: var(--muted);
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round'%3E%3Cpath d='M17 7 7 17M7 7l10 10'/%3E%3C/svg%3E") center / 12px no-repeat;
+  cursor: var(--cursor-action);
+}
+
+input[type='search']::-webkit-search-cancel-button:hover {
+  background: var(--fg);
 }
 
 :is(button, input, textarea, [role='row'], [role='tab']):focus-visible,
@@ -73,16 +344,318 @@ textarea {
   box-shadow: var(--focus);
 }
 
-.primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--on-accent);
+:is(input:not([type='checkbox'], [type='radio']), textarea):focus {
+  box-shadow: inset 0 2px 3px rgb(0 0 0 / .16), inset 0 0 0 1px var(--accent), 0 1px 0 var(--hi-low), 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent);
 }
 
-.icon {
-  padding: 0 4px;
-  border-color: transparent;
-  background: transparent;
+:is(input, textarea):is([aria-invalid='true'], [data-invalid]) {
+  box-shadow: inset 0 2px 3px rgb(0 0 0 / .16), inset 0 0 0 1px var(--danger), 0 0 0 3px color-mix(in srgb, var(--danger) 18%, transparent);
+}
+
+/* Native <select> as the concept's .inp.select: raised face, muted chevron. base-select (Chromium 135+) themes the picker too; keyboard/a11y stay native. */
+select,
+::picker(select) {
+  appearance: base-select;
+}
+
+select {
   display: inline-flex;
   align-items: center;
+  gap: 8px;
+  height: var(--ctl-h);
+  padding: 0 8px 0 10px;
+  border: 0;
+  border-radius: var(--ctl-radius);
+  outline: none;
+  font: inherit;
+  color: var(--fg);
+  background: linear-gradient(180deg, var(--face-top), var(--face-bot));
+  box-shadow: inset 0 1px 0 var(--hi), 0 0 0 1px var(--edge), 0 2px 0 var(--lip), 0 3px 6px var(--drop);
+  transition: box-shadow .09s ease-out, filter .15s;
 }
+
+select:where(:hover:not(:disabled)) {
+  filter: brightness(1.04);
+}
+
+select:open {
+  background: linear-gradient(180deg, var(--face-bot), var(--face-top));
+  box-shadow: inset 0 2px 3px rgb(0 0 0 / .2), 0 0 0 1px var(--edge), 0 0 0 var(--lip), 0 1px 1px var(--drop);
+}
+
+select:focus-visible {
+  box-shadow: var(--focus);
+}
+
+select:disabled {
+  opacity: 0.5;
+  background: var(--face-bot);
+  box-shadow: 0 0 0 1px var(--edge);
+}
+
+select::picker-icon {
+  content: '';
+  flex: none;
+  width: 14px;
+  height: 14px;
+  margin-left: auto;
+  background: var(--muted);
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") center / contain no-repeat;
+  transition: rotate .15s ease-out;
+}
+
+select:open::picker-icon {
+  rotate: 180deg;
+}
+
+/* Sized once from the trigger and the widest option (capped), so the picker never reflows on hover; long rows end in an ellipsis and scroll. */
+::picker(select) {
+  box-sizing: border-box;
+  min-width: anchor-size(width);
+  width: max-content;
+  max-width: min(420px, calc(100vw - 32px));
+  max-height: min(320px, 60vh);
+  overflow-y: auto;
+  margin-top: 4px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-menu);
+  color: var(--fg);
+  background: var(--bg);
+  box-shadow: 0 8px 24px var(--drop);
+}
+
+select option {
+  display: block;
+  min-height: 26px;
+  line-height: 26px;
+  padding: 0 8px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  border-radius: calc(var(--r-menu) - 4px);
+  outline: none;
+}
+
+select option::checkmark {
+  margin-right: 6px;
+  color: var(--accent);
+}
+
+/* the closed select keeps its row: a long value ends in an ellipsis instead of widening the control */
+select {
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* a select given <button><selectedcontent> shows its value there; the UA label cannot ellipsize, this can */
+select > button {
+  display: contents;
+}
+
+selectedcontent {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+select option:is(:hover, :focus-visible):not(:disabled) {
+  background: var(--bg-selected);
+}
+
+select option:disabled {
+  color: var(--muted);
+}
+
+@media (prefers-color-scheme: dark) {
+  select:where(:hover:not(:disabled)) {
+    filter: brightness(1.15);
+  }
+
+  /* the picker sat at --bg with a near-invisible hairline: raise it, give it a visible edge and a deeper shadow */
+  ::picker(select) {
+    border-color: color-mix(in srgb, var(--fg) 14%, transparent);
+    background: var(--bg-raised);
+    box-shadow: inset 0 1px 0 var(--hi-low), 0 12px 32px var(--drop);
+  }
+}
+
+/* Switch (react-aria Switch, see controls.tsx): recessed track, round knob. */
+.switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.switch .track {
+  position: relative;
+  flex: none;
+  width: 36px;
+  height: 20px;
+  border-radius: 10px;
+  background: var(--well);
+  box-shadow: inset 0 1px 3px rgb(0 0 0 / .32), inset 0 0 0 1px var(--edge), 0 1px 0 var(--hi-low);
+  transition: background-color .2s, box-shadow .2s;
+}
+
+.switch[data-selected] .track {
+  background: color-mix(in srgb, var(--accent), #000 4%);
+  box-shadow: inset 0 1px 3px rgb(0 0 0 / .35), inset 0 0 0 1px color-mix(in srgb, var(--accent), #000 30%), 0 1px 0 var(--hi-low);
+}
+
+.switch .knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff, #ececec 55%, #cfcfcf);
+  box-shadow: 0 1px 0 rgb(0 0 0 / .18), 0 2px 4px rgb(0 0 0 / .35), 0 0 0 .5px rgb(0 0 0 / .25);
+  transition: transform .2s;
+}
+
+.switch[data-selected] .knob {
+  transform: translateX(16px);
+}
+
+.switch[data-focus-visible] .track {
+  box-shadow: var(--focus);
+}
+
+.switch[data-disabled] {
+  opacity: 0.5;
+}
+
+/* Segmented (react-aria ToggleButtonGroup, see controls.tsx): recessed rail, raised thumb. */
+.segmented {
+  position: relative;
+  display: inline-flex;
+  padding: 3px;
+  border-radius: calc(var(--ctl-radius) + 3px);
+  background: var(--well);
+  box-shadow: inset 0 2px 3px rgb(0 0 0 / .14), inset 0 0 0 1px var(--edge), 0 1px 0 var(--hi-low);
+}
+
+.segmented .thumb {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 0;
+  border-radius: var(--ctl-radius);
+  background: linear-gradient(180deg, var(--face-top), var(--face-bot));
+  box-shadow: inset 0 1px 0 var(--hi), 0 0 0 1px var(--edge), 0 1px 0 var(--lip), 0 2px 4px var(--drop);
+  pointer-events: none;
+}
+
+.segmented > button {
+  position: relative;
+  z-index: 1;
+  min-height: 0;
+  height: calc(var(--ctl-h) - 4px);
+  padding: 0 12px;
+  border-radius: var(--ctl-radius);
+  background: transparent;
+  box-shadow: none;
+  filter: none;
+  color: var(--muted);
+  transition: color .2s;
+}
+
+.segmented > button[data-selected] {
+  color: var(--fg);
+}
+
+.segmented > button[data-focus-visible] {
+  box-shadow: var(--focus);
+}
+
+/* Motion (motion.tsx): sliding selection plate rendered inside the selected tab / row / menu item */
+.hl {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: var(--bg-selected);
+  box-shadow: inset 0 1px 2px rgb(0 0 0 / .08), inset 0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent);
+  pointer-events: none;
+}
+
+:has(> .hl),
+/* react-aria's gridcell is display: contents, so the row itself must hold the plate */
+[role='row']:has(.hl) {
+  position: relative;
+  isolation: isolate;
+}
+
+/* accent and mode crossfade (motion.tsx withTransition) */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 320ms;
+}
+
+/* reduced motion: nothing animates, CSS transitions included (motion.tsx handles its own) */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after,
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+/* Cursors (concept): actions get --cursor-action (the hand on every platform, so hover feedback is visible on mac too);
+   only selectable text gets the I-beam.
+   :where() keeps these at zero specificity so a nested action (button in a row) still wins over the inherit rule. */
+:root {
+  --cursor-action: pointer;
+}
+
+body {
+  cursor: default;
+}
+
+/* inside an actionable element every descendant (kbd, badge, chip, text) follows the ancestor's cursor */
+:where(button, select, [role='tab'], [role='menuitem'], [role='menuitemradio'], [role='menuitemcheckbox'], [role='option'], [role='row'], label:has(input[type='checkbox'], input[type='radio'])) * {
+  cursor: inherit;
+}
+
+:where(button, select, [role='tab'], [role='menuitem'], [role='menuitemradio'], [role='menuitemcheckbox'], [role='option'], [role='row'], label:has(input[type='checkbox'], input[type='radio'])) {
+  cursor: var(--cursor-action);
+}
+
+/* already selected: nothing to do */
+:where([role='tab'], [role='row'], [role='option'], .segmented > button):where([aria-selected='true'], [data-selected]) {
+  cursor: default;
+}
+
+:where(button:disabled, button:disabled *, [data-disabled], [data-disabled] *) {
+  cursor: not-allowed;
+}
+
+input:not([type='checkbox'], [type='radio']),
+textarea,
+.diff-code {
+  cursor: text;
+}
+
+/* Prism token classes (refractor) inside diff code cells and blame lines */
+:is(.diff-code, .syntax) .token:is(.comment, .prolog, .doctype, .cdata) { color: var(--syn-comment); font-style: italic; }
+:is(.diff-code, .syntax) .token:is(.keyword, .atrule, .rule, .important) { color: var(--syn-keyword); }
+:is(.diff-code, .syntax) .token:is(.string, .char, .template-string, .attr-value, .url, .inserted) { color: var(--syn-string); }
+:is(.diff-code, .syntax) .token.number { color: var(--syn-number); }
+:is(.diff-code, .syntax) .token:is(.boolean, .constant, .symbol, .entity, .builtin) { color: var(--syn-constant); }
+:is(.diff-code, .syntax) .token:is(.function, .function-variable) { color: var(--syn-function); }
+:is(.diff-code, .syntax) .token:is(.class-name, .maybe-class-name, .namespace) { color: var(--syn-type); }
+:is(.diff-code, .syntax) .token:is(.property, .selector, .key) { color: var(--syn-property); }
+:is(.diff-code, .syntax) .token:is(.operator, .arrow) { color: var(--syn-operator); }
+:is(.diff-code, .syntax) .token.punctuation { color: var(--syn-punctuation); }
+:is(.diff-code, .syntax) .token.tag { color: var(--syn-tag); }
+:is(.diff-code, .syntax) .token.attr-name { color: var(--syn-attr); }
+:is(.diff-code, .syntax) .token:is(.variable, .parameter, .deleted) { color: var(--syn-variable); }
+:is(.diff-code, .syntax) .token.regex { color: var(--syn-regex); }
+:is(.diff-code, .syntax) .token:is(.bold, .title) { font-weight: 600; }

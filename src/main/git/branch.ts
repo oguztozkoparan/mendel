@@ -1,3 +1,4 @@
+import path from 'node:path'
 import type { BranchInfo, Branches, StashEntry, SyncResult } from '../../shared/ipc'
 import { endOfOptions, git, GitError } from './runner'
 import { conflictAware } from './sync'
@@ -19,8 +20,11 @@ export function parseTrack(t: string): { ahead: number; behind: number } {
   return { ahead: Number(/ahead (\d+)/.exec(t)?.[1] ?? 0), behind: Number(/behind (\d+)/.exec(t)?.[1] ?? 0) }
 }
 
+/** A path as git prints it (`C:/x` on Windows) in the platform's own form, for display and round-trips. */
+export const nativePath = (p: string) => (process.platform === 'win32' ? path.normalize(p) : p)
+
 export async function listBranches(cwd: string, env?: NodeJS.ProcessEnv): Promise<Branches> {
-  const fmt = '%(refname)%00%(upstream:short)%00%(upstream:track,nobracket)%00%(HEAD)%00%(symref)'
+  const fmt = '%(refname)%00%(upstream:short)%00%(upstream:track,nobracket)%00%(HEAD)%00%(symref)%00%(worktreepath)'
   const [refs, head, stash] = await Promise.all([
     git(['for-each-ref', `--format=${fmt}`, 'refs/heads', 'refs/remotes'], { cwd, env, background: true }),
     git(['rev-parse', '--short', 'HEAD'], { cwd, env, background: true }).then((r) => r.stdout.trim(), () => null),
@@ -30,10 +34,10 @@ export async function listBranches(cwd: string, env?: NodeJS.ProcessEnv): Promis
   const remote: string[] = []
   let current: string | null = null
   for (const line of refs.stdout.split('\n')) {
-    const [ref = '', upstream = '', track = '', isHead, symref] = line.split('\0')
+    const [ref = '', upstream = '', track = '', isHead, symref, worktree] = line.split('\0')
     if (ref.startsWith('refs/heads/')) {
       const name = ref.slice('refs/heads/'.length)
-      local.push({ name, upstream: upstream || null, ...parseTrack(track) })
+      local.push({ name, upstream: upstream || null, ...parseTrack(track), ...(worktree && isHead !== '*' ? { worktree: nativePath(worktree) } : {}) })
       if (isHead === '*') current = name
     } else if (ref.startsWith('refs/remotes/') && !symref) remote.push(ref.slice('refs/remotes/'.length))
   }
@@ -92,6 +96,8 @@ export async function switchBranch(cwd: string, name: string, env?: NodeJS.Proce
     return 'ok'
   } catch (err) {
     if (isDirtyError(err)) return 'dirty'
+    const elsewhere = err instanceof GitError && /already (?:checked out|used by worktree) at '([^']+)'/.exec(err.stderr)?.[1]
+    if (elsewhere) throw new Error(`${localName} is checked out in ${nativePath(elsewhere)}`)
     throw err
   }
 }
@@ -128,10 +134,19 @@ export async function listStashes(cwd: string, env?: NodeJS.ProcessEnv): Promise
  * Apply, pop or drop the stash with commit `sha`; its `stash@{n}` is looked up now, so a shifted list cannot hit the wrong entry.
  * 'conflict' = apply/pop left unmerged files (a conflicting pop keeps the stash); nothing to continue, only files to resolve.
  */
-export async function stashAction(cwd: string, sha: string, action: 'apply' | 'pop' | 'drop', env?: NodeJS.ProcessEnv): Promise<SyncResult> {
+/** `index`: also restore what was staged (apply/pop `--index`), falling back to a plain apply when git can't. */
+export async function stashAction(cwd: string, sha: string, action: 'apply' | 'pop' | 'drop', env?: NodeJS.ProcessEnv, index = false): Promise<SyncResult> {
   const { stdout } = await git(['stash', 'list', '--format=%gd%x00%H'], { cwd, env })
   const ref = stdout.split('\n').map((l) => l.split('\0')).find(([r, h]) => r && h === sha)?.[0]
   if (!ref) throw new Error('Unknown stash')
+  if (index && action !== 'drop') {
+    try {
+      await git(['stash', action, '--index', '--quiet', ref], { cwd, env })
+      return 'ok'
+    } catch (err) {
+      if (!(err instanceof GitError && /--index/.test(err.stderr))) return conflictAware(cwd, Promise.reject(err), env) // fallback only for "Conflicts in index. Try without --index."
+    }
+  }
   return conflictAware(cwd, git(['stash', action, '--quiet', ref], { cwd, env }), env)
 }
 

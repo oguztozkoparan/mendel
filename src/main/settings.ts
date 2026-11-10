@@ -7,6 +7,7 @@ import log from './log'
 
 export const DEFAULTS: Settings = {
   theme: 'system',
+  accent: 'cyan',
   reopenLastRepo: true,
   confirmDiscard: true,
   autoFetchMinutes: 15,

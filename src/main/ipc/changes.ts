@@ -1,10 +1,11 @@
 import { BrowserWindow, clipboard, dialog, Menu, shell, type IpcMainInvokeEvent } from 'electron'
 import { openInEditor } from '../external'
-import { applyHunk, discardPaths, getDiff, getStatus, ignorePath, stagePaths, unstagePaths } from '../git/changes'
+import { applyHunk, discardAll, discardPaths, getDiff, getStatus, ignorePath, stagePaths, unstagePaths } from '../git/changes'
 import { repoRoot } from '../repos'
 import { getSettings } from '../settings'
 import { resolveUnder } from '../safe-path'
 import { watchRepo } from '../watch'
+import { exclusive } from './sync'
 import { emit, type Handlers } from '.'
 
 /** Repo-relative path from the renderer, rejected if it escapes the repo (TECH.md §6.4). */
@@ -21,7 +22,7 @@ async function confirmDiscard(e: IpcMainInvokeEvent, message: string): Promise<b
   return r.response === 0
 }
 
-export const changesHandlers: Handlers<'changes:status' | 'changes:diff' | 'changes:stage' | 'changes:unstage' | 'changes:applyHunk' | 'changes:discard' | 'changes:menu'> = {
+export const changesHandlers: Handlers<'changes:status' | 'changes:diff' | 'changes:stage' | 'changes:unstage' | 'changes:applyHunk' | 'changes:discard' | 'changes:discardAll' | 'changes:menu'> = {
   'changes:status': ({ repo }) => {
     const root = repoRoot(repo)
     watchRepo(
@@ -55,6 +56,13 @@ export const changesHandlers: Handlers<'changes:status' | 'changes:diff' | 'chan
     if (!(await confirmDiscard(e, `Discard all changes to ${what}?`))) return false
     await discardPaths(root, paths)
     return true
+  },
+  // No native confirm here: the renderer's ConfirmDialog asks (it picks the untracked opt-in) and the backup stash makes it undoable.
+  'changes:discardAll': async ({ repo, paths, untracked }) => {
+    const root = repoRoot(repo)
+    paths?.forEach((p) => checkPath(root, p))
+    // Same lock as pull/push/rebase: the stash must not race another op on the index.
+    return exclusive(() => discardAll(root, paths ?? null, untracked))
   },
   'changes:menu': ({ repo, path, origPath, untracked }, e) => {
     const root = repoRoot(repo)

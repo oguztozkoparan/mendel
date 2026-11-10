@@ -5,13 +5,17 @@
 // Main must implement every `invoke` channel (see src/main/ipc/index.ts); preload exposes each one as
 // `window.mendel['<channel>'](req)` and `window.mendel.on('<event>', cb)`.
 import { z } from 'zod'
-import { draftSchema, HASHTAG, PUSH_OPTION_VALUE, type GerritChange, type GerritCommit, type GerritSent, type GerritChangeLists, type GerritComment, type GerritConnected, type GerritDiff, type GerritFiles, type GerritRelated } from './gerrit'
+import { SHA_PREFIX, TRAILER_KEY } from './historyQuery'
+import { GERRIT_OPS, MAX_TERM, MAX_TERMS, MAX_TEXT } from './gerritQuery'
+import { draftSchema, HASHTAG, PUSH_OPTION_VALUE, type GerritChange, type GerritCommit, type GerritSent, type GerritChangeLists, type GerritComment, type GerritConnected, type GerritDiff, type GerritFiles, type GerritRelated, type GerritSearchPage } from './gerrit'
 
 const res = <Res>() => <Req extends z.ZodType>(req: Req) => ({ req, res: null as unknown as Res })
 
 export interface AppInfo {
   version: string
   platform: string
+  /** Window has native vibrancy/Mica; the renderer keeps its root transparent. */
+  glass: boolean
 }
 
 /** `supported`: >= MIN_GIT_VERSION (usable); `outdated`: < RECOMMENDED_GIT_VERSION (security warning). */
@@ -36,6 +40,8 @@ export interface RepoEntry {
   name: string
   /** false when the folder was deleted/moved: shown greyed with Locate / Remove. */
   exists: boolean
+  /** Set for a linked worktree (`name` is then its main repo's name): main worktree path and branch (null = detached). */
+  worktree?: { main: string; branch: string | null }
 }
 
 export interface CloneProgress {
@@ -72,6 +78,26 @@ export interface BranchInfo {
   upstream: string | null
   ahead: number
   behind: number
+  /** Path of the other worktree this branch is checked out in (git refuses to switch to it here). */
+  worktree?: string
+}
+
+/** One entry of `git worktree list` (bare entries skipped). */
+export interface WorktreeInfo {
+  /** As git reports it; send back unchanged to open/remove. */
+  path: string
+  /** null when detached. */
+  branch: string | null
+  /** HEAD sha; null before the first commit. */
+  head: string | null
+  /** The main worktree (cannot be removed). */
+  main: boolean
+  /** The worktree of the repo that asked. */
+  current: boolean
+  /** Lock reason ('' = locked without one); null = not locked. */
+  locked: string | null
+  /** Its folder is gone: `git worktree prune` drops it. */
+  prunable: boolean
 }
 
 export interface Branches {
@@ -127,6 +153,8 @@ export interface CommitSummary {
   author: string
   /** ms epoch (author date). */
   date: number
+  /** Parent SHAs (first parent first; none for a root commit). */
+  parents: string[]
   /** Not on any remote-tracking branch yet. */
   unpushed: boolean
 }
@@ -140,8 +168,8 @@ export interface CommitDetail {
   committer: string
   committerDate: number
   message: string
-  /** Changes against the first parent. status: git's letter (A/M/D/R/C/T). */
-  files: { path: string; origPath?: string; status: string }[]
+  /** Changes against the first parent. status: git's letter (A/M/D/R/C/T); add/del: line counts (absent for binary files). */
+  files: { path: string; origPath?: string; status: string; add?: number; del?: number }[]
 }
 
 export interface TagInfo {
@@ -167,6 +195,7 @@ export type OpInProgress = 'merge' | 'rebase' | 'cherry-pick' | 'revert' | null
 const prefs = z
   .object({
     theme: z.enum(['system', 'light', 'dark']),
+    accent: z.enum(['cyan', 'cobalt', 'violet', 'fuchsia', 'graphite']),
     reopenLastRepo: z.boolean(),
     confirmDiscard: z.boolean(),
     /** 0 = off. */
@@ -218,6 +247,7 @@ export type MenuCommand =
   | 'sync:pull'
   | 'sync:push'
   | 'sync:rebase'
+  | 'changes:discardAll'
   | 'status:refresh'
   | 'settings'
 
@@ -266,10 +296,25 @@ const byId = z.object({ id: repoId }).strict()
 /** Repo-relative path; main additionally checks it with resolveUnder (TECH.md §6.4). */
 const relPath = z.string().min(1).max(4096)
 const inRepo = z.object({ repo: repoId }).strict()
+/** Worktree path as `worktree:list` returned it; main only acts on it if `git worktree list` reports it for that repo. */
+const worktreePath = z.string().min(1).max(4096)
 /** Main validates further (known branch, `git check-ref-format --branch`, no leading `-`). */
 const branchName = z.string().min(1).max(255)
 const sha = z.string().regex(/^[0-9a-f]{7,64}$/)
 const logQuery = z.string().min(1).max(1000).regex(/^[^\0]*$/)
+/** Parsed History search (shared/historyQuery.ts); main passes values only as `--opt=value` args or after `--`. */
+const historyQuery = z
+  .object({
+    text: logQuery.optional(),
+    author: logQuery.optional(),
+    committer: logQuery.optional(),
+    trailers: z.array(z.object({ key: z.string().regex(TRAILER_KEY), value: logQuery, prefix: z.boolean().optional() }).strict()).max(20).optional(),
+    sha: z.string().regex(SHA_PREFIX).optional(),
+    path: relPath.optional(),
+    before: logQuery.max(100).optional(),
+    after: logQuery.max(100).optional()
+  })
+  .strict()
 const paths = z.object({ repo: repoId, paths: z.array(relPath).min(1).max(100_000) }).strict()
 /** `all`: Stage all / Unstage all on the whole tree, no path list (so no 100k cap). */
 const pathsOrAll = z.union([paths, z.object({ repo: repoId, all: z.literal(true) }).strict()])
@@ -340,6 +385,11 @@ export const invoke = {
   ),
   /** Discard all changes to these files after a native confirm; false = user cancelled. */
   'changes:discard': res<boolean>()(paths),
+  /**
+   * Discard all changes (or only `paths`) after the renderer's confirm, into a backup stash "Discarded changes <date>".
+   * Untracked files only with `untracked`. Refused during a merge/rebase/cherry-pick/revert. Resolves with the backup stash sha; null = nothing to discard.
+   */
+  'changes:discardAll': res<string | null>()(z.object({ repo: repoId, paths: z.array(relPath).min(1).max(100_000).optional(), untracked: z.boolean() }).strict()),
   /** Native right-click menu for a changed file (discard, ignore, reveal, open in editor, copy path); main runs the pick. */
   'changes:menu': res<void>()(z.object({ repo: repoId, path: relPath, origPath: relPath.optional(), untracked: z.boolean() }).strict()),
   'commit:info': res<CommitInfo>()(inRepo),
@@ -359,9 +409,25 @@ export const invoke = {
   /** All stashes, newest first. */
   'stash:list': res<StashEntry[]>()(inRepo),
   /** Apply, pop or drop (native confirm first; false = cancelled) the stash with commit `sha`; 'conflict' = apply/pop left unmerged files. */
-  'stash:action': res<SyncResult | false>()(z.object({ repo: repoId, sha, action: z.enum(['apply', 'pop', 'drop']) }).strict()),
+  'stash:action': res<SyncResult | false>()(z.object({ repo: repoId, sha, action: z.enum(['apply', 'pop', 'drop']), index: z.boolean().optional() }).strict()),
   /** Restore (pop) or discard (confirm first) the current branch's "Stash & switch" changes. false = cancelled. */
   'branch:stash': res<boolean>()(z.object({ repo: repoId, action: z.enum(['restore', 'discard']) }).strict()),
+  'worktree:list': res<WorktreeInfo[]>()(inRepo),
+  /** Parent folder new worktrees go into (default: next to the main worktree). `pick` shows the native folder dialog first. */
+  'worktree:parent': res<string>()(z.object({ repo: repoId, pick: z.boolean() }).strict()),
+  /**
+   * `git worktree add` into `<parent>/<folder>`: a new branch `branch` (from listed branch `base`, else HEAD) when `create`,
+   * else the listed local/remote branch `branch`. `open`: open it (resolves with its entry), else null.
+   */
+  'worktree:add': res<RepoEntry | null>()(
+    z.object({ repo: repoId, branch: branchName, create: z.boolean(), base: branchName.optional(), folder: z.string().min(1).max(255), open: z.boolean() }).strict()
+  ),
+  /** Open a worktree `git worktree list` reports for `repo` (adds it to recents). */
+  'worktree:open': res<RepoEntry>()(z.object({ repo: repoId, path: worktreePath }).strict()),
+  /** Remove a listed linked worktree after a native confirm (and a second one to force when it has changes); false = cancelled. */
+  'worktree:remove': res<boolean>()(z.object({ repo: repoId, path: worktreePath }).strict()),
+  /** `git worktree prune`: drop entries whose folder is gone. */
+  'worktree:prune': res<void>()(inRepo),
   'sync:state': res<SyncState>()(inRepo),
   /** Long ops below are cancellable with `sync:cancel`; git auth prompts arrive via `auth:prompt`. */
   /** `auto`: background auto-fetch; never prompts for credentials and is skipped while another op runs. */
@@ -374,9 +440,9 @@ export const invoke = {
   /** Fetch + rebase the current branch onto its upstream; a dirty tree asks "Stash & rebase" (null = cancelled). */
   'sync:rebase': res<SyncResult | null>()(inRepo),
   'sync:cancel': res<void>()(z.undefined()),
-  /** Current branch history (or `ref` = listed local/remote branch), newest first, pages of 100. `grep`/`author`: case-insensitive literal filters (ANDed); `path`: one file, following renames. */
+  /** Current branch history (or `ref` = listed local/remote branch), newest first, pages of 100. `query`: History search (ANDed parts); `path`: one file, following renames (wins over `query.path`). */
   'history:log': res<CommitSummary[]>()(
-    z.object({ repo: repoId, skip: z.number().int().min(0).max(10_000_000), grep: logQuery.optional(), author: logQuery.optional(), path: relPath.optional(), ref: branchName.optional() }).strict()
+    z.object({ repo: repoId, skip: z.number().int().min(0).max(10_000_000), query: historyQuery.optional(), path: relPath.optional(), ref: branchName.optional() }).strict()
   ),
   'history:commit': res<CommitDetail>()(z.object({ repo: repoId, sha }).strict()),
   /** Read-only diff of one file of a commit (against its first parent). */
@@ -462,6 +528,22 @@ export const invoke = {
   'gerrit:open': res<void>()(z.object({ repo: repoId, path: z.string().min(1).max(4096) }).strict()),
   /** Reviews lists; `projectOnly` adds `project:"<p>"` to each query. */
   'gerrit:changes': res<GerritChangeLists>()(z.object({ repo: repoId, projectOnly: z.boolean() }).strict()),
+  /** Reviews History page (shared/gerritQuery.ts): main builds the Gerrit query from allow-listed operators, every value quoted. */
+  'gerrit:search': res<GerritSearchPage>()(
+    z
+      .object({
+        repo: repoId,
+        projectOnly: z.boolean(),
+        start: z.number().int().min(0).max(10_000),
+        query: z
+          .object({
+            text: z.string().min(1).max(MAX_TEXT).regex(/^[^\0-\x1f\x7f]*$/).optional(),
+            terms: z.array(z.object({ op: z.enum(GERRIT_OPS), value: z.string().min(1).max(MAX_TERM) }).strict()).max(MAX_TERMS).optional()
+          })
+          .strict()
+      })
+      .strict()
+  ),
   /** Change detail: all revisions, detailed labels, permitted_labels, actions, messages. */
   'gerrit:change': res<GerritChange>()(z.object({ repo: repoId, change: changeNum }).strict()),
   /** Files of a patch set (`revision` = sha or number), optionally against patch set `base`. */

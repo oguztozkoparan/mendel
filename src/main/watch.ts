@@ -5,7 +5,8 @@ import { git } from './git/runner'
 import log from './log'
 
 // git internals that churn without changing what the Changes tab shows.
-const IGNORED = /^\.git[\\/](objects|logs|lfs)[\\/]|\.lock$/
+// `worktrees/`: other worktrees' index/HEAD (each worktree's window watches its own git dir).
+const IGNORED = /^\.git[\\/](objects|logs|lfs|worktrees)[\\/]|\.lock$/
 let current: { root: string; watchers: FSWatcher[]; timer?: NodeJS.Timeout; since?: number } | null = null
 const QUIET_MS = 200
 /** Under constant churn (builds, generators) still report at least this often instead of never. */
@@ -55,11 +56,17 @@ export function watchRepo(root: string, onChange: () => void, onOff: () => void 
     c.watchers.push(w)
   }
   const start = async () => {
-    if (process.platform !== 'linux') return add(root, true, '')
-    const dirs = await linuxWatchDirs(root)
-    if (current !== c) return
-    add(root, false, '')
-    for (const d of dirs) add(path.join(root, d), true, `${d}/`)
+    if (process.platform !== 'linux') add(root, true, '')
+    else {
+      const dirs = await linuxWatchDirs(root)
+      if (current !== c) return
+      add(root, false, '')
+      for (const d of dirs) add(path.join(root, d), true, `${d}/`)
+    }
+    // A linked worktree's index and HEAD live in its git dir outside the work tree (`<main>/.git/worktrees/<name>`).
+    const gitDir = await git(['rev-parse', '--absolute-git-dir'], { cwd: root, background: true }).then((r) => path.resolve(r.stdout.trim()), () => null)
+    const rel = gitDir && path.relative(root, gitDir)
+    if (current === c && c.watchers.length && gitDir && rel && (rel.startsWith('..') || path.isAbsolute(rel))) add(gitDir, false, '.git/')
   }
   start().catch(fail)
 }

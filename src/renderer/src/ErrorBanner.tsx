@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { createContext, useContext, useLayoutEffect, useRef, useState } from 'react'
 import { Button } from 'react-aria-components'
 import type { IpcError } from '../../shared/ipc'
 import a from './App.module.css'
@@ -50,4 +50,17 @@ export function ErrorBanner({ error, onDismiss }: { error: BannerError; onDismis
       <Button onPress={onDismiss}>Dismiss</Button>
     </div>
   )
+}
+
+/**
+ * App-wide banners (error, notices, conflict, stash), shown at the top of whichever content pane is open, never over the sidebar.
+ * App portals them into one long-lived element and each pane moves that element into its slot, so switching tabs keeps
+ * their state (expanded details) and does not replay the toast's entry animation.
+ */
+export const AppBanners = createContext<HTMLElement | null>(null)
+export function PaneBanners() {
+  const host = useContext(AppBanners)
+  const slot = useRef<HTMLDivElement>(null)
+  useLayoutEffect(() => void (host && slot.current?.appendChild(host)), [host])
+  return <div ref={slot} style={{ display: 'contents' }} />
 }

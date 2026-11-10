@@ -1,11 +1,13 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ChevronDown } from 'lucide-react'
+import { AnimatePresence } from 'motion/react'
 import { useEffect, useState } from 'react'
-import { Button, Menu, MenuItem, MenuTrigger, Popover } from 'react-aria-components'
+import { Button, Menu, MenuItem, MenuTrigger } from 'react-aria-components'
 import type { SyncResult } from '../../shared/ipc'
 import { refreshRepo } from './Branches'
 import s from './Repos.module.css'
 import { useMenuCommand } from './menu'
+import { Highlight, PopPopover } from './motion'
 import { useSettings } from './Settings'
 import { ago } from './time'
 
@@ -23,11 +25,20 @@ export interface PrimaryOverride {
 type Op = 'fetch' | 'pull' | 'push' | 'rebase'
 const BUSY: Record<Op, string> = { fetch: 'Fetching…', pull: 'Pulling…', push: 'Pushing…', rebase: 'Rebasing…' }
 
+/** Menu item label with the sliding hover plate (react-aria focuses the item under the pointer). */
+const item = (label: string) => ({ isFocused }: { isFocused: boolean }) => (
+  <>
+    {isFocused && <Highlight id="sync-menu" />}
+    {label}
+  </>
+)
+
 /** Toolbar sync button (PLAN.md 3.4): label follows ahead/behind; menu has every op; busy ops are cancellable. */
 export function SyncButton(p: { repo: string; onError(e: unknown, retry?: () => void): void; onNotice(n: Notice | null): void; primary?: PrimaryOverride | null }) {
   const qc = useQueryClient()
   const q = useQuery({ queryKey: ['sync', p.repo], queryFn: () => window.mendel['sync:state']({ repo: p.repo }) })
   const [busy, setBusy] = useState<Op | null>(null)
+  const [menu, setMenu] = useState(false)
   const st = q.data
   const every = useSettings().data?.autoFetchMinutes ?? 0
   const hasRemote = !!st?.remote
@@ -96,18 +107,22 @@ export function SyncButton(p: { repo: string; onError(e: unknown, retry?: () => 
           </span>
         </Button>
       )}
-      <MenuTrigger>
+      <MenuTrigger isOpen={menu} onOpenChange={setMenu}>
         <Button className="icon" aria-label="Sync options" isDisabled={!st?.remote || !!busy}>
           <ChevronDown size={14} />
         </Button>
-        <Popover placement="bottom end" className={s.popover}>
-          <Menu className={s.menu} onAction={(k) => run(k as Op)} disabledKeys={[...(st?.upstream ? [] : ['pull', 'rebase']), ...(st?.branch ? [] : ['push'])]}>
-            <MenuItem id="fetch" className={s.item}>Fetch</MenuItem>
-            <MenuItem id="pull" className={s.item}>Pull</MenuItem>
-            <MenuItem id="push" className={s.item}>{st?.upstream ? 'Push' : 'Publish branch'}</MenuItem>
-            <MenuItem id="rebase" className={s.item}>Rebase onto upstream</MenuItem>
-          </Menu>
-        </Popover>
+        <AnimatePresence>
+          {menu && (
+            <PopPopover placement="bottom end" className={s.popover}>
+              <Menu className={s.menu} onAction={(k) => run(k as Op)} disabledKeys={[...(st?.upstream ? [] : ['pull', 'rebase']), ...(st?.branch ? [] : ['push'])]}>
+                <MenuItem id="fetch" className={s.item}>{item('Fetch')}</MenuItem>
+                <MenuItem id="pull" className={s.item}>{item('Pull')}</MenuItem>
+                <MenuItem id="push" className={s.item}>{item(st?.upstream ? 'Push' : 'Publish branch')}</MenuItem>
+                <MenuItem id="rebase" className={s.item}>{item('Rebase onto upstream')}</MenuItem>
+              </Menu>
+            </PopPopover>
+          )}
+        </AnimatePresence>
       </MenuTrigger>
     </div>
   )

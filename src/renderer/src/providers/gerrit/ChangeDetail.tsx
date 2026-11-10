@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { AnimatePresence } from 'motion/react'
 import { useMemo, useState, type ReactNode } from 'react'
 import { Button, ListBox, ListBoxItem } from 'react-aria-components'
 import {
@@ -15,12 +16,15 @@ import 'react-diff-view/style/index.css'
 import type { GerritChange, GerritComment } from '../../../../shared/gerrit'
 import c from '../../Changes.module.css'
 import { useParsedDiff, visible } from '../../DiffView'
+import { highlight } from '../../highlight'
+import { Activity } from './Activity'
 import { AttentionHashtags } from './AttentionHashtags'
 import { ChangeActions } from './ChangeActions'
 import { Composer, DraftView, Thread, usePending, type Pending, type PendingStore } from './Comments'
 import s from './Gerrit.module.css'
 import { ReplyDialog } from './ReplyDialog'
 import { diffText, fileLabel, fmtVote, shortDate, threadsOf, who } from './util'
+import { Highlight } from '../../motion'
 
 export type Revision = NonNullable<GerritChange['revisions']>[string] & { sha: string }
 export const revisionsOf = (ch: GerritChange): Revision[] =>
@@ -33,9 +37,12 @@ const statusText = (st: string) => (st === 'NEW' ? 'Open' : st.charAt(0) + st.sl
 /** Change detail (PLAN.md §3.8): header, labels, reviewers, related changes, files, side-by-side diff with comment threads. */
 export function ChangeDetail({ repo, number, me, onBack, onOpen }: { repo: string; number: number; me: number | null; onBack(): void; onOpen(change: number): void }) {
   const q = useQuery({ queryKey: ['gerrit', repo, 'change', number], queryFn: () => window.mendel['gerrit:change']({ repo, change: number }) })
+  // Same query as the conflict banner: while an op is stopped, its Continue is the one primary.
+  const op = useQuery({ queryKey: ['conflict', repo], queryFn: () => window.mendel['conflict:state']({ repo }) }).data ?? null
   const [psSel, setPs] = useState<number | null>(null)
   const [base, setBase] = useState<number | undefined>(undefined)
   const [picked, setPicked] = useState<string | null>(null)
+  const [focus, setFocus] = useState<{ id: string } | null>(null)
   const ch = q.data
   const revs = ch ? revisionsOf(ch) : []
   const current = revs.find((r) => r.sha === ch?.current_revision) ?? revs.at(-1)
@@ -101,6 +108,7 @@ export function ChangeDetail({ repo, number, me, onBack, onOpen }: { repo: strin
             onChange={(e) => {
               const n = Number(e.target.value)
               setPs(n)
+              setFocus(null)
               if (base && base >= n) setBase(undefined)
             }}
           >
@@ -113,7 +121,7 @@ export function ChangeDetail({ repo, number, me, onBack, onOpen }: { repo: strin
           </select>
         </div>
         <div className={s.toolbarRow}>
-          <Button className="primary" onPress={() => setReplying(true)}>
+          <Button className={op ? undefined : 'primary'} onPress={() => setReplying(true)}>
             Reply…{pending.list.length ? ` (${pending.list.length} pending)` : ''}
           </Button>
           <ChangeActions repo={repo} change={ch} current={current} ps={ps._number} />
@@ -167,23 +175,40 @@ export function ChangeDetail({ repo, number, me, onBack, onOpen }: { repo: strin
         </section>
       )}
 
+      <Activity
+        messages={ch.messages ?? []}
+        comments={comments.data ?? []}
+        onOpenThread={(t) => {
+          setPs(t[0].patch_set ?? null)
+          setBase(undefined)
+          setPicked(t[0].path)
+          setFocus({ id: t[0].id })
+        }}
+      />
+
       <ListBox
         aria-label="Files"
         selectionMode="single"
         disallowEmptySelection
         selectedKeys={file ? [file] : []}
-        onSelectionChange={(k) => k !== 'all' && k.size && setPicked(String([...k][0]))}
+        onSelectionChange={(k) => k !== 'all' && k.size && (setPicked(String([...k][0])), setFocus(null))}
         className={s.files}
       >
         {paths.map((p) => {
           const f = files.data![p]
           return (
             <ListBoxItem key={p} id={p} textValue={fileLabel(p)} className={s.fileRow}>
-              {f.status && <span className={c.letter} data-status={f.status}>{f.status}</span>}
-              <span className={c.path}>{fileLabel(p)}</span>
-              <span className={s.added}>+{f.lines_inserted ?? 0}</span>
-              <span className={s.deleted}>−{f.lines_deleted ?? 0}</span>
-              {shown.some((cm) => cm.path === p) && <span className={s.meta}>{`${shown.filter((cm) => cm.path === p).length} comments`}</span>}
+              {({ isSelected }) => (
+                <>
+                  {isSelected && <Highlight id="sel-change-files" />}
+                  {/* Gerrit omits status for modified files */}
+                  <span className={c.letter} data-status={f.status ?? 'M'}>{f.status ?? 'M'}</span>
+                  <span className={c.path}>{fileLabel(p)}</span>
+                  <span className={s.added}>+{f.lines_inserted ?? 0}</span>
+                  <span className={s.deleted}>−{f.lines_deleted ?? 0}</span>
+                  {shown.some((cm) => cm.path === p) && <span className={s.meta}>{`${shown.filter((cm) => cm.path === p).length} comments`}</span>}
+                </>
+              )}
             </ListBoxItem>
           )
         })}
@@ -202,9 +227,12 @@ export function ChangeDetail({ repo, number, me, onBack, onOpen }: { repo: strin
           comments={shown.filter((cm) => cm.path === file)}
           pending={pending}
           canComment={{ old: isCurrent && !base, new: isCurrent }}
+          focus={focus}
         />
       )}
-      {replying && current && <ReplyDialog repo={repo} change={ch} patchSet={current._number} me={me} pending={pending} onClose={() => setReplying(false)} />}
+      <AnimatePresence>
+        {replying && current && <ReplyDialog repo={repo} change={ch} patchSet={current._number} me={me} pending={pending} onClose={() => setReplying(false)} />}
+      </AnimatePresence>
     </div>
   )
 }
@@ -222,6 +250,8 @@ type FileDiffProps = {
   pending: PendingStore
   /** New comments only on the current patch set (the reply posts there); left side only against Base (PARENT). */
   canComment: Record<Side, boolean>
+  /** Thread (root id) picked in Comment Threads: scrolled into view. */
+  focus: { id: string } | null
 }
 
 function FileDiff(p: FileDiffProps) {
@@ -236,6 +266,7 @@ function FileDiff(p: FileDiffProps) {
 
   // Anchor threads, new drafts and the open composer to diff rows; anything unanchored is shown above the diff.
   const hunks = useMemo(() => (parsed ? visible(parsed.hunks) : []), [parsed])
+  const tokens = useMemo(() => highlight(hunks, p.path), [hunks, p.path])
   const sideOf = (x: { side?: string; patch_set?: number }): Side => (x.side === 'PARENT' || (!!p.base && x.patch_set === p.base) ? 'old' : 'new')
   const keyOf = (side: Side, line?: number) => {
     const ch = line ? (side === 'old' ? findChangeByOldLineNumber(hunks, line) : findChangeByNewLineNumber(hunks, line)) : undefined
@@ -244,7 +275,7 @@ function FileDiff(p: FileDiffProps) {
   const drafts = p.pending.list.filter((d) => !d.in_reply_to && d.path === p.path && d.patch_set === p.ps && (d.side !== 'PARENT' || !p.base))
   const items = new Map<string, ReactNode[]>()
   const put = (key: string, node: ReactNode) => items.set(key, [...(items.get(key) ?? []), node])
-  for (const t of threadsOf(p.comments)) put(keyOf(sideOf(t[0]), t[0].line), <Thread key={t[0].id} repo={p.repo} thread={t} fallbackPs={p.ps} pending={p.pending} />)
+  for (const t of threadsOf(p.comments)) put(keyOf(sideOf(t[0]), t[0].line), <Thread key={t[0].id} repo={p.repo} thread={t} fallbackPs={p.ps} pending={p.pending} focus={p.focus?.id === t[0].id ? p.focus : undefined} />)
   for (const d of drafts) put(keyOf(d.side === 'PARENT' ? 'old' : 'new', d.line), <DraftView key={d.key} draft={d} onRemove={() => p.pending.remove(d.key)} />)
   if (composing) {
     const { side, line } = composing
@@ -278,7 +309,7 @@ function FileDiff(p: FileDiffProps) {
   else if (!parsed.hunks.length) body = <p className={c.empty}>No content changes</p>
   else
     body = (
-      <Diff viewType="split" diffType={parsed.type} hunks={hunks} widgets={widgets} gutterEvents={gutterEvents} className={c.diff}>
+      <Diff viewType="split" diffType={parsed.type} hunks={hunks} tokens={tokens} widgets={widgets} gutterEvents={gutterEvents} className={c.diff}>
         {(hunks) => hunks.map((h) => <Hunk key={h.content} hunk={h} />)}
       </Diff>
     )

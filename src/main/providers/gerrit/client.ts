@@ -1,7 +1,8 @@
 // Gerrit REST client (PLAN.md §5.5, TECH.md §6.6). Pure: the caller injects fetch (main passes electron's
 // net.fetch for the OS cert store + proxy; tests pass node's fetch against the mock server).
 import { z } from 'zod'
-import { accountSchema, changeSchema, commentSchema, diffSchema, fileSchema, GERRIT_AUTH_ERROR, relatedSchema, type GerritChangeLists, type GerritComment, type GerritDraft } from '../../../shared/gerrit'
+import { accountSchema, changeSchema, commentSchema, diffSchema, fileSchema, GERRIT_AUTH_ERROR, relatedSchema, type GerritChangeLists, type GerritComment, type GerritDraft, type GerritSearchPage } from '../../../shared/gerrit'
+import { termError, type GerritSearch } from '../../../shared/gerritQuery'
 import { urlAllowed } from '../../update/feed'
 import { XSSI } from './detect'
 
@@ -50,9 +51,28 @@ export function parseGerritJson(body: string): unknown {
   return JSON.parse(body.startsWith(XSSI) ? body.slice(XSSI.length) : body)
 }
 
+/** `"value"` with `"` and `\` escaped, so a value can't end the quote and add operators (S10). */
+const quote = (v: string) => `"${v.replace(/[\\"]/g, '\\$&')}"`
+/** ` project:"<p>"` query term. */
+const projectTerm = (p: string | null) => (p ? ` project:${quote(p)}` : '')
+
+export const HISTORY_PAGE = 50
+
+/**
+ * Reviews History query: allow-listed operators only (the IPC schema enforces the operator enum), each value re-checked
+ * with termError and quoted; plain text becomes `message:"…"`. Throws on a disallowed value. Nothing → all changes.
+ */
+export function gerritSearchQuery(q: GerritSearch, project: string | null): string {
+  const parts = [...(project ? [`project:${quote(project)}`] : []), ...(q.text ? [`message:${quote(q.text)}`] : [])]
+  for (const t of q.terms ?? []) {
+    const err = termError(t.op, t.value)
+    if (err) throw new Error(err)
+    parts.push(`${t.op}:${quote(t.value)}`)
+  }
+  return parts.join(' ') || 'status:open OR status:closed'
+}
+
 /** REST calls under `<baseUrl>/a/` with Basic auth. `path` segments must already be URL-encoded (see `enc`). */
-/** ` project:"<p>"` query term; `"` and `\` escaped so a project name can't end the quote and add operators (S10). */
-const projectTerm = (p: string | null) => (p ? ` project:"${p.replace(/[\\"]/g, '\\$&')}"` : '')
 
 export function gerritClient(baseUrl: string, auth: GerritAuth, fetchFn: Fetch) {
   const authHeader = 'Basic ' + Buffer.from(`${auth.username}:${auth.password}`).toString('base64')
@@ -90,6 +110,12 @@ export function gerritClient(baseUrl: string, auth: GerritAuth, fetchFn: Fetch) 
       const q = qs.map((x) => 'q=' + encodeURIComponent(x)).join('&')
       const [outgoing, incoming, closed] = await call(z.array(z.array(changeSchema)).length(3), 'GET', `changes/?${q}&o=LABELS&o=DETAILED_ACCOUNTS`)
       return { outgoing, incoming, closed }
+    },
+
+    /** One Reviews History page (newest updated first, Gerrit's default order) starting at `start`. */
+    async search(q: GerritSearch, project: string | null, start: number): Promise<GerritSearchPage> {
+      const list = await call(z.array(changeSchema.extend({ _more_changes: z.boolean().optional() })), 'GET', `changes/?q=${encodeURIComponent(gerritSearchQuery(q, project))}&n=${HISTORY_PAGE}&S=${start}&o=LABELS&o=DETAILED_ACCOUNTS`)
+      return { changes: list.map(({ _more_changes: _m, ...c }) => c), more: !!list.at(-1)?._more_changes }
     },
 
     /** Open changes whose Change-Id is one of `ids` (History badges, new-patchset hint), optionally in `project`. */

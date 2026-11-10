@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { createRepoFixture } from '../fixtures/repo'
-import { launchApp, stubMessageBox, stubOpenDialog } from './launch'
+import { launchApp, openRepo, stubMessageBox, stubOpenDialog } from './launch'
 
 test('open a repo subfolder opens the top level, adds to recents and reopens on relaunch', async () => {
   const fx = createRepoFixture()
@@ -83,6 +83,35 @@ test('dubious ownership: cancel keeps it closed, "Trust this folder" adds exactl
     await win.getByRole('button', { name: 'Open local repository…' }).click()
     await expect(win.getByLabel('Toolbar')).toContainText('work')
     expect(path.resolve(fx.git(['config', '--global', '--get-all', 'safe.directory']))).toBe(fx.work)
+  } finally {
+    await close()
+    fx.cleanup()
+  }
+})
+
+test('switching repos through the repo dropdown keeps one branch button and one sync button in the toolbar', async () => {
+  const fx = createRepoFixture()
+  const other = path.join(fx.dir, 'other')
+  fx.git(['clone', '-q', fx.remote, other], fx.dir)
+  const { app, win, close } = await launchApp(fx.env)
+  try {
+    await openRepo({ app, win }, fx.work)
+    const toolbar = win.getByLabel('Toolbar')
+    const repoButton = toolbar.getByRole('button', { name: /Current repository/ })
+    const branchButtons = toolbar.getByRole('button', { name: /^Current branch/ })
+    await expect(branchButtons).toHaveCount(1)
+    await stubOpenDialog(app, other)
+    await repoButton.click()
+    await win.getByRole('dialog', { name: 'Repositories' }).getByRole('button', { name: 'Open…' }).click()
+    await expect(repoButton).toContainText('other')
+    for (const name of ['work', 'other', 'work']) {
+      await repoButton.click()
+      await win.getByRole('dialog', { name: 'Repositories' }).getByRole('row', { name, exact: true }).click()
+      await expect(repoButton).toContainText(name)
+      await expect(branchButtons).toHaveCount(1)
+      await expect(toolbar.getByRole('button', { name: /^(Fetch|Pull|Push|Publish)/ })).toHaveCount(1)
+      await expect(win.getByRole('tab', { name: 'Changes' })).toHaveCount(1)
+    }
   } finally {
     await close()
     fx.cleanup()

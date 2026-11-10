@@ -39,3 +39,19 @@ test('watcher lists M/A/D/R changes and selecting a file shows its diff', async 
     fx.cleanup()
   }
 })
+
+test('a .ts diff is syntax-highlighted', async () => {
+  const fx = createRepoFixture()
+  fx.commitFile('a.ts', 'let a = 1\n')
+  const app = await launchApp(fx.env)
+  const { win } = app
+  try {
+    await openRepo(app, fx.work)
+    writeFileSync(path.join(fx.work, 'a.ts'), 'export const a = 2\n')
+    await win.getByRole('grid', { name: 'Changed files' }).getByRole('row', { name: 'a.ts' }).click({ timeout: 2000 })
+    await expect(win.getByRole('region', { name: 'Unstaged diff' }).locator('.diff-code .token.keyword')).toHaveText(['let', 'export', 'const'])
+  } finally {
+    await app.close()
+    fx.cleanup()
+  }
+})
