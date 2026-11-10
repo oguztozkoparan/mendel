@@ -15,8 +15,32 @@ import { RebaseDialog } from './RebaseDialog'
 import { Highlight, PopPopover } from './motion'
 import r from './Repos.module.css'
 import { ago } from './time'
+import { graphRows, type GraphRow } from './graph'
 
 const PAGE = 100
+/** Commit graph geometry (concept .lane: 30px column, dot centre 15px; row height as the list's). */
+const ROW_H = 44
+const LANE_W = 12
+// shortcut: lanes past the 6th are clipped, upgrade to horizontal scroll or lane compaction if wide histories need them.
+const MAX_LANES = 6
+const LANE_COLORS = ['var(--accent)', 'var(--git-ren)', 'var(--git-mod)', 'var(--git-add)', 'var(--muted)']
+const laneX = (i: number) => 15 + i * LANE_W
+const laneColor = (i: number) => LANE_COLORS[i % LANE_COLORS.length]!
+
+/** One row's slice of the commit graph: lines in from the top, out to the bottom, straight-through lanes, and the dot (hollow ring = merge). */
+function GraphCell({ row }: { row: GraphRow }) {
+  const mid = ROW_H / 2
+  const xc = laneX(row.col)
+  const line = (i: number) => ({ stroke: `color-mix(in srgb, ${laneColor(i)} 30%, transparent)` })
+  return (
+    <svg className={s.graph} height={ROW_H} aria-hidden>
+      {row.pass.map((i) => <line key={`p${i}`} x1={laneX(i)} y1={0} x2={laneX(i)} y2={ROW_H} style={line(i)} />)}
+      {row.into.map((i) => <path key={`i${i}`} d={`M${laneX(i)} 0C${laneX(i)} ${mid / 2} ${xc} ${mid / 2} ${xc} ${mid}`} style={line(i)} />)}
+      {row.out.map((j) => <path key={`o${j}`} d={`M${xc} ${mid}C${xc} ${mid * 1.5} ${laneX(j)} ${mid * 1.5} ${laneX(j)} ${ROW_H}`} style={line(j)} />)}
+      <circle cx={xc} cy={mid} r={6} className={row.merge ? s.merge : undefined} style={{ ['--c' as string]: laneColor(row.col) }} />
+    </svg>
+  )
+}
 
 /**
  * History tab (PLAN.md 3.6): current (or picked) branch's commits (pages of 100, virtualized) and the selected commit's detail.
@@ -46,6 +70,13 @@ export function HistoryView(p: { repo: string; decorate?: (c: CommitSummary) => 
     placeholderData: keepPreviousData
   })
   const commits = useMemo(() => q.data?.pages.flat() ?? [], [q.data])
+  // Lanes need every parent in the list: a message/author/file filter drops commits, so it gets plain dots (any branch's full log is fine).
+  // Forward-only layout over the loaded pages: O(commits x lanes), and rows already shown never change when a page is appended.
+  const graph = useMemo(() => {
+    const rows = filtered ? commits.map((x) => ({ col: 0, merge: x.parents.length > 1, into: [], out: [], pass: [] })) : graphRows(commits).rows
+    const lanes = rows.reduce((n, r) => Math.max(n, r.col + 1, ...r.into.map((i) => i + 1), ...r.out.map((i) => i + 1), ...r.pass.map((i) => i + 1)), 1)
+    return { bySha: new Map(commits.map((x, i) => [x.sha, rows[i]!])), width: laneX(Math.min(lanes, MAX_LANES) - 1) + 15 }
+  }, [commits, filtered])
   const [picked, setPicked] = useState<string | null>(null)
   const selected = commits.find((x) => x.sha === picked) ?? commits[0]
   const [rebasing, setRebasing] = useState(false)
@@ -95,14 +126,16 @@ export function HistoryView(p: { repo: string; decorate?: (c: CommitSummary) => 
             selectedKeys={selected ? [selected.sha] : []}
             onSelectionChange={(keys) => keys !== 'all' && keys.size && setPicked(String([...keys][0]))}
             className={c.list}
+            style={{ ['--graph-w' as string]: `${graph.width}px` }}
             renderEmptyState={() => (q.data ? <p className={c.empty}>{filtered ? 'No matching commits' : 'No commits yet'}</p> : null)}
           >
-            <Collection items={commits} dependencies={[p.decorate]}>
+            <Collection items={commits} dependencies={[p.decorate, graph]}>
               {(x) => (
-                <GridListItem id={x.sha} textValue={x.summary} className={s.row}>
+                <GridListItem id={x.sha} textValue={x.summary} className={`${s.row} ${s.graphRow}`}>
                   {({ isSelected }) => (
                     <>
                       {isSelected && <Highlight id="sel-commits" />}
+                      {graph.bySha.get(x.sha) && <GraphCell row={graph.bySha.get(x.sha)!} />}
                       <span className={s.summary}>{x.summary}</span>
                       <small className={s.meta}>
                         {x.author} · {ago(x.date)} · <code>{x.short}</code>

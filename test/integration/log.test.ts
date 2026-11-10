@@ -18,6 +18,7 @@ describe('history', () => {
       ['initial commit', 'Test User', false]
     ])
     expect(log[0]!.date).toBeGreaterThan(Date.now() - 60_000)
+    expect(log.map((c) => c.parents)).toEqual([[log[1]!.sha], []])
     expect((await getLog(fx.work, 1, fx.env)).map((c) => c.summary)).toEqual(['initial commit'])
   })
 

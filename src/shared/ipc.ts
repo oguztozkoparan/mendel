@@ -129,6 +129,8 @@ export interface CommitSummary {
   author: string
   /** ms epoch (author date). */
   date: number
+  /** Parent SHAs (first parent first; none for a root commit). */
+  parents: string[]
   /** Not on any remote-tracking branch yet. */
   unpushed: boolean
 }

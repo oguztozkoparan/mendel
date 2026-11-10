@@ -29,7 +29,7 @@ export async function getLog(cwd: string, skip: number, env?: NodeJS.ProcessEnv,
   // shortcut: file history page N re-reads N-1 pages, upgrade to a sha cursor if huge single-file histories get slow.
   const page = f.path ? ['--follow', '-n', String(skip + limit)] : [`--skip=${skip}`, '-n', String(limit)]
   const [log, local] = await Promise.all([
-    git([...lit, 'log', '-z', `--format=%H${US}%h${US}%an${US}%at${US}%s`, ...filter, ...page, ...endOfOptions(ref), '--', ...paths], o),
+    git([...lit, 'log', '-z', `--format=%H${US}%h${US}%an${US}%at${US}%P${US}%s`, ...filter, ...page, ...endOfOptions(ref), '--', ...paths], o),
     // Same filters so the unpushed set covers this page (rev-list has no --follow; pre-rename commits are rarely local-only).
     // `--end-of-options <ref>` has to be last before `--`: git rejects `--not` after it.
     git([...lit, 'rev-list', ...filter, `--max-count=${skip + limit}`, '--not', '--remotes', '--not', ...endOfOptions(ref), '--', ...paths], o)
@@ -40,8 +40,8 @@ export async function getLog(cwd: string, skip: number, env?: NodeJS.ProcessEnv,
     .filter(Boolean)
     .slice(f.path ? skip : 0)
     .map((rec) => {
-      const [sha = '', short = '', author = '', at = '0', summary = ''] = rec.replace(/^\n/, '').split(US)
-      return { sha, short, author, date: Number(at) * 1000, summary, unpushed: unpushed.has(sha) }
+      const [sha = '', short = '', author = '', at = '0', parents = '', summary = ''] = rec.replace(/^\n/, '').split(US)
+      return { sha, short, author, date: Number(at) * 1000, parents: parents.split(' ').filter(Boolean), summary, unpushed: unpushed.has(sha) }
     })
 }
 

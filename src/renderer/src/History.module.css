@@ -310,3 +310,31 @@
   width: 100%;
   box-sizing: border-box;
 }
+
+/* concept .lane: the commit graph column left of the text; lines 4px at 30% of the lane colour, dot ringed by the raised surface */
+.graphRow {
+  position: relative;
+  padding-left: calc(6px + var(--graph-w) + 4px);
+}
+
+.graph {
+  position: absolute;
+  top: 0;
+  left: 6px;
+  width: var(--graph-w);
+  overflow: hidden;
+  fill: none;
+  stroke-width: 4;
+  stroke-linecap: round;
+}
+
+.graph circle {
+  fill: var(--c);
+  stroke: var(--bg-raised);
+  stroke-width: 2;
+}
+
+.graph circle.merge {
+  fill: var(--bg-raised);
+  stroke: var(--c);
+}
