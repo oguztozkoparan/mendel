@@ -116,17 +116,19 @@ function DiffSection(p: { repo: string; file: FileChange; act: Act; staged: bool
   }
   const renderGutter = ({ change, side, renderDefault }: GutterOptions) =>
     side === 'old' && change.type !== 'normal' ? (
-      <Checkbox
-        aria-label={`${change.type === 'insert' ? 'Added' : 'Removed'} line ${change.lineNumber}`}
-        isSelected={picked.has(getChangeKey(change))}
-        onChange={(on) => toggleLine(getChangeKey(change), on)}
-        className={s.checkbox}
-      >
-        <span className={s.box} aria-hidden>
-          {picked.has(getChangeKey(change)) ? '✓' : ''}
-        </span>
+      <>
+        <Checkbox
+          aria-label={`${change.type === 'insert' ? 'Added' : 'Removed'} line ${change.lineNumber}`}
+          isSelected={picked.has(getChangeKey(change))}
+          onChange={(on) => toggleLine(getChangeKey(change), on)}
+          className={s.checkbox}
+        >
+          <span className={s.box} aria-hidden>
+            {picked.has(getChangeKey(change)) ? '✓' : ''}
+          </span>
+        </Checkbox>
         {renderDefault()}
-      </Checkbox>
+      </>
     ) : (
       renderDefault()
     )
