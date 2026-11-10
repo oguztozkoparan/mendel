@@ -179,18 +179,6 @@
   white-space: nowrap;
 }
 
-/* bar above the file's diff/blame, same as the Changes diff header */
-.fileActions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 44px;
-  box-sizing: border-box;
-  padding: 6px 12px 6px 26px;
-  border-top: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
-  border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
-}
-
 .tagForm {
   display: flex;
   flex-direction: column;

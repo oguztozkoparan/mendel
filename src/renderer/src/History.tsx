@@ -286,11 +286,12 @@ function CommitView(p: { repo: string; sha: string; pick?: 'cherry-pick' | 'reve
           )}
         </ListBox>
       </Virtualizer>
-      {f && (p.onFileHistory || f.status !== 'D') && (
-        <div className={s.fileActions}>
-          {p.onFileHistory && <Button onPress={() => p.onFileHistory?.(f.path)}>File history</Button>}
+      {f && (
+        <div className={c.fileHeader}>
+          <h2>{f.origPath ? `${f.origPath} → ${f.path}` : f.path}</h2>
+          {p.onFileHistory && <Button className="ghost" onPress={() => p.onFileHistory?.(f.path)}>File history</Button>}
           {/* A deleted file has nothing to blame at this commit. */}
-          {f.status !== 'D' && <Button onPress={() => setBlame(!blame)}>{blame ? 'Show diff' : 'Blame'}</Button>}
+          {f.status !== 'D' && <Button className="ghost" onPress={() => setBlame(!blame)}>{blame ? 'Show diff' : 'Blame'}</Button>}
         </div>
       )}
       {f && (blame && f.status !== 'D' ? <BlameView key={f.path} repo={p.repo} sha={d.sha} path={f.path} onPick={p.onPick} /> : <CommitFileDiff repo={p.repo} sha={d.sha} file={f} />)}
