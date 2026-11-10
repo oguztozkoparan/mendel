@@ -78,7 +78,8 @@ export function RepoSelector(p: { repos: RepoEntry[]; current: RepoEntry; action
   const shown = p.repos.filter((r) => repoLabel(r).toLowerCase().includes(f) || r.path.toLowerCase().includes(f))
   return (
     <DialogTrigger isOpen={open} onOpenChange={(o) => (setOpen(o), setFilter(''))}>
-      <Button className={s.trigger}>
+      {/* named like the branch trigger: below 900px the caption is hidden but the name keeps it */}
+      <Button className={s.trigger} aria-label={`${p.current.worktree ? 'Current worktree' : 'Current repository'} ${repoLabel(p.current)}`}>
         {p.current.worktree ? <FolderTree size={14} aria-hidden /> : <FolderGit2 size={14} aria-hidden />}
         <span className={s.triggerText}>
           <small>{p.current.worktree ? 'Current worktree' : 'Current repository'}</small>
