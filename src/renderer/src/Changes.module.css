@@ -114,6 +114,21 @@
   font: 12px var(--mono);
 }
 
+.stat {
+  margin-left: 10px;
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.statAdd {
+  color: var(--git-add);
+}
+
+.statDel {
+  color: var(--danger);
+}
+
 .sectionTitle {
   margin: 0;
   padding: 6px 12px;
@@ -144,9 +159,11 @@
   transform: translateY(-50%);
 }
 
+/* concept .hunk: full-width tinted band, mono, muted */
 .hunkHeader {
-  background: var(--bg-side);
+  background: color-mix(in srgb, var(--git-ren) 8%, var(--bg));
   color: var(--muted);
+  font-family: var(--mono);
 }
 
 .hunkHeader td {

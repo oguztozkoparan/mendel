@@ -1,10 +1,11 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Decoration, Diff, getChangeKey, Hunk, parseDiff, type GutterOptions, type HunkData } from 'react-diff-view'
 import 'react-diff-view/style/index.css'
 import { Button, Checkbox } from 'react-aria-components'
 import type { FileChange } from '../../shared/ipc'
 import s from './Changes.module.css'
+import { diffStat } from './diffStat'
 import { staggerIn } from './motion'
 import { Toggle, useSettings } from './Settings'
 
@@ -45,6 +46,11 @@ export const visible = (hunks: HunkData[], whitespace = false): HunkData[] =>
     })
   }))
 
+const diffQuery = (repo: string, file: FileChange, staged: boolean) => ({
+  queryKey: ['diff', repo, file.path, staged],
+  queryFn: () => window.mendel['changes:diff']({ repo, path: file.path, origPath: file.origPath, staged, untracked: file.unstaged === '?' && !staged })
+})
+
 /** Diff of one file: unstaged and/or staged section, depending on where its changes are. */
 type Act = (p: Promise<unknown>) => void
 
@@ -52,6 +58,12 @@ export function DiffView({ repo, file, act }: { repo: string; file: FileChange; 
   const qc = useQueryClient()
   const whitespace = useSettings().data?.showWhitespace ?? false
   const setWhitespace = (showWhitespace: boolean) => void window.mendel['settings:set']({ showWhitespace }).then((v) => qc.setQueryData(['settings'], v))
+  // Same queries as the sections below (shared cache), so the header stat costs no extra IPC.
+  const diffs = useQueries({
+    queries: file.conflicted ? [] : [...(file.unstaged ? [false] : []), ...(file.staged ? [true] : [])].map((st) => diffQuery(repo, file, st))
+  })
+  const raws = diffs.map((q) => q.data)
+  const stat = raws.every((r) => r !== undefined) && raws.length > 0 ? diffStat(raws as string[]) : undefined
   // git prints a combined (`diff --cc`) diff for unmerged files, which react-diff-view cannot parse.
   if (file.conflicted)
     return (
@@ -67,7 +79,20 @@ export function DiffView({ repo, file, act }: { repo: string; file: FileChange; 
   return (
     <div className={s.diffPane}>
       <div className={s.fileHeader}>
-        <h2>{file.origPath ? `${file.origPath} → ${file.path}` : file.path}</h2>
+        <h2>
+          {file.origPath ? `${file.origPath} → ${file.path}` : file.path}
+          {stat !== undefined && (
+            <span className={s.stat}>
+              {stat ? (
+                <>
+                  <span className={s.statAdd}>+{stat.a}</span> <span className={s.statDel}>−{stat.d}</span>
+                </>
+              ) : (
+                'bin'
+              )}
+            </span>
+          )}
+        </h2>
         <Toggle label="Show whitespace" value={whitespace} onChange={setWhitespace} />
         <Button onPress={() => act(window.mendel['changes:discard']({ repo, paths: file.origPath ? [file.origPath, file.path] : [file.path] }))}>
           Discard file…
@@ -81,11 +106,7 @@ export function DiffView({ repo, file, act }: { repo: string; file: FileChange; 
 
 function DiffSection(p: { repo: string; file: FileChange; act: Act; staged: boolean; title: string | null; whitespace: boolean }) {
   const { file, staged } = p
-  const q = useQuery({
-    queryKey: ['diff', p.repo, file.path, staged],
-    queryFn: () =>
-      window.mendel['changes:diff']({ repo: p.repo, path: file.path, origPath: file.origPath, staged, untracked: file.unstaged === '?' && !staged })
-  })
+  const q = useQuery(diffQuery(p.repo, file, staged))
   const { parsed, gate } = useParsedDiff(q.data)
   // DiffView is keyed by file: rows slide in once per shown file, not on every refetch.
   const section = useRef<HTMLElement>(null)
