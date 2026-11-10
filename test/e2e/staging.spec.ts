@@ -75,3 +75,32 @@ test('stage/unstage single lines of a hunk', async () => {
     fx.cleanup()
   }
 })
+
+test('changed-files filter (Mod+F): narrows the list; select-all stages only the shown files', async () => {
+  const fx = createRepoFixture()
+  for (const f of ['alpha.txt', 'Alpine.md', 'beta.txt']) writeFileSync(path.join(fx.work, f), 'x\n')
+  const app = await launchApp(fx.env)
+  const { win } = app
+  const cached = () => fx.git(['diff', '--cached', '--name-only'])
+  try {
+    await openRepo(app, fx.work)
+    const list = win.getByRole('grid', { name: 'Changed files' })
+    await expect(list.getByRole('row')).toHaveCount(3)
+    await list.getByRole('row', { name: 'beta.txt' }).click()
+    await win.keyboard.press('ControlOrMeta+f')
+    const filter = win.getByRole('searchbox', { name: 'Filter changed files' })
+    await expect(filter).toBeFocused()
+    await win.keyboard.type('alp')
+    await expect(list.getByRole('row')).toHaveText([/Alpine.md/, /alpha.txt/])
+    await expect(win.getByText('2 of 3 changed files')).toBeVisible()
+    await toggle(win.getByRole('checkbox', { name: 'Stage all shown' }))
+    await expect(win.getByRole('checkbox', { name: 'Stage all shown' })).toBeChecked()
+    expect(cached()).toBe('Alpine.md\nalpha.txt')
+    await filter.press('Escape')
+    await expect(list.getByRole('row')).toHaveCount(3)
+    await expect(win.getByRole('checkbox', { name: 'Stage all' })).not.toBeChecked()
+  } finally {
+    await app.close()
+    fx.cleanup()
+  }
+})

@@ -182,3 +182,39 @@ test('blame a commit file; activating a line selects its commit', async () => {
     fx.cleanup()
   }
 })
+
+test('filter a commit’s changed files by path; selection kept while visible; Escape clears', async () => {
+  const fx = createRepoFixture()
+  for (const f of ['src/App.tsx', 'src/app.css', 'docs/README.md']) writeFileSync(path.join(fx.work, path.basename(f)), `${f}\n`)
+  fx.git(['add', '-A'])
+  fx.commitFile('src/Other.ts', 'other\n', 'Several files')
+  const app = await launchApp(fx.env)
+  const { win } = app
+  try {
+    await openRepo(app, fx.work)
+    await win.getByRole('tab', { name: 'History' }).click()
+    const detail = win.getByLabel('Commit detail')
+    const files = detail.getByRole('listbox', { name: 'Changed files' })
+    await expect(files.getByRole('option')).toHaveCount(4)
+    await files.getByRole('option', { name: 'app.css' }).click()
+    const filter = detail.getByRole('searchbox', { name: 'Filter changed files' })
+    await filter.fill('APP')
+    await expect(files.getByRole('option')).toHaveText([/App.tsx/, /app.css/])
+    await expect(detail).toContainText('2 of 4 files')
+    await expect(files.getByRole('option', { name: 'app.css' })).toHaveAttribute('aria-selected', 'true')
+    await expect(win.getByLabel('Commit diff')).toContainText('src/app.css')
+    await filter.fill('other')
+    await expect(files.getByRole('option')).toHaveText([/src\/Other.ts/])
+    await expect(files.getByRole('option').first()).toHaveAttribute('aria-selected', 'true')
+    await expect(win.getByLabel('Commit diff')).toContainText('other')
+    await filter.fill('nothing-matches')
+    await expect(files).toContainText('No matching files')
+    await filter.press('Escape')
+    await expect(filter).toHaveValue('')
+    await expect(files.getByRole('option')).toHaveCount(4)
+    await expect(detail).not.toContainText('of 4 files')
+  } finally {
+    await app.close()
+    fx.cleanup()
+  }
+})

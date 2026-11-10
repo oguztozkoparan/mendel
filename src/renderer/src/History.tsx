@@ -7,6 +7,7 @@ import { Diff, Hunk } from 'react-diff-view'
 import type { CommitDetail, CommitSummary } from '../../shared/ipc'
 import a from './App.module.css'
 import { refreshRepo, useBranches } from './Branches'
+import { FileFilter, matchFile } from './Changes'
 import c from './Changes.module.css'
 import { useParsedDiff, visible } from './DiffView'
 import { bannerError, ErrorBanner, PaneBanners, type BannerError } from './ErrorBanner'
@@ -249,6 +250,7 @@ function CommitView(p: { repo: string; sha: string; pick?: 'cherry-pick' | 'reve
   const qc = useQueryClient()
   const q = useQuery({ queryKey: ['commit', p.repo, p.sha], queryFn: () => window.mendel['history:commit']({ repo: p.repo, sha: p.sha }) })
   const [file, setFile] = useState<string | null>(null)
+  const [query, setQuery] = useState('')
   const [blame, setBlame] = useState(false)
   const [copied, setCopied] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -265,7 +267,9 @@ function CommitView(p: { repo: string; sha: string; pick?: 'cherry-pick' | 'reve
   const d = q.data
   if (!d) return null
   const [summary, ...body] = d.message.split('\n')
-  const f = d.files.find((x) => x.path === file) ?? d.files[0]
+  const shown = query.trim() ? d.files.filter(matchFile(query)) : d.files
+  // The picked file stays selected while the filter still shows it.
+  const f = shown.find((x) => x.path === file) ?? shown[0]
   const date = (ms: number) => new Date(ms).toLocaleString()
   const name = (who: string) => who.replace(/\s*<[^>]*>$/, '')
   return (
@@ -305,19 +309,21 @@ function CommitView(p: { repo: string; sha: string; pick?: 'cherry-pick' | 'reve
       </div>
       {error && <p role="alert" className={c.empty}>{error}</p>}
       {body.join('\n').trim() && <pre className={s.message}>{body.join('\n').trim()}</pre>}
+      <FileFilter value={query} onChange={setQuery} count={shown !== d.files ? `${shown.length} of ${d.files.length} files` : undefined} className={s.filesFilter} />
       <Virtualizer layout={ListLayout} layoutOptions={{ rowHeight: 30 }}>
         <ListBox
           aria-label="Changed files"
-          items={d.files}
+          items={shown}
           selectionMode="single"
           disallowEmptySelection
           selectedKeys={f ? [f.path] : []}
           onSelectionChange={(keys) => keys !== 'all' && keys.size && setFile(String([...keys][0]))}
           className={s.files}
+          renderEmptyState={() => <p className={c.empty}>No matching files</p>}
         >
           {(x) => (
             // Row-fill selection, not the floating plate: rows sit inside a bordered table. Hairline above every row but the first.
-            <ListBoxItem id={x.path} textValue={x.path} className={x === d.files[0] ? s.fileRow : `${s.fileRow} ${s.divided}`}>
+            <ListBoxItem id={x.path} textValue={x.path} className={x === shown[0] ? s.fileRow : `${s.fileRow} ${s.divided}`}>
               <span className={c.letter} data-status={x.status}>
                 {x.status}
               </span>

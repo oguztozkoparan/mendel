@@ -338,3 +338,8 @@
   fill: var(--bg-raised);
   stroke: var(--c);
 }
+
+/* changed-files filter above the files table; the negative bottom margin closes the table's 18px top margin to 8px */
+.filesFilter {
+  margin: 18px 26px -10px;
+}
