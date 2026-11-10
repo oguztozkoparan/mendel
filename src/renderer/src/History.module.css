@@ -258,6 +258,11 @@
   overflow-wrap: anywhere;
 }
 
+/* the Gerrit list is taller than a short window: react-aria caps the popover's height, the rows scroll */
+.helpPopover {
+  overflow-y: auto;
+}
+
 .searchHelp {
   display: grid;
   gap: 2px;

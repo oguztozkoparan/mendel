@@ -423,7 +423,7 @@ export function SearchHelp({ rows = QUALIFIERS, note = 'Plain words search commi
       </Button>
       <AnimatePresence>
         {open && (
-          <PopPopover placement="bottom end" className={r.popover}>
+          <PopPopover placement="bottom end" className={`${r.popover} ${s.helpPopover}`}>
             <Dialog aria-label="Search help" className={r.menu}>
               <dl className={s.searchHelp}>
                 {rows.map(([k, v]) => (
