@@ -53,3 +53,39 @@ test('commit with summary and description, amend, and failing hook', async () =>
     fx.cleanup()
   }
 })
+
+test('larger message editor: Done writes back to the commit box, Cancel discards', async () => {
+  const fx = createRepoFixture()
+  const app = await launchApp(fx.env)
+  const { win } = app
+  try {
+    await openRepo(app, fx.work)
+    const box = win.getByRole('form', { name: 'Commit' })
+    await box.getByLabel('Summary').fill('Draft')
+    await box.getByRole('button', { name: 'Edit message in a larger editor' }).click()
+    const dialog = win.getByRole('dialog', { name: 'Edit commit message' })
+    await expect(dialog.getByLabel('Summary')).toHaveValue('Draft')
+    await dialog.getByLabel('Summary').fill('Add feature')
+    await dialog.getByLabel('Description').fill('Line one\nLine two')
+    await dialog.getByRole('button', { name: 'Done' }).click()
+    await expect(dialog).toBeHidden()
+    await expect(box.getByLabel('Summary')).toHaveValue('Add feature')
+    await expect(box.getByLabel('Description')).toHaveValue('Line one\nLine two')
+
+    await box.getByRole('button', { name: 'Edit message in a larger editor' }).click()
+    await dialog.getByLabel('Description').fill('Thrown away')
+    await dialog.getByRole('button', { name: 'Cancel' }).click()
+    await expect(dialog).toBeHidden()
+    await expect(box.getByLabel('Description')).toHaveValue('Line one\nLine two')
+
+    // Mod+Enter in the editor is Done (no commit: nothing is staged anyway)
+    await box.getByRole('button', { name: 'Edit message in a larger editor' }).click()
+    await dialog.getByLabel('Description').fill('Via shortcut')
+    await dialog.getByLabel('Description').press(process.platform === 'darwin' ? 'Meta+Enter' : 'Control+Enter')
+    await expect(dialog).toBeHidden()
+    await expect(box.getByLabel('Description')).toHaveValue('Via shortcut')
+  } finally {
+    await app.close()
+    fx.cleanup()
+  }
+})
