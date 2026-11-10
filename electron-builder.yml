@@ -27,6 +27,7 @@ win:
   target: [{ target: nsis, arch: [x64] }]
 linux:
   category: Development
+  maintainer: mendel <oguztozkoparan@users.noreply.github.com> # required by the .deb target
   target: [{ target: AppImage, arch: [x64] }, { target: deb, arch: [x64] }]
 # Update feed + release target (TECH.md §4); baked into app-update.yml, the only feed the app reads.
 publish:

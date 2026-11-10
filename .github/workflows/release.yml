@@ -52,7 +52,14 @@ jobs:
         env:
           # macOS self-install only when the build is signed + notarized; otherwise "Download" opens the release page.
           MENDEL_MAC_AUTOINSTALL: ${{ secrets.CSC_LINK != '' && secrets.APPLE_ID != '' }}
-      - run: npx electron-builder --publish always
+      - shell: bash
+        # An empty CSC_LINK makes electron-builder load the working directory as the certificate ("not a file"),
+        # so secrets that are not set are dropped from the environment first.
+        run: |
+          for v in CSC_LINK CSC_KEY_PASSWORD APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID WIN_CSC_LINK WIN_CSC_KEY_PASSWORD; do
+            [ -n "${!v}" ] || unset "$v"
+          done
+          npx electron-builder --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Signing turns on only when these secrets exist; empty values build unsigned.
