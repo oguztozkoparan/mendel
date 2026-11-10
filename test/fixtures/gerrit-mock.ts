@@ -218,6 +218,35 @@ export async function startGerritMock(opts: GerritMockOptions = {}): Promise<Ger
     })
   }
 
+  /**
+   * Reviews History (`n`/`S` paging): understands the quoted `op:"value"` terms main builds (escapes undone), ANDed;
+   * newest updated first, `_more_changes` on the last change of a page. Unknown operators match everything.
+   */
+  const search = (q: string, n: number, start: number) => {
+    const terms = [...q.matchAll(/(\w+):"((?:[^"\\]|\\.)*)"/g)].map((m) => [m[1], m[2].replace(/\\(.)/g, '$1')] as const)
+    const person = (a: Json, v: string) => (v === 'self' ? a?._account_id === SELF._account_id : [a?.name, a?.username, a?.email].some((x) => x?.toLowerCase().includes(v.toLowerCase())))
+    const open = (c: MockChange) => c.status === 'NEW'
+    const hit = (c: MockChange, op: string, v: string): boolean => {
+      switch (op) {
+        case 'project': return c.project === v
+        case 'owner': return person(c.owner, v)
+        case 'reviewer': return (c.reviewers?.REVIEWER ?? []).some((r: Json) => person(r, v))
+        case 'status': return v === 'open' ? open(c) : v === 'closed' ? !open(c) : c.status === v.toUpperCase()
+        case 'message': return c.subject.toLowerCase().includes(v.toLowerCase())
+        case 'change': return String(c._number) === v || c.change_id.startsWith(v)
+        case 'branch': return c.branch === v
+        case 'topic': return c.topic === v
+        case 'hashtag': return (c.hashtags ?? []).includes(v)
+        case 'is': return v === 'wip' ? !!c.work_in_progress : v === 'open' ? open(c) : true
+        default: return true
+      }
+    }
+    const all = changes.filter((c) => terms.every(([op, v]) => hit(c, op, v))).sort((a, b) => b.updated.localeCompare(a.updated) || b._number - a._number)
+    const page: Json[] = all.slice(start, start + n).map(summary)
+    if (start + n < all.length && page.length) page[page.length - 1]._more_changes = true
+    return page
+  }
+
   async function route(req: MockRequest): Promise<MockResponse> {
     const u = new URL(req.url, 'http://x')
     for (const i of intercepts) {
@@ -234,9 +263,11 @@ export async function startGerritMock(opts: GerritMockOptions = {}): Promise<Ger
     if (req.method === 'GET' && path === 'accounts/self') return json(SELF)
     if (req.method === 'GET' && path === 'changes/') {
       const qs = u.searchParams.getAll('q')
+      const n = u.searchParams.get('n')
       // Without DETAILED_LABELS Gerrit sends no per-reviewer votes (`all`) or value descriptions.
       const detailed = u.searchParams.getAll('o').includes('DETAILED_LABELS')
       const labelsOnly = (c: Json) => (detailed ? c : { ...c, labels: Object.fromEntries(Object.entries<Json>(c.labels ?? {}).map(([k, { all: _a, values: _v, ...l }]) => [k, l])) })
+      if (n) return json(search(qs[0] ?? '', Number(n), Number(u.searchParams.get('S') ?? 0)).map(labelsOnly))
       const results = qs.map((q) => query(q).map(summary).map(labelsOnly))
       return json(qs.length === 1 ? results[0] : results)
     }

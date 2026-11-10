@@ -68,7 +68,7 @@ async function openByChangeId(repo: string, ids: (string | null)[]): Promise<Map
   }
 }
 
-export const gerritHandlers: Handlers<'gerrit:checkout' | 'gerrit:badges' | 'gerrit:pending' | 'gerrit:send' | 'gerrit:commitHint' | 'gerrit:addChangeId' | 'gerrit:connect' | 'gerrit:disconnect' | 'gerrit:open' | 'gerrit:changes' | 'gerrit:change' | 'gerrit:files' | 'gerrit:diff' | 'gerrit:comments' | 'gerrit:self' | 'gerrit:related' | 'gerrit:review' | 'gerrit:action' | 'gerrit:attention' | 'gerrit:hashtags'> = {
+export const gerritHandlers: Handlers<'gerrit:checkout' | 'gerrit:badges' | 'gerrit:pending' | 'gerrit:send' | 'gerrit:commitHint' | 'gerrit:addChangeId' | 'gerrit:connect' | 'gerrit:disconnect' | 'gerrit:open' | 'gerrit:changes' | 'gerrit:search' | 'gerrit:change' | 'gerrit:files' | 'gerrit:diff' | 'gerrit:comments' | 'gerrit:self' | 'gerrit:related' | 'gerrit:review' | 'gerrit:action' | 'gerrit:attention' | 'gerrit:hashtags'> = {
   'gerrit:commitHint': async ({ repo }) => {
     const { root } = await gerritRoot(repo)
     const [hook, commits] = await Promise.all([hasCommitMsgHook(root), unpushedCommits(root)])
@@ -135,6 +135,10 @@ export const gerritHandlers: Handlers<'gerrit:checkout' | 'gerrit:badges' | 'ger
   'gerrit:changes': async ({ repo, projectOnly }) => {
     const client = await gerritFor(repo)
     return client.listChanges(projectOnly ? (await activeState(repo)).detection?.project || null : null)
+  },
+  'gerrit:search': async ({ repo, projectOnly, query, start }) => {
+    const client = await gerritFor(repo)
+    return client.search(query, projectOnly ? (await activeState(repo)).detection?.project || null : null, start)
   },
   'gerrit:connect': async ({ repo, baseUrl, username, password }, e) => {
     const d = (await activeState(repo)).detection

@@ -6,7 +6,8 @@
 // `window.mendel['<channel>'](req)` and `window.mendel.on('<event>', cb)`.
 import { z } from 'zod'
 import { SHA_PREFIX, TRAILER_KEY } from './historyQuery'
-import { draftSchema, HASHTAG, PUSH_OPTION_VALUE, type GerritChange, type GerritCommit, type GerritSent, type GerritChangeLists, type GerritComment, type GerritConnected, type GerritDiff, type GerritFiles, type GerritRelated } from './gerrit'
+import { GERRIT_OPS, MAX_TERM, MAX_TERMS, MAX_TEXT } from './gerritQuery'
+import { draftSchema, HASHTAG, PUSH_OPTION_VALUE, type GerritChange, type GerritCommit, type GerritSent, type GerritChangeLists, type GerritComment, type GerritConnected, type GerritDiff, type GerritFiles, type GerritRelated, type GerritSearchPage } from './gerrit'
 
 const res = <Res>() => <Req extends z.ZodType>(req: Req) => ({ req, res: null as unknown as Res })
 
@@ -481,6 +482,22 @@ export const invoke = {
   'gerrit:open': res<void>()(z.object({ repo: repoId, path: z.string().min(1).max(4096) }).strict()),
   /** Reviews lists; `projectOnly` adds `project:"<p>"` to each query. */
   'gerrit:changes': res<GerritChangeLists>()(z.object({ repo: repoId, projectOnly: z.boolean() }).strict()),
+  /** Reviews History page (shared/gerritQuery.ts): main builds the Gerrit query from allow-listed operators, every value quoted. */
+  'gerrit:search': res<GerritSearchPage>()(
+    z
+      .object({
+        repo: repoId,
+        projectOnly: z.boolean(),
+        start: z.number().int().min(0).max(10_000),
+        query: z
+          .object({
+            text: z.string().min(1).max(MAX_TEXT).regex(/^[^\0-\x1f\x7f]*$/).optional(),
+            terms: z.array(z.object({ op: z.enum(GERRIT_OPS), value: z.string().min(1).max(MAX_TERM) }).strict()).max(MAX_TERMS).optional()
+          })
+          .strict()
+      })
+      .strict()
+  ),
   /** Change detail: all revisions, detailed labels, permitted_labels, actions, messages. */
   'gerrit:change': res<GerritChange>()(z.object({ repo: repoId, change: changeNum }).strict()),
   /** Files of a patch set (`revision` = sha or number), optionally against patch set `base`. */

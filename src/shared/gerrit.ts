@@ -121,6 +121,12 @@ export const changeSchema = z.object({
 export type GerritLabel = z.infer<typeof labelSchema>
 export type GerritChange = z.infer<typeof changeSchema>
 
+/** One Reviews History page; `more` = Gerrit set `_more_changes` on the last change. */
+export interface GerritSearchPage {
+  changes: GerritChange[]
+  more: boolean
+}
+
 export interface GerritChangeLists {
   outgoing: GerritChange[]
   incoming: GerritChange[]
