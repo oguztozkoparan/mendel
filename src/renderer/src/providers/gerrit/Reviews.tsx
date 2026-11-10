@@ -84,8 +84,14 @@ export function Reviews({ repo, state, focus }: { repo: RepoEntry; state: Provid
       <aside className={a.side}>
         <div className={s.sideHeader}>
           <span className={s.grow}>{d.project || d.host}</span>
-          {d.baseUrl && <Button onPress={() => setDialog('connect')}>Account…</Button>}
-          <Button onPress={() => setDialog('provider')}>Gerrit settings…</Button>
+          {d.baseUrl && (
+            <Button className="ghost" onPress={() => setDialog('connect')}>
+              Account…
+            </Button>
+          )}
+          <Button className="ghost" onPress={() => setDialog('provider')}>
+            Gerrit settings…
+          </Button>
         </div>
         {ready && (
           <div className={s.sideHeader}>
