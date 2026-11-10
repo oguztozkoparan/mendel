@@ -1,7 +1,7 @@
 import { keepPreviousData, useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
 import { CircleHelp, ListTodo } from 'lucide-react'
 import { AnimatePresence } from 'motion/react'
-import { useMemo, useState, type FormEvent, type ReactNode } from 'react'
+import { createElement, useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import { Button, Collection, Dialog, DialogTrigger, GridList, GridListItem, GridListLoadMoreItem, Input, Label, ListBox, ListBoxItem, ListLayout, SearchField, TextField, Virtualizer } from 'react-aria-components'
 import { Diff, Hunk } from 'react-diff-view'
 import { hasQuery, parseHistoryQuery, QUALIFIERS, type HistoryQuery } from '../../shared/historyQuery'
@@ -104,6 +104,8 @@ export function HistoryView(p: { repo: string; decorate?: (c: CommitSummary) => 
       <aside className={a.side}>
         <div className={s.branchRow}>
           <select aria-label="History branch" className={s.branch} value={ref} onChange={(e) => setRef(e.target.value)}>
+            {/* explicit button + <selectedcontent> (no JSX typing yet): only that label can end in an ellipsis */}
+            <button>{createElement('selectedcontent')}</button>
             <option value="">Current branch{branches.data?.current ? ` (${branches.data.current})` : ''}</option>
             {branches.data?.local.filter((b) => b.name !== branches.data?.current).map((b) => <option key={b.name} title={b.name}>{b.name}</option>)}
             {branches.data?.remote.map((b) => <option key={b} title={b}>{b}</option>)}

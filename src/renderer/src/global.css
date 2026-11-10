@@ -310,6 +310,8 @@ textarea {
 
 input:where(:not([type='checkbox'], [type='radio'])) {
   height: var(--ctl-h);
+  /* a placeholder (or unfocused value) longer than a narrow field ends in an ellipsis, not mid-word */
+  text-overflow: ellipsis;
 }
 
 textarea {
@@ -393,6 +395,7 @@ select:disabled {
 
 select::picker-icon {
   content: '';
+  flex: none;
   width: 14px;
   height: 14px;
   margin-left: auto;
@@ -443,6 +446,18 @@ select option::checkmark {
 select {
   min-width: 0;
   max-width: 100%;
+}
+
+/* a select given <button><selectedcontent> shows its value there; the UA label cannot ellipsize, this can */
+select > button {
+  display: contents;
+}
+
+selectedcontent {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 select option:is(:hover, :focus-visible):not(:disabled) {
