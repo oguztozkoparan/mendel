@@ -186,7 +186,8 @@ export function ChangeDetail({ repo, number, me, onBack, onOpen }: { repo: strin
               {({ isSelected }) => (
                 <>
                   {isSelected && <Highlight id="sel-change-files" />}
-                  {f.status && <span className={c.letter} data-status={f.status}>{f.status}</span>}
+                  {/* Gerrit omits status for modified files */}
+                  <span className={c.letter} data-status={f.status ?? 'M'}>{f.status ?? 'M'}</span>
                   <span className={c.path}>{fileLabel(p)}</span>
                   <span className={s.added}>+{f.lines_inserted ?? 0}</span>
                   <span className={s.deleted}>−{f.lines_deleted ?? 0}</span>
