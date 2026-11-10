@@ -55,3 +55,15 @@ export function graphRows(commits: readonly { sha: string; parents: string[] }[]
   }
   return { rows, state: { lanes: cur, seen } }
 }
+
+/**
+ * `row` drawn in `max` columns: lanes from the last column on share it. `bundle` = this row has a lane past the last
+ * column, so the last column stands for several lanes (drawn dashed) instead of silently dropping them.
+ */
+export function fitRow(row: GraphRow, max: number): GraphRow & { bundle: boolean } {
+  const bundle = Math.max(row.col, ...row.into, ...row.out, ...row.pass) >= max
+  if (!bundle) return { ...row, bundle }
+  const f = (i: number) => Math.min(i, max - 1)
+  const fit = (a: number[]) => [...new Set(a.map(f))]
+  return { col: f(row.col), merge: row.merge, into: fit(row.into), out: fit(row.out), pass: fit(row.pass), bundle }
+}

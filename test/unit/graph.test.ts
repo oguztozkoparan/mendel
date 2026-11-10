@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { graphRows } from '../../src/renderer/src/graph'
+import { fitRow, graphRows } from '../../src/renderer/src/graph'
 
 const c = (sha: string, ...parents: string[]) => ({ sha, parents })
 
@@ -54,5 +54,22 @@ describe('graphRows', () => {
     const second = graphRows(all.slice(2), first.state)
     expect([...first.rows, ...second.rows]).toEqual(whole.rows)
     expect(second.state).toEqual(whole.state)
+  })
+
+  it('lays out more than 6 lanes, and fitRow bundles the ones past the last column instead of dropping them', () => {
+    // 8-parent octopus: 8 concurrent lanes, then each parent on its own lane down to the root
+    const ps = ['p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8']
+    const { rows } = graphRows([c('o', ...ps), ...[...ps].reverse().map((p) => c(p, 'r')), c('r')])
+    expect(rows[0]!.out).toEqual([0, 1, 2, 3, 4, 5, 6, 7])
+    expect(rows[1]).toEqual({ col: 7, merge: false, into: [7], out: [7], pass: [0, 1, 2, 3, 4, 5, 6] })
+
+    expect(fitRow(rows[0]!, 6)).toEqual({ col: 0, merge: true, into: [], out: [0, 1, 2, 3, 4, 5], pass: [], bundle: true })
+    // p8 (lane 7) is drawn in the shared last column, which lanes 5 and 6 also run through
+    expect(fitRow(rows[1]!, 6)).toEqual({ col: 5, merge: false, into: [5], out: [5], pass: [0, 1, 2, 3, 4, 5], bundle: true })
+    // all 8 lanes join into the root: their lines arrive from the 6 shown columns
+    expect(fitRow(rows[9]!, 6)).toEqual({ col: 0, merge: false, into: [0, 1, 2, 3, 4, 5], out: [], pass: [], bundle: true })
+    // a row within 6 lanes is drawn as laid out
+    const narrow = { col: 1, merge: false, into: [1], out: [1], pass: [0, 5] }
+    expect(fitRow(narrow, 6)).toEqual({ ...narrow, bundle: false })
   })
 })
