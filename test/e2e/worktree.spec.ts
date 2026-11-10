@@ -12,8 +12,9 @@ test('New worktree from a new branch: created next to the repo, opened, nested u
   const dialog = win.getByRole('dialog', { name: 'New worktree' })
   try {
     await openRepo(app, fx.work)
-    await toolbar.getByRole('button', { name: /^Current branch/ }).click()
-    await win.getByRole('dialog', { name: 'Branches' }).getByRole('button', { name: 'New worktree…' }).click()
+    await toolbar.getByRole('button', { name: 'Worktree Main' }).click()
+    await expect(win.getByRole('dialog', { name: 'Worktrees' }).getByRole('row')).toHaveCount(1) // only the main one
+    await win.getByRole('dialog', { name: 'Worktrees' }).getByRole('button', { name: 'New worktree…' }).click()
     await expect(dialog).toContainText('From main')
     await expect(dialog).toContainText(fx.dir)
     await dialog.getByLabel('Branch name').fill('feat/wt')
@@ -22,6 +23,7 @@ test('New worktree from a new branch: created next to the repo, opened, nested u
 
     await expect(toolbar.getByRole('button', { name: /Current worktree/ })).toContainText('work · feat/wt')
     await expect(toolbar.getByRole('button', { name: 'Current branch feat/wt' })).toBeVisible()
+    await expect(toolbar.getByRole('button', { name: 'Worktree work-feat-wt' })).toBeVisible()
     expect(existsSync(path.join(fx.dir, 'work-feat-wt', 'README.md'))).toBe(true)
 
     await toolbar.getByRole('button', { name: /Current worktree/ }).click()
@@ -42,17 +44,19 @@ test('Remove worktree: confirm, then a second confirm when it has changes; the b
   writeFileSync(path.join(wt, 'dirty.txt'), 'x')
   const app = await launchApp(fx.env)
   const { win } = app
-  const menu = win.getByRole('dialog', { name: 'Branches' })
+  const menu = win.getByRole('dialog', { name: 'Worktrees' })
   const openWorktrees = async () => {
-    await win.getByLabel('Toolbar').getByRole('button', { name: /^Current branch/ }).click()
-    await menu.getByRole('button', { name: 'Worktrees (2)' }).click()
+    await win.getByLabel('Toolbar').getByRole('button', { name: 'Worktree Main' }).click()
   }
   try {
     await openRepo(app, fx.work)
     await openWorktrees()
     const list = menu.getByRole('grid', { name: 'Worktrees' })
     await expect(list.getByRole('row', { name: /^main/ })).toContainText('Main worktree')
+    await expect(list.getByRole('row')).toHaveCount(2)
+    await expect(list.getByRole('row', { name: /^main/ })).toContainText('✓')
     await expect(list.getByRole('button', { name: /^Remove worktree/ })).toHaveCount(1) // not the main (current) one
+    await expect(list.getByRole('button', { name: `Open worktree ${wt}` })).toBeVisible()
 
     await stubMessageBox(app.app, 1) // cancel
     await list.getByRole('button', { name: `Remove worktree ${wt}` }).click()

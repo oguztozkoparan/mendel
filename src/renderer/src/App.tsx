@@ -8,7 +8,7 @@ import type { GerritSent } from '../../shared/gerrit'
 import type { GitInfo } from '../../shared/ipc'
 import s from './App.module.css'
 import { AuthPromptDialog } from './AuthPromptDialog'
-import { BranchSelector, refreshLocal, refreshRepo, StashBanner } from './Branches'
+import { BranchSelector, refreshLocal, refreshRepo, StashBanner, WorktreeSelector } from './Branches'
 import { CloneDialog } from './CloneDialog'
 import logo from '../../../build/icon.svg'
 import { AppBanners, bannerError, ErrorBanner, PaneBanners, type BannerError } from './ErrorBanner'
@@ -131,6 +131,7 @@ export function App() {
       <header className={s.toolbar} aria-label="Toolbar">
         {current && <RepoSelector repos={repos} current={current} actions={actions} />}
         {current && <BranchSelector key={`branch:${current.id}`} repo={current.id} repoName={current.name} onError={onError} onNotice={setNotice} />}
+        {current && <WorktreeSelector key={`worktree:${current.id}`} repo={current.id} repoName={current.name} onError={onError} />}
         {current && (
           <SyncButton
             key={`sync:${current.id}`}

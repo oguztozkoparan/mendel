@@ -35,9 +35,17 @@ function useRun(repo: string, onError: (e: unknown) => void) {
 
 export const aheadBehind = (b: Pick<BranchInfo, 'ahead' | 'behind'>) => [b.behind ? `↓${b.behind}` : '', b.ahead ? `↑${b.ahead}` : ''].filter(Boolean).join(' ')
 
+const branchLabel = (b: { current: string | null; head: string | null } | undefined) => (b ? (b.current ?? (b.head ? `${b.head} (detached)` : 'No branch')) : '…')
+
+/** Opening a worktree makes it the current repo: refetch the repo list. */
+const useOpenWorktree = (repo: string, run: (p: Promise<unknown>) => void) => {
+  const qc = useQueryClient()
+  return (path: string) => run(window.mendel['worktree:open']({ repo, path }).then(() => qc.invalidateQueries({ queryKey: ['repos'] })))
+}
+
 /**
- * Toolbar dropdown (PLAN.md 3.3): filter, New branch…, local (current first, ahead/behind), remote (collapsed), delete;
- * worktrees (collapsed) with open / remove / prune, New worktree… (PLAN.md §11). `repoName` names new worktree folders.
+ * Toolbar dropdown (PLAN.md 3.3): filter, New branch…, local (current first, ahead/behind), remote (collapsed), delete,
+ * per-row New worktree for <branch> (PLAN.md §11). `repoName` names new worktree folders.
  */
 export function BranchSelector(p: { repo: string; repoName: string; onError(e: unknown): void; onNotice(n: Notice): void }) {
   const qc = useQueryClient()
@@ -45,17 +53,13 @@ export function BranchSelector(p: { repo: string; repoName: string; onError(e: u
   const q = useBranches(p.repo)
   const [filter, setFilter] = useState('')
   const [showRemote, setShowRemote] = useState(false)
-  const [showWorktrees, setShowWorktrees] = useState(false)
   /** New-branch dialog: initial name and, for "New branch from <selected>", its start point. */
   const [creating, setCreating] = useState<{ name: string; from?: string } | null>(null)
   /** New-worktree dialog; `branch` = picked row (check it out, or branch off it), `remote` if it is a remote branch. */
   const [newWorktree, setNewWorktree] = useState<{ branch?: string; remote?: boolean } | null>(null)
   const [open, setOpen] = useState(false)
-  const worktrees = useQuery({ queryKey: ['worktrees', p.repo], queryFn: () => window.mendel['worktree:list']({ repo: p.repo }), enabled: open })
-  /** Opening a worktree makes it the current repo: refetch the repo list. */
-  const openWorktree = (path: string) => run(window.mendel['worktree:open']({ repo: p.repo, path }).then(() => qc.invalidateQueries({ queryKey: ['repos'] })))
+  const openWorktree = useOpenWorktree(p.repo, run)
   useMenuCommand((c) => (c === 'branch:selector' ? setOpen(true) : c === 'branch:new' && setCreating({ name: '' })))
-  const wts = worktrees.data ?? []
   /** Switch, unless git would refuse because the branch (or a remote's local branch) is checked out in another worktree. */
   const switchTo = (name: string) => {
     // shortcut: assumes remote names have no '/', like main's switch.
@@ -67,11 +71,11 @@ export function BranchSelector(p: { repo: string; repoName: string; onError(e: u
   const f = filter.toLowerCase()
   const local = (b?.local ?? []).filter((x) => x.name.toLowerCase().includes(f))
   const remote = (b?.remote ?? []).filter((x) => x.toLowerCase().includes(f))
-  const label = b ? (b.current ?? (b.head ? `${b.head} (detached)` : 'No branch')) : '…'
+  const label = branchLabel(b)
 
   return (
     <>
-      <DialogTrigger isOpen={open} onOpenChange={(o) => (setOpen(o), setFilter(''), setShowRemote(false), setShowWorktrees(false))}>
+      <DialogTrigger isOpen={open} onOpenChange={(o) => (setOpen(o), setFilter(''), setShowRemote(false))}>
         <Button className={s.trigger} aria-label={`Current branch ${label}`}>
           <GitBranch size={14} aria-hidden />
           <span className={s.triggerText}>
@@ -158,56 +162,8 @@ export function BranchSelector(p: { repo: string; repoName: string; onError(e: u
                           )}
                         </GridList>
                       )}
-                      {wts.length > 1 && (
-                        <Button onPress={() => setShowWorktrees(!showWorktrees)} aria-expanded={showWorktrees}>
-                          Worktrees ({wts.length})
-                        </Button>
-                      )}
-                      {showWorktrees && (
-                        <GridList
-                          aria-label="Worktrees"
-                          items={wts.map((w) => ({ ...w, id: w.path }))}
-                          className={s.list}
-                          onAction={(path) => {
-                            const w = wts.find((x) => x.path === path)
-                            if (w && !w.current && !w.prunable) (close(), openWorktree(w.path))
-                          }}
-                        >
-                          {(w) => (
-                            <GridListItem id={w.path} textValue={w.branch ?? w.path} className={s.item}>
-                              <div className={w.prunable ? `${s.info} ${s.missing}` : s.info}>
-                                <span>
-                                  {w.current ? '✓ ' : ''}
-                                  {w.branch ?? `${w.head?.slice(0, 7) ?? 'No commit'} (detached)`}
-                                </span>
-                                {/* folder name only, so long paths don't widen the menu; full path on hover */}
-                                <small title={w.path}>
-                                  {w.prunable ? 'Missing: ' : w.main ? 'Main worktree · ' : ''}
-                                  {w.path.split(/[\\/]/).pop()}
-                                </small>
-                              </div>
-                              {w.locked !== null && <Lock size={14} aria-label={w.locked ? `Locked: ${w.locked}` : 'Locked'} />}
-                              {w.prunable ? (
-                                <Button onPress={() => act(() => window.mendel['worktree:prune']({ repo: p.repo }).then(() => worktrees.refetch()))}>Prune</Button>
-                              ) : (
-                                !w.main &&
-                                !w.current && (
-                                  <Button
-                                    className="icon"
-                                    aria-label={`Remove worktree ${w.path}`}
-                                    onPress={() => act(() => window.mendel['worktree:remove']({ repo: p.repo, path: w.path }).then(() => qc.invalidateQueries({ queryKey: ['repos'] })))}
-                                  >
-                                    <X size={14} />
-                                  </Button>
-                                )
-                              )}
-                            </GridListItem>
-                          )}
-                        </GridList>
-                      )}
                       <div className={s.menuActions}>
                         <Button onPress={() => (close(), setCreating({ name: filter.trim() }))}>{b?.current ? 'New branch…' : 'Create branch here…'}</Button>
-                        <Button onPress={() => (close(), setNewWorktree({}))}>New worktree…</Button>
                       </div>
                     </>
                   )
@@ -235,6 +191,119 @@ export function BranchSelector(p: { repo: string; repoName: string; onError(e: u
             current={label}
             onClose={() => setNewWorktree(null)}
             onCreated={(opened) => (setNewWorktree(null), void (opened ? qc.invalidateQueries({ queryKey: ['repos'] }) : refreshRepo(qc, p.repo)))}
+          />
+        )}
+      </AnimatePresence>
+    </>
+  )
+}
+
+/**
+ * Toolbar dropdown (PLAN.md §11): worktrees (current ticked, main tagged, locked with reason, prunable greyed with Prune),
+ * per-row Open / Remove, New worktree…. Hidden when `git worktree list` fails (git < 2.36). `repoName` names new folders.
+ */
+export function WorktreeSelector(p: { repo: string; repoName: string; onError(e: unknown): void }) {
+  const qc = useQueryClient()
+  const run = useRun(p.repo, p.onError)
+  const openWorktree = useOpenWorktree(p.repo, run)
+  const worktrees = useQuery({ queryKey: ['worktrees', p.repo], queryFn: () => window.mendel['worktree:list']({ repo: p.repo }) })
+  const branch = branchLabel(useBranches(p.repo).data)
+  const [open, setOpen] = useState(false)
+  const [newWorktree, setNewWorktree] = useState(false)
+  if (!worktrees.isSuccess) return null
+  const wts = worktrees.data
+  const cur = wts.find((w) => w.current)
+  const label = !cur ? '…' : cur.main ? 'Main' : (cur.path.split(/[\\/]/).pop() ?? cur.path)
+
+  return (
+    <>
+      {/* refetch on open: worktrees added or removed outside mendel don't touch this repo's watched files */}
+      <DialogTrigger isOpen={open} onOpenChange={(o) => (setOpen(o), o && void worktrees.refetch())}>
+        <Button className={`${s.trigger} ${s.narrow}`} aria-label={`Worktree ${label}`}>
+          <FolderTree size={14} aria-hidden />
+          <span className={s.triggerText} title={cur?.path}>
+            <small>Worktree</small>
+            {label}
+          </span>
+          <ChevronDown size={14} aria-hidden />
+        </Button>
+        <AnimatePresence>
+          {open && (
+            <PopPopover placement="bottom start" className={s.popover}>
+              <Dialog aria-label="Worktrees" className={s.menu}>
+                {({ close }) => {
+                  const act = (fn: () => Promise<unknown>) => (close(), run(fn()))
+                  return (
+                    <>
+                      <GridList
+                        aria-label="Worktrees"
+                        items={wts.map((w) => ({ ...w, id: w.path }))}
+                        className={s.list}
+                        onAction={(path) => {
+                          const w = wts.find((x) => x.path === path)
+                          if (w && !w.current && !w.prunable) (close(), openWorktree(w.path))
+                        }}
+                      >
+                        {(w) => (
+                          <GridListItem id={w.path} textValue={w.branch ?? w.path} className={s.item}>
+                            <div className={w.prunable ? `${s.info} ${s.missing}` : s.info}>
+                              <span>
+                                {w.current ? '✓ ' : ''}
+                                {w.branch ?? `${w.head?.slice(0, 7) ?? 'No commit'} (detached)`}
+                              </span>
+                              {/* folder name only, so long paths don't widen the menu; full path on hover */}
+                              <small title={w.path}>
+                                {w.prunable ? 'Missing: ' : w.main ? 'Main worktree · ' : ''}
+                                {w.path.split(/[\\/]/).pop()}
+                              </small>
+                            </div>
+                            {w.locked !== null && (
+                              <span role="img" aria-label={w.locked ? `Locked: ${w.locked}` : 'Locked'} title={w.locked ? `Locked: ${w.locked}` : 'Locked'}>
+                                <Lock size={14} aria-hidden />
+                              </span>
+                            )}
+                            {w.prunable ? (
+                              <Button onPress={() => act(() => window.mendel['worktree:prune']({ repo: p.repo }))}>Prune</Button>
+                            ) : (
+                              !w.current && (
+                                <>
+                                  <Button aria-label={`Open worktree ${w.path}`} onPress={() => (close(), openWorktree(w.path))}>
+                                    Open
+                                  </Button>
+                                  {!w.main && (
+                                    <Button
+                                      className="icon"
+                                      aria-label={`Remove worktree ${w.path}`}
+                                      onPress={() => act(() => window.mendel['worktree:remove']({ repo: p.repo, path: w.path }).then(() => qc.invalidateQueries({ queryKey: ['repos'] })))}
+                                    >
+                                      <X size={14} />
+                                    </Button>
+                                  )}
+                                </>
+                              )
+                            )}
+                          </GridListItem>
+                        )}
+                      </GridList>
+                      <div className={s.menuActions}>
+                        <Button onPress={() => (close(), setNewWorktree(true))}>New worktree…</Button>
+                      </div>
+                    </>
+                  )
+                }}
+              </Dialog>
+            </PopPopover>
+          )}
+        </AnimatePresence>
+      </DialogTrigger>
+      <AnimatePresence>
+        {newWorktree && (
+          <WorktreeDialog
+            repo={p.repo}
+            repoName={p.repoName}
+            current={branch}
+            onClose={() => setNewWorktree(false)}
+            onCreated={(opened) => (setNewWorktree(false), void (opened ? qc.invalidateQueries({ queryKey: ['repos'] }) : refreshRepo(qc, p.repo)))}
           />
         )}
       </AnimatePresence>

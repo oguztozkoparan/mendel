@@ -152,6 +152,13 @@
   cursor: default;
 }
 
+/* worktree button: short value ("Main" or a folder) kept whole while the branch name shrinks; a long folder is capped (ellipsis) */
+.trigger.narrow {
+  flex-shrink: 0;
+  min-width: min(160px, 12vw);
+  max-width: min(200px, 18vw);
+}
+
 .sync .trigger {
   border-right: none;
   min-width: min(160px, 14vw);
