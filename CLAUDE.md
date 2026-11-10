@@ -28,7 +28,7 @@
 - Security first: renderer has no Node access (contextIsolation, sandbox, no nodeIntegration); all git/network/secrets go through typed IPC in main; never build shell strings, pass git args as arrays; secrets only via OS keychain (`safeStorage`).
 - Never read or print `.env*` or secrets.
 - Tests per change/commit: `npm run typecheck` + `npm test` (fast, always all) + only the e2e specs the change can affect. Never run the full `npm run e2e` suite (agents included) unless the user explicitly asks for it; CI runs it.
-- UI changes are responsive: they work from the minimum window size (960px wide) up to wide screens, in light and dark; no horizontal overflow, long text ends in an ellipsis with the full value in a tooltip, popovers/menus/dialogs stay inside the window. Check UI work with screenshots at 960 and 1280 wide (light + dark) and look at them; cover a new overflow risk in `test/e2e/narrow.spec.ts`.
+- UI changes are responsive: they work from the minimum window size (`MIN` in src/main/window.ts, 720×600) up to wide screens, in light and dark; no horizontal overflow, long text ends in an ellipsis with the full value in a tooltip, popovers/menus/dialogs stay inside the window. Check UI work with screenshots at 720 and 1280 wide (light + dark) and look at them; cover a new overflow risk in `test/e2e/narrow.spec.ts`.
 - Do not push unless explicitly asked.
 
 ## graphify
