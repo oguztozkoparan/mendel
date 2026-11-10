@@ -7,6 +7,7 @@ import { createRepoFixture, type RepoFixture } from '../fixtures/repo'
 const userData = mkdtempSync(path.join(tmpdir(), 'mendel-wt-userdata-'))
 vi.mock('electron', () => ({ app: { getPath: () => userData } }))
 vi.mock('../../src/main/log', () => ({ default: { warn: () => {} } }))
+const { listBranches, switchBranch } = await import('../../src/main/git/branch')
 const { repoTopLevel } = await import('../../src/main/git/repo')
 const { addWorktree, listWorktrees, parseWorktrees, pruneWorktrees, removeWorktree } = await import('../../src/main/git/worktree')
 const { forgetPath, linkedWorktree, listRepos, rememberRepo } = await import('../../src/main/repos')
@@ -70,6 +71,17 @@ describe('worktrees', () => {
     ])
     forgetPath(wt('w'))
     expect(listRepos().repos.map((r) => r.id)).toEqual([main.id, other.id])
+  })
+
+  it('marks a branch checked out in another worktree and refuses to switch to it with its path', async () => {
+    fx = createRepoFixture()
+    await addWorktree(fx.work, wt('w'), { branch: 'feat', create: true }, fx.env)
+    const b = await listBranches(fx.work, fx.env)
+    expect(b.local.find((x) => x.name === 'main')?.worktree).toBeUndefined() // current one is not "elsewhere"
+    expect(path.resolve(b.local.find((x) => x.name === 'feat')!.worktree!)).toBe(wt('w'))
+    await expect(switchBranch(fx.work, 'feat', fx.env)).rejects.toThrow(/^feat is checked out in .*w$/)
+    fx.git(['push', '-q', 'origin', 'feat'])
+    await expect(switchBranch(fx.work, 'origin/feat', fx.env)).rejects.toThrow(/^feat is checked out in .*w$/)
   })
 
   it('removes: main, current and unknown paths refused; dirty needs force; prune drops a deleted folder', async () => {

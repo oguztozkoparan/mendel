@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient, type InfiniteData, type QueryClient } from '@tanstack/react-query'
-import { ChevronDown, FolderPlus, GitBranch, GitBranchPlus, Lock, X } from 'lucide-react'
+import { ChevronDown, FolderPlus, FolderTree, GitBranch, GitBranchPlus, Lock, X } from 'lucide-react'
 import { AnimatePresence } from 'motion/react'
 import { useState, type FormEvent } from 'react'
 import { Button, Dialog, DialogTrigger, GridList, GridListItem, Heading, Input, Label, SearchField, TextField } from 'react-aria-components'
@@ -9,6 +9,7 @@ import { Segmented, Switch } from './controls'
 import { useMenuCommand } from './menu'
 import s from './Repos.module.css'
 import { DialogShell, PopPopover } from './motion'
+import type { Notice } from './SyncButton'
 
 /** Refetch every query of this repo (keys are `[kind, repoId, ...]`) after a git write; History refetches only its first page. */
 export const refreshRepo = (qc: QueryClient, repo: string) => {
@@ -38,7 +39,7 @@ export const aheadBehind = (b: Pick<BranchInfo, 'ahead' | 'behind'>) => [b.behin
  * Toolbar dropdown (PLAN.md 3.3): filter, New branch…, local (current first, ahead/behind), remote (collapsed), delete;
  * worktrees (collapsed) with open / remove / prune, New worktree… (PLAN.md §11). `repoName` names new worktree folders.
  */
-export function BranchSelector(p: { repo: string; repoName: string; onError(e: unknown): void }) {
+export function BranchSelector(p: { repo: string; repoName: string; onError(e: unknown): void; onNotice(n: Notice): void }) {
   const qc = useQueryClient()
   const run = useRun(p.repo, p.onError)
   const q = useBranches(p.repo)
@@ -55,6 +56,13 @@ export function BranchSelector(p: { repo: string; repoName: string; onError(e: u
   const openWorktree = (path: string) => run(window.mendel['worktree:open']({ repo: p.repo, path }).then(() => qc.invalidateQueries({ queryKey: ['repos'] })))
   useMenuCommand((c) => (c === 'branch:selector' ? setOpen(true) : c === 'branch:new' && setCreating({ name: '' })))
   const wts = worktrees.data ?? []
+  /** Switch, unless git would refuse because the branch (or a remote's local branch) is checked out in another worktree. */
+  const switchTo = (name: string) => {
+    // shortcut: assumes remote names have no '/', like main's switch.
+    const elsewhere = b?.local.find((x) => x.name === name || (b.remote.includes(name) && x.name === name.slice(name.indexOf('/') + 1)))?.worktree
+    if (!elsewhere) return run(window.mendel['branch:switch']({ repo: p.repo, name }))
+    p.onNotice({ text: `${name} is checked out in ${elsewhere}`, action: { label: 'Open that worktree', run: () => openWorktree(elsewhere) } })
+  }
   const b = q.data
   const f = filter.toLowerCase()
   const local = (b?.local ?? []).filter((x) => x.name.toLowerCase().includes(f))
@@ -78,6 +86,7 @@ export function BranchSelector(p: { repo: string; repoName: string; onError(e: u
               <Dialog aria-label="Branches" className={s.menu}>
                 {({ close }) => {
                   const act = (fn: () => Promise<unknown>) => (close(), run(fn()))
+                  const pick = (name: unknown) => (close(), switchTo(String(name)))
                   return (
                     <>
                       <SearchField aria-label="Filter branches" value={filter} onChange={setFilter} autoFocus>
@@ -87,7 +96,7 @@ export function BranchSelector(p: { repo: string; repoName: string; onError(e: u
                         aria-label="Local branches"
                         items={local}
                         className={s.list}
-                        onAction={(name) => act(() => window.mendel['branch:switch']({ repo: p.repo, name: String(name) }))}
+                        onAction={pick}
                         renderEmptyState={() =>
                           filter.trim() ? (
                             <Button className={s.empty} onPress={() => (close(), setCreating({ name: filter.trim() }))}>
@@ -107,15 +116,16 @@ export function BranchSelector(p: { repo: string; repoName: string; onError(e: u
                               </span>
                             </div>
                             {aheadBehind(x) && <small aria-label="ahead/behind">{aheadBehind(x)}</small>}
+                            {x.worktree && <FolderTree size={14} aria-label={`Checked out in ${x.worktree}`} />}
                             <Button className="icon" aria-label={`New branch from ${x.name}`} onPress={() => (close(), setCreating({ name: '', from: x.name }))}>
                               <GitBranchPlus size={14} />
                             </Button>
-                            {x.name !== b?.current && (
+                            {x.name !== b?.current && !x.worktree && (
                               <Button className="icon" aria-label={`New worktree for ${x.name}`} onPress={() => (close(), setNewWorktree({ branch: x.name }))}>
                                 <FolderPlus size={14} />
                               </Button>
                             )}
-                            {x.name !== b?.current && (
+                            {x.name !== b?.current && !x.worktree && (
                               <Button className="icon" aria-label={`Delete ${x.name}`} onPress={() => act(() => window.mendel['branch:delete']({ repo: p.repo, name: x.name }))}>
                                 <X size={14} />
                               </Button>
@@ -133,7 +143,7 @@ export function BranchSelector(p: { repo: string; repoName: string; onError(e: u
                           aria-label="Remote branches"
                           items={remote.map((name) => ({ name }))}
                           className={s.list}
-                          onAction={(name) => act(() => window.mendel['branch:switch']({ repo: p.repo, name: String(name) }))}
+                          onAction={pick}
                         >
                           {(x) => (
                             <GridListItem id={x.name} textValue={x.name} className={s.item}>
@@ -170,9 +180,10 @@ export function BranchSelector(p: { repo: string; repoName: string; onError(e: u
                                   {w.current ? '✓ ' : ''}
                                   {w.branch ?? `${w.head?.slice(0, 7) ?? 'No commit'} (detached)`}
                                 </span>
-                                <small>
+                                {/* folder name only, so long paths don't widen the menu; full path on hover */}
+                                <small title={w.path}>
                                   {w.prunable ? 'Missing: ' : w.main ? 'Main worktree · ' : ''}
-                                  {w.path}
+                                  {w.path.split(/[\\/]/).pop()}
                                 </small>
                               </div>
                               {w.locked !== null && <Lock size={14} aria-label={w.locked ? `Locked: ${w.locked}` : 'Locked'} />}

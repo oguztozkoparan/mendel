@@ -66,3 +66,29 @@ test('Remove worktree: confirm, then a second confirm when it has changes; the b
     fx.cleanup()
   }
 })
+
+test('A branch checked out in another worktree is marked; picking it offers to open that worktree instead of switching', async () => {
+  const fx = createRepoFixture()
+  const wt = path.join(fx.dir, 'wt-x')
+  fx.git(['worktree', 'add', '-q', '-b', 'x', wt])
+  const app = await launchApp(fx.env)
+  const { win } = app
+  const toolbar = win.getByLabel('Toolbar')
+  const menu = win.getByRole('dialog', { name: 'Branches' })
+  try {
+    await openRepo(app, fx.work)
+    await toolbar.getByRole('button', { name: /^Current branch/ }).click()
+    const row = menu.getByRole('row', { name: /^x/ })
+    await expect(row.getByLabel(`Checked out in ${wt}`)).toBeVisible()
+    await expect(row.getByRole('button', { name: 'Delete x' })).toHaveCount(0)
+    await row.click()
+    await expect(win.getByText(`x is checked out in ${wt}`)).toBeVisible()
+    expect(fx.git(['branch', '--show-current'])).toBe('main')
+    await win.getByRole('button', { name: 'Open that worktree' }).click()
+    await expect(toolbar.getByRole('button', { name: /Current worktree/ })).toContainText('work · x')
+    await expect(toolbar.getByRole('button', { name: 'Current branch x' })).toBeVisible()
+  } finally {
+    await app.close()
+    fx.cleanup()
+  }
+})

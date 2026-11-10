@@ -78,6 +78,8 @@ export interface BranchInfo {
   upstream: string | null
   ahead: number
   behind: number
+  /** Path of the other worktree this branch is checked out in (git refuses to switch to it here). */
+  worktree?: string
 }
 
 /** One entry of `git worktree list` (bare entries skipped). */

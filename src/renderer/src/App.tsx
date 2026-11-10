@@ -130,7 +130,7 @@ export function App() {
     <div className={s.app}>
       <header className={s.toolbar} aria-label="Toolbar">
         {current && <RepoSelector repos={repos} current={current} actions={actions} />}
-        {current && <BranchSelector key={`branch:${current.id}`} repo={current.id} repoName={current.name} onError={onError} />}
+        {current && <BranchSelector key={`branch:${current.id}`} repo={current.id} repoName={current.name} onError={onError} onNotice={setNotice} />}
         {current && (
           <SyncButton
             key={`sync:${current.id}`}

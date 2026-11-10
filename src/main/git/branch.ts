@@ -20,7 +20,7 @@ export function parseTrack(t: string): { ahead: number; behind: number } {
 }
 
 export async function listBranches(cwd: string, env?: NodeJS.ProcessEnv): Promise<Branches> {
-  const fmt = '%(refname)%00%(upstream:short)%00%(upstream:track,nobracket)%00%(HEAD)%00%(symref)'
+  const fmt = '%(refname)%00%(upstream:short)%00%(upstream:track,nobracket)%00%(HEAD)%00%(symref)%00%(worktreepath)'
   const [refs, head, stash] = await Promise.all([
     git(['for-each-ref', `--format=${fmt}`, 'refs/heads', 'refs/remotes'], { cwd, env, background: true }),
     git(['rev-parse', '--short', 'HEAD'], { cwd, env, background: true }).then((r) => r.stdout.trim(), () => null),
@@ -30,10 +30,10 @@ export async function listBranches(cwd: string, env?: NodeJS.ProcessEnv): Promis
   const remote: string[] = []
   let current: string | null = null
   for (const line of refs.stdout.split('\n')) {
-    const [ref = '', upstream = '', track = '', isHead, symref] = line.split('\0')
+    const [ref = '', upstream = '', track = '', isHead, symref, worktree] = line.split('\0')
     if (ref.startsWith('refs/heads/')) {
       const name = ref.slice('refs/heads/'.length)
-      local.push({ name, upstream: upstream || null, ...parseTrack(track) })
+      local.push({ name, upstream: upstream || null, ...parseTrack(track), ...(worktree && isHead !== '*' ? { worktree } : {}) })
       if (isHead === '*') current = name
     } else if (ref.startsWith('refs/remotes/') && !symref) remote.push(ref.slice('refs/remotes/'.length))
   }
@@ -92,6 +92,8 @@ export async function switchBranch(cwd: string, name: string, env?: NodeJS.Proce
     return 'ok'
   } catch (err) {
     if (isDirtyError(err)) return 'dirty'
+    const elsewhere = err instanceof GitError && /already (?:checked out|used by worktree) at '([^']+)'/.exec(err.stderr)?.[1]
+    if (elsewhere) throw new Error(`${localName} is checked out in ${elsewhere}`)
     throw err
   }
 }
