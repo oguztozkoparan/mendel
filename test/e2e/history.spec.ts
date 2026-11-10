@@ -36,7 +36,7 @@ test('history lists commits newest first; selecting shows message, files and dif
   }
 })
 
-test('history search by message and author; file history from a commit file', async () => {
+test('history search by message and author:; file history from a commit file', async () => {
   const fx = createRepoFixture()
   fx.commitFile('a.txt', 'one\n', 'Add a')
   fx.commitFile('b.txt', 'bee\n', 'Add b')
@@ -52,11 +52,9 @@ test('history search by message and author; file history from a commit file', as
     await msg.fill('ADD')
     await msg.press('Enter')
     await expect(list.getByRole('row')).toHaveText([/Add b/, /Add a/])
-    const author = win.getByRole('searchbox', { name: 'Filter by author' })
-    await author.fill('nobody')
-    await author.press('Enter')
+    await msg.fill('ADD author:nobody')
+    await msg.press('Enter')
     await expect(list).toContainText('No matching commits')
-    await author.press('Escape')
     await msg.press('Escape')
     await expect(list.getByRole('row')).toHaveCount(4)
 
@@ -250,6 +248,50 @@ test('commit trailers render as chips: person card with email, Change-Id copies,
 
     await trailers.getByRole('button', { name: 'Copy https://cb.example.com/c/lura/dcs/+/23288' }).click()
     await expect.poll(() => app.app.evaluate(({ clipboard }) => clipboard.readText())).toBe('https://cb.example.com/c/lura/dcs/+/23288')
+  } finally {
+    await app.close()
+    fx.cleanup()
+  }
+})
+
+test('advanced history search: change: and reviewer: match trailers; unknown qualifier hints', async () => {
+  const fx = createRepoFixture()
+  fx.commitFile('a.txt', 'a\n', 'Fix crash\n\nChange-Id: Iabc123def\nReviewed-by: Elena Lanets <elena@example.com>')
+  fx.commitFile('b.txt', 'b\n', 'Mention Reviewed-by: Elena in the body\n\nChange-Id: I999fff')
+  const app = await launchApp(fx.env)
+  const { win } = app
+  try {
+    await openRepo(app, fx.work)
+    await win.getByRole('tab', { name: 'History' }).click()
+    const list = win.getByRole('grid', { name: 'Commits' })
+    await expect(list.getByRole('row')).toHaveCount(3)
+    const search = win.getByRole('searchbox', { name: 'Search messages' })
+
+    await search.fill('change:Iabc')
+    await search.press('Enter')
+    await expect(list.getByRole('row')).toHaveText([/Fix crash/])
+
+    await search.fill('reviewer:"elena lanets"')
+    await search.press('Enter')
+    await expect(list.getByRole('row')).toHaveText([/Fix crash/])
+
+    await search.fill('change:I reviewer:nobody')
+    await search.press('Enter')
+    await expect(list).toContainText('No matching commits')
+
+    await search.fill('fix: crash')
+    await search.press('Enter')
+    await expect(win.getByRole('alert')).toContainText('Unknown qualifier fix:')
+    await search.fill('"fix crash"')
+    await expect(win.getByRole('alert')).toBeHidden()
+    await search.press('Enter')
+    await expect(list.getByRole('row')).toHaveText([/Fix crash/])
+
+    await win.getByRole('button', { name: 'Search help' }).click()
+    await expect(win.getByRole('dialog', { name: 'Search help' })).toContainText('reviewer:<name or email>')
+    await win.keyboard.press('Escape')
+    await search.press('Escape')
+    await expect(list.getByRole('row')).toHaveCount(3)
   } finally {
     await app.close()
     fx.cleanup()

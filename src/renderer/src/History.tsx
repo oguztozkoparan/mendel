@@ -1,9 +1,10 @@
 import { keepPreviousData, useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ListTodo } from 'lucide-react'
+import { CircleHelp, ListTodo } from 'lucide-react'
 import { AnimatePresence } from 'motion/react'
 import { useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import { Button, Collection, Dialog, DialogTrigger, GridList, GridListItem, GridListLoadMoreItem, Input, Label, ListBox, ListBoxItem, ListLayout, SearchField, TextField, Virtualizer } from 'react-aria-components'
 import { Diff, Hunk } from 'react-diff-view'
+import { hasQuery, parseHistoryQuery, QUALIFIERS, type HistoryQuery } from '../../shared/historyQuery'
 import type { CommitDetail, CommitSummary } from '../../shared/ipc'
 import a from './App.module.css'
 import { refreshRepo, useBranches } from './Branches'
@@ -63,9 +64,17 @@ export function HistoryView(p: { repo: string; decorate?: (c: CommitSummary) => 
   // Keyed by HEAD: a new commit/checkout starts a fresh first page, and `--skip` pages stay consistent within one HEAD.
   // Not stale on its own (no all-pages refetch on focus); refreshRepo trims it to page 1 before invalidating.
   // Applied filters (search fields apply on Enter, not per keystroke); empty = unfiltered.
-  const [filter, setFilter] = useState<{ grep?: string; author?: string; path?: string }>({})
-  const set = (k: keyof typeof filter, v: string) => setFilter((f) => ({ ...f, [k]: v.trim() || undefined }))
-  const filtered = !!(filter.grep || filter.author || filter.path)
+  // `path` = the File history button (wins over a `path:` in the search).
+  const [filter, setFilter] = useState<{ query?: HistoryQuery; path?: string }>({})
+  const [queryErrors, setQueryErrors] = useState<string[]>([])
+  // An invalid search keeps the last applied filter and shows why.
+  const search = (v: string) => {
+    const { query, errors } = parseHistoryQuery(v)
+    setQueryErrors(errors)
+    if (!errors.length) setFilter((f) => ({ ...f, query: hasQuery(query) ? query : undefined }))
+  }
+  const setPath = (path?: string) => setFilter((f) => ({ ...f, path }))
+  const filtered = !!(filter.query || filter.path)
   const q = useInfiniteQuery({
     queryKey: ['history', p.repo, branches.data?.head, ref, filter],
     queryFn: ({ pageParam }) => window.mendel['history:log']({ repo: p.repo, skip: pageParam, ref: ref || undefined, ...filter }),
@@ -107,18 +116,29 @@ export function HistoryView(p: { repo: string; decorate?: (c: CommitSummary) => 
           )}
         </div>
         <div className={s.filters}>
-          <SearchField aria-label="Search messages" className={s.grep} onSubmit={(v) => set('grep', v)} onClear={() => set('grep', '')}>
-            <Input placeholder="Search messages" />
+          <SearchField
+            aria-label="Search messages"
+            className={s.grep}
+            isInvalid={queryErrors.length > 0}
+            validationBehavior="aria"
+            onChange={() => queryErrors.length && setQueryErrors([])}
+            onSubmit={search}
+            onClear={() => search('')}
+          >
+            <Input placeholder="Search, change:, author:, path:…" spellCheck={false} />
           </SearchField>
-          <SearchField aria-label="Filter by author" className={s.author} onSubmit={(v) => set('author', v)} onClear={() => set('author', '')}>
-            <Input placeholder="Author" />
-          </SearchField>
+          <SearchHelp />
+          {queryErrors.length > 0 && (
+            <p role="alert" className={s.queryError}>
+              {queryErrors.join(' · ')}
+            </p>
+          )}
           {filter.path && (
             <p className={s.fileFilter}>
               <span>
                 History of <code>{filter.path}</code>
               </span>
-              <Button onPress={() => set('path', '')}>All files</Button>
+              <Button onPress={() => setPath()}>All files</Button>
             </p>
           )}
         </div>
@@ -174,7 +194,7 @@ export function HistoryView(p: { repo: string; decorate?: (c: CommitSummary) => 
               onAmend={!ref && !filtered && selected === commits[0] && selected.unpushed ? p.onAmend : undefined}
               // Blame jumps only to commits already loaded in the list.
               onPick={(sha) => commits.some((x) => x.sha === sha) && setPicked(sha)}
-              onFileHistory={(path) => set('path', path)}
+              onFileHistory={setPath}
             />
           )
         )}
@@ -386,6 +406,37 @@ function CommitTags(p: { repo: string; sha: string }) {
         </p>
       )}
     </div>
+  )
+}
+
+/** "?" next to the History search: the qualifiers it understands. */
+function SearchHelp() {
+  const [open, setOpen] = useState(false)
+  return (
+    <DialogTrigger isOpen={open} onOpenChange={setOpen}>
+      <Button className="ghost" aria-label="Search help">
+        <CircleHelp size={14} aria-hidden />
+      </Button>
+      <AnimatePresence>
+        {open && (
+          <PopPopover placement="bottom end" className={r.popover}>
+            <Dialog aria-label="Search help" className={r.menu}>
+              <dl className={s.searchHelp}>
+                {QUALIFIERS.map(([k, v]) => (
+                  <div key={k}>
+                    <dt>
+                      <code>{k}</code>
+                    </dt>
+                    <dd>{v}</dd>
+                  </div>
+                ))}
+              </dl>
+              <small className={s.searchHelpNote}>Plain words search commit messages. Everything is ANDed; Enter applies.</small>
+            </Dialog>
+          </PopPopover>
+        )}
+      </AnimatePresence>
+    </DialogTrigger>
   )
 }
 

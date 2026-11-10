@@ -1,3 +1,4 @@
+import type { HistoryQuery } from '../../shared/historyQuery'
 import type { BlameLine, CommitDetail, CommitSummary } from '../../shared/ipc'
 import { endOfOptions, git } from './runner'
 
@@ -7,27 +8,50 @@ const US = '\x1f'
 const hasHead = (cwd: string, env?: NodeJS.ProcessEnv) =>
   git(['rev-parse', '--verify', '-q', 'HEAD'], { cwd, env, background: true }).then(() => true, () => false)
 
-/** History filters: case-insensitive literal match on message (`grep`) and author (ANDed, as git does); `path` = one file, following renames; `ref` = full ref name (default HEAD). */
-export interface LogFilter {
-  grep?: string
-  author?: string
-  path?: string
+/** History filters (History search, shared/historyQuery.ts) plus `path` = one file, following renames, and `ref` = full ref name (default HEAD). */
+export interface LogFilter extends HistoryQuery {
   ref?: string
+}
+
+/** Escape user text for git's extended regex. */
+const ere = (s: string) => s.replace(/[\\^$.|?*+()[\]{}]/g, '\\$&')
+
+/**
+ * git log / rev-list filter args, every value as one `--opt=value` arg (a value starting with '-' cannot become an option).
+ * Message text and each trailer are `--grep` patterns, ANDed with `--all-match`; author/committer/dates AND as git does.
+ * Without trailers everything is a literal (`--fixed-strings`); a trailer needs a line anchor, so then it is `--extended-regexp`
+ * with every user value escaped: `^Reviewed-by:[[:space:]]*.*jane` (Change-Id: prefix, no `.*`). Case-insensitive throughout.
+ */
+export function logFilterArgs(f: LogFilter): string[] {
+  const trailers = f.trailers ?? []
+  const lit = trailers.length ? ere : (s: string) => s
+  const greps = [...(f.text ? [lit(f.text)] : []), ...trailers.map((t) => `^${ere(t.key)}:[[:space:]]*${t.prefix ? '' : '.*'}${ere(t.value)}`)]
+  const match = [...greps.map((g) => `--grep=${g}`), ...(f.author ? [`--author=${lit(f.author)}`] : []), ...(f.committer ? [`--committer=${lit(f.committer)}`] : [])]
+  const dates = [...(f.before ? [`--before=${f.before}`] : []), ...(f.after ? [`--after=${f.after}`] : [])]
+  if (!match.length) return dates
+  return [trailers.length ? '--extended-regexp' : '--fixed-strings', '--regexp-ignore-case', ...(greps.length > 1 ? ['--all-match'] : []), ...match, ...dates]
 }
 
 /** One page of the current branch's (or `f.ref`'s) history, newest first; `unpushed` = on no remote-tracking branch. */
 export async function getLog(cwd: string, skip: number, env?: NodeJS.ProcessEnv, limit = LOG_PAGE, f: LogFilter = {}): Promise<CommitSummary[]> {
   if (!(await hasHead(cwd, env))) return []
   const o = { cwd, env, background: true }
-  const ref = f.ref ?? 'HEAD'
-  // Single `--opt=value` args: a value starting with '-' cannot become an option.
-  const match = [...(f.grep ? [`--grep=${f.grep}`] : []), ...(f.author ? [`--author=${f.author}`] : [])]
-  const filter = match.length ? ['-i', '-F', ...match] : []
+  let ref = f.ref ?? 'HEAD'
+  const filter = logFilterArgs(f)
+  // sha: one commit, if the prefix names exactly one commit in this branch's history.
+  if (f.sha) {
+    if (skip) return []
+    // f.sha is validated hex, so it cannot be an option.
+    const full = (await git(['rev-parse', '--verify', '-q', `${f.sha}^{commit}`], o).catch(() => null))?.stdout.trim()
+    if (!full || !(await git(['merge-base', '--is-ancestor', full, ...endOfOptions(ref)], o).then(() => true, () => false))) return []
+    ref = full
+  }
   const lit = f.path ? ['--literal-pathspecs'] : []
   const paths = f.path ? [f.path] : []
   // --follow only tracks a rename on commits it walks, and --skip'd commits are not walked: read the skipped part too and drop it below.
   // shortcut: file history page N re-reads N-1 pages, upgrade to a sha cursor if huge single-file histories get slow.
-  const page = f.path ? ['--follow', '-n', String(skip + limit)] : [`--skip=${skip}`, '-n', String(limit)]
+  // sha: --no-walk shows just that commit (git ignores it when -n/--skip are given)
+  const page = f.sha ? ['--no-walk'] : f.path ? ['--follow', '-n', String(skip + limit)] : [`--skip=${skip}`, '-n', String(limit)]
   const [log, local] = await Promise.all([
     git([...lit, 'log', '-z', `--format=%H${US}%h${US}%an${US}%at${US}%P${US}%s`, ...filter, ...page, ...endOfOptions(ref), '--', ...paths], o),
     // Same filters so the unpushed set covers this page (rev-list has no --follow; pre-rename commits are rarely local-only).

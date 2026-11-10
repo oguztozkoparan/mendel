@@ -5,6 +5,7 @@
 // Main must implement every `invoke` channel (see src/main/ipc/index.ts); preload exposes each one as
 // `window.mendel['<channel>'](req)` and `window.mendel.on('<event>', cb)`.
 import { z } from 'zod'
+import { SHA_PREFIX, TRAILER_KEY } from './historyQuery'
 import { draftSchema, HASHTAG, PUSH_OPTION_VALUE, type GerritChange, type GerritCommit, type GerritSent, type GerritChangeLists, type GerritComment, type GerritConnected, type GerritDiff, type GerritFiles, type GerritRelated } from './gerrit'
 
 const res = <Res>() => <Req extends z.ZodType>(req: Req) => ({ req, res: null as unknown as Res })
@@ -275,6 +276,19 @@ const inRepo = z.object({ repo: repoId }).strict()
 const branchName = z.string().min(1).max(255)
 const sha = z.string().regex(/^[0-9a-f]{7,64}$/)
 const logQuery = z.string().min(1).max(1000).regex(/^[^\0]*$/)
+/** Parsed History search (shared/historyQuery.ts); main passes values only as `--opt=value` args or after `--`. */
+const historyQuery = z
+  .object({
+    text: logQuery.optional(),
+    author: logQuery.optional(),
+    committer: logQuery.optional(),
+    trailers: z.array(z.object({ key: z.string().regex(TRAILER_KEY), value: logQuery, prefix: z.boolean().optional() }).strict()).max(20).optional(),
+    sha: z.string().regex(SHA_PREFIX).optional(),
+    path: relPath.optional(),
+    before: logQuery.max(100).optional(),
+    after: logQuery.max(100).optional()
+  })
+  .strict()
 const paths = z.object({ repo: repoId, paths: z.array(relPath).min(1).max(100_000) }).strict()
 /** `all`: Stage all / Unstage all on the whole tree, no path list (so no 100k cap). */
 const pathsOrAll = z.union([paths, z.object({ repo: repoId, all: z.literal(true) }).strict()])
@@ -379,9 +393,9 @@ export const invoke = {
   /** Fetch + rebase the current branch onto its upstream; a dirty tree asks "Stash & rebase" (null = cancelled). */
   'sync:rebase': res<SyncResult | null>()(inRepo),
   'sync:cancel': res<void>()(z.undefined()),
-  /** Current branch history (or `ref` = listed local/remote branch), newest first, pages of 100. `grep`/`author`: case-insensitive literal filters (ANDed); `path`: one file, following renames. */
+  /** Current branch history (or `ref` = listed local/remote branch), newest first, pages of 100. `query`: History search (ANDed parts); `path`: one file, following renames (wins over `query.path`). */
   'history:log': res<CommitSummary[]>()(
-    z.object({ repo: repoId, skip: z.number().int().min(0).max(10_000_000), grep: logQuery.optional(), author: logQuery.optional(), path: relPath.optional(), ref: branchName.optional() }).strict()
+    z.object({ repo: repoId, skip: z.number().int().min(0).max(10_000_000), query: historyQuery.optional(), path: relPath.optional(), ref: branchName.optional() }).strict()
   ),
   'history:commit': res<CommitDetail>()(z.object({ repo: repoId, sha }).strict()),
   /** Read-only diff of one file of a commit (against its first parent). */
