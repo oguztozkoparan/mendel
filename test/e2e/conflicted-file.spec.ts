@@ -15,7 +15,7 @@ test('conflicted file shows a hint and Mark resolved instead of crashing the dif
     await openRepo(app, fx.work)
     await expect(win.getByText('Conflicted file.')).toBeVisible()
     // the pane's own button, not the conflicts banner's (it sits at the top of the same pane)
-    await win.locator('section', { hasText: 'Conflicted file.' }).locator(':scope > :not([aria-label="Conflicts"])').getByRole('button', { name: 'Mark resolved' }).click()
+    await win.locator('div', { has: win.getByText('Conflicted file.', { exact: false }) }).last().getByRole('button', { name: 'Mark resolved' }).click()
     await expect.poll(() => fx.git(['ls-files', '--unmerged'])).toBe('')
   } finally {
     await app.close()

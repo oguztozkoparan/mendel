@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { AnimatePresence } from 'motion/react'
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Settings as Gear } from 'lucide-react'
 import { Button } from 'react-aria-components'
 import type { GerritSent } from '../../shared/gerrit'
@@ -10,7 +11,7 @@ import { AuthPromptDialog } from './AuthPromptDialog'
 import { BranchSelector, refreshLocal, refreshRepo, StashBanner } from './Branches'
 import { CloneDialog } from './CloneDialog'
 import logo from '../../../build/icon.svg'
-import { AppBanners, bannerError, ErrorBanner, type BannerError } from './ErrorBanner'
+import { AppBanners, bannerError, ErrorBanner, PaneBanners, type BannerError } from './ErrorBanner'
 import { ConflictBanner } from './Conflicts'
 import { RepoList, RepoSelector, type RepoActions } from './Repos'
 import { useMenuCommand } from './menu'
@@ -95,6 +96,11 @@ export function App() {
     else if (cmd === 'status:refresh' && current) void refreshRepo(qc, current.id)
   })
 
+  const [bannerHost] = useState(() => {
+    const el = document.createElement('div')
+    el.style.display = 'contents'
+    return el
+  })
   const banners = (
     <>
       {error && <ErrorBanner error={error} onDismiss={() => setError(null)} />}
@@ -134,13 +140,10 @@ export function App() {
           <Gear size={16} />
         </Button>
       </header>
-      {current ? (
-        <AppBanners.Provider value={banners}>
-          <RepoView key={current.id} repo={current} focus={focus} />
-        </AppBanners.Provider>
-      ) : (
-        banners
-      )}
+      {createPortal(banners, bannerHost)}
+      <AppBanners.Provider value={bannerHost}>
+        {current ? <RepoView key={current.id} repo={current} focus={focus} /> : <PaneBanners />}
+      </AppBanners.Provider>
       {!current && (
         <main className={s.welcome}>
           <img src={logo} alt="" width={96} height={96} />
