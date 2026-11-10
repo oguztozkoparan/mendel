@@ -122,7 +122,7 @@ function PersonChip({ t, roles }: { t: Person; roles: string }) {
         <span className={s.avatar} aria-hidden>
           {t.name.trim().charAt(0).toUpperCase()}
         </span>
-        {t.name}
+        <span>{t.name}</span>
       </Button>
       <AnimatePresence>
         {open && (
