@@ -1,3 +1,4 @@
+import path from 'node:path'
 import type { BranchInfo, Branches, StashEntry, SyncResult } from '../../shared/ipc'
 import { endOfOptions, git, GitError } from './runner'
 import { conflictAware } from './sync'
@@ -19,6 +20,9 @@ export function parseTrack(t: string): { ahead: number; behind: number } {
   return { ahead: Number(/ahead (\d+)/.exec(t)?.[1] ?? 0), behind: Number(/behind (\d+)/.exec(t)?.[1] ?? 0) }
 }
 
+/** A path as git prints it (`C:/x` on Windows) in the platform's own form, for display and round-trips. */
+export const nativePath = (p: string) => (process.platform === 'win32' ? path.normalize(p) : p)
+
 export async function listBranches(cwd: string, env?: NodeJS.ProcessEnv): Promise<Branches> {
   const fmt = '%(refname)%00%(upstream:short)%00%(upstream:track,nobracket)%00%(HEAD)%00%(symref)%00%(worktreepath)'
   const [refs, head, stash] = await Promise.all([
@@ -33,7 +37,7 @@ export async function listBranches(cwd: string, env?: NodeJS.ProcessEnv): Promis
     const [ref = '', upstream = '', track = '', isHead, symref, worktree] = line.split('\0')
     if (ref.startsWith('refs/heads/')) {
       const name = ref.slice('refs/heads/'.length)
-      local.push({ name, upstream: upstream || null, ...parseTrack(track), ...(worktree && isHead !== '*' ? { worktree } : {}) })
+      local.push({ name, upstream: upstream || null, ...parseTrack(track), ...(worktree && isHead !== '*' ? { worktree: nativePath(worktree) } : {}) })
       if (isHead === '*') current = name
     } else if (ref.startsWith('refs/remotes/') && !symref) remote.push(ref.slice('refs/remotes/'.length))
   }
@@ -93,7 +97,7 @@ export async function switchBranch(cwd: string, name: string, env?: NodeJS.Proce
   } catch (err) {
     if (isDirtyError(err)) return 'dirty'
     const elsewhere = err instanceof GitError && /already (?:checked out|used by worktree) at '([^']+)'/.exec(err.stderr)?.[1]
-    if (elsewhere) throw new Error(`${localName} is checked out in ${elsewhere}`)
+    if (elsewhere) throw new Error(`${localName} is checked out in ${nativePath(elsewhere)}`)
     throw err
   }
 }

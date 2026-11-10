@@ -1,6 +1,6 @@
 import path from 'node:path'
 import type { WorktreeInfo } from '../../shared/ipc'
-import { fullBranchRef, validateBranchName } from './branch'
+import { fullBranchRef, nativePath, validateBranchName } from './branch'
 import { endOfOptions, git, GitError } from './runner'
 
 /** Same folder: git prints `C:/x` on Windows where we hold `C:\x`, and Windows paths are case-insensitive. */
@@ -22,7 +22,7 @@ export function parseWorktrees(out: string, root: string): WorktreeInfo[] {
     }
     const sp = field.indexOf(' ')
     const [key, value] = sp < 0 ? [field, ''] : [field.slice(0, sp), field.slice(sp + 1)]
-    if (key === 'worktree') w = { path: value, branch: null, head: null, main: n++ === 0, current: samePath(value, root), locked: null, prunable: false }
+    if (key === 'worktree') w = { path: nativePath(value), branch: null, head: null, main: n++ === 0, current: samePath(value, root), locked: null, prunable: false }
     else if (!w) continue
     else if (key === 'HEAD') w.head = /^0+$/.test(value) ? null : value
     else if (key === 'branch') w.branch = value.replace(/^refs\/heads\//, '')
