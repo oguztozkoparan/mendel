@@ -1,4 +1,5 @@
 import { keepPreviousData, useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
+import { ListTodo } from 'lucide-react'
 import { AnimatePresence } from 'motion/react'
 import { useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import { Button, Collection, Dialog, DialogTrigger, GridList, GridListItem, GridListLoadMoreItem, Input, Label, ListBox, ListBoxItem, ListLayout, SearchField, TextField, Virtualizer } from 'react-aria-components'
@@ -52,16 +53,27 @@ export function HistoryView(p: { repo: string; decorate?: (c: CommitSummary) => 
   return (
     <>
       <aside className={a.side}>
-        <select aria-label="History branch" className={s.branch} value={ref} onChange={(e) => setRef(e.target.value)}>
-          <option value="">Current branch{branches.data?.current ? ` (${branches.data.current})` : ''}</option>
-          {branches.data?.local.filter((b) => b.name !== branches.data?.current).map((b) => <option key={b.name}>{b.name}</option>)}
-          {branches.data?.remote.map((b) => <option key={b}>{b}</option>)}
-        </select>
+        <div className={s.branchRow}>
+          <select aria-label="History branch" className={s.branch} value={ref} onChange={(e) => setRef(e.target.value)}>
+            <option value="">Current branch{branches.data?.current ? ` (${branches.data.current})` : ''}</option>
+            {branches.data?.local.filter((b) => b.name !== branches.data?.current).map((b) => <option key={b.name}>{b.name}</option>)}
+            {branches.data?.remote.map((b) => <option key={b}>{b}</option>)}
+          </select>
+          {/* Current branch, unfiltered, HEAD unpushed: there is something to edit. */}
+          {!ref && !filtered && commits[0]?.unpushed && (
+            // Icon-only so the branch name keeps its width; the span carries the native tooltip (RAC Button takes no title).
+            <span title="Edit unpushed commits…" className={s.editUnpushed}>
+              <Button className="ghost" aria-label="Edit unpushed commits…" onPress={() => setRebasing(true)}>
+                <ListTodo size={14} aria-hidden />
+              </Button>
+            </span>
+          )}
+        </div>
         <div className={s.filters}>
-          <SearchField aria-label="Search messages" onSubmit={(v) => set('grep', v)} onClear={() => set('grep', '')}>
+          <SearchField aria-label="Search messages" className={s.grep} onSubmit={(v) => set('grep', v)} onClear={() => set('grep', '')}>
             <Input placeholder="Search messages" />
           </SearchField>
-          <SearchField aria-label="Filter by author" onSubmit={(v) => set('author', v)} onClear={() => set('author', '')}>
+          <SearchField aria-label="Filter by author" className={s.author} onSubmit={(v) => set('author', v)} onClear={() => set('author', '')}>
             <Input placeholder="Author" />
           </SearchField>
           {filter.path && (
@@ -72,8 +84,6 @@ export function HistoryView(p: { repo: string; decorate?: (c: CommitSummary) => 
               <Button onPress={() => set('path', '')}>All files</Button>
             </p>
           )}
-          {/* Current branch, unfiltered, HEAD unpushed: there is something to edit. */}
-          {!ref && !filtered && commits[0]?.unpushed && <Button onPress={() => setRebasing(true)}>Edit unpushed commits…</Button>}
         </div>
         {rebasing && <RebaseDialog repo={p.repo} onClose={() => setRebasing(false)} />}
         <Virtualizer layout={ListLayout} layoutOptions={{ rowHeight: 44 }}>

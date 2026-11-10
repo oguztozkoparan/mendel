@@ -229,7 +229,7 @@
 
 .filters {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
   gap: 6px;
   padding: 4px 10px 8px;
 }
@@ -239,7 +239,19 @@
   box-sizing: border-box;
 }
 
+/* search and author share one row; author is the narrower field */
+.grep {
+  flex: 3 1 0;
+  min-width: 0;
+}
+
+.author {
+  flex: 2 1 0;
+  min-width: 0;
+}
+
 .fileFilter {
+  flex-basis: 100%;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -252,8 +264,23 @@
   min-width: 0;
 }
 
-.branch {
+.branchRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   margin: 6px 10px 4px;
+}
+
+.editUnpushed {
+  display: contents;
+}
+
+.branch {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .rebaseList {
