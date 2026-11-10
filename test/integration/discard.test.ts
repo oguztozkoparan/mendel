@@ -134,4 +134,16 @@ describe('discard', () => {
     expect(fx.git(['show', ':a.txt'])).toBe('staged')
     expect(read('a.txt')).toBe('staged then edited\n')
   })
+
+  it('discard all returns null instead of an older stash when git saved nothing (untracked content in a submodule)', async () => {
+    fx = createRepoFixture()
+    fx.git(['-c', 'protocol.file.allow=always', 'submodule', 'add', '-q', fx.remote, 'sub'])
+    fx.git(['commit', '-q', '-m', 'add sub'])
+    writeFileSync(path.join(fx.work, 'old.txt'), 'old\n')
+    fx.git(['stash', 'push', '-q', '-u', '-m', 'older'])
+    const older = fx.git(['rev-parse', 'refs/stash'])
+    writeFileSync(path.join(fx.work, 'sub', 'loose.txt'), 'x\n')
+    expect(await discardAll(fx.work, null, false, fx.env)).toBeNull()
+    expect(fx.git(['rev-parse', 'refs/stash'])).toBe(older)
+  })
 })

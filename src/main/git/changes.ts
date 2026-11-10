@@ -175,8 +175,12 @@ export async function discardAll(cwd: string, paths: string[] | null, untracked:
     throw new Error('Nothing to back up the changes onto yet: make a first commit, or discard files one by one')
   const msg = `Discarded changes ${new Date().toLocaleString('sv').slice(0, 16)}` // sv locale = "YYYY-MM-DD HH:MM"
   const spec = files.flatMap((f) => (f.origPath ? [f.origPath, f.path] : [f.path]))
+  const top = () => git(['rev-parse', '--verify', '-q', 'refs/stash'], { cwd, env, background: true }).then((r) => r.stdout.trim(), () => null)
+  const before = await top()
   await git(['--literal-pathspecs', 'stash', 'push', '--quiet', ...(untracked ? ['--include-untracked'] : []), '-m', msg, ...PATHSPEC_STDIN], { cwd, env, stdin: spec.join('\0') })
-  return (await git(['rev-parse', '--verify', '-q', 'refs/stash'], { cwd, env })).stdout.trim()
+  // git exits 0 without a stash when nothing was saveable (e.g. only untracked content inside a submodule): never hand back an older stash
+  const after = await top()
+  return after && after !== before ? after : null
 }
 
 export type HunkAction = 'stage' | 'unstage' | 'discard'
