@@ -386,3 +386,19 @@
 .sideFilter {
   margin: 4px 10px 6px;
 }
+
+/* Discard all (shown) changes: quiet icon key at the right of the list header; danger only on hover */
+.discardAll {
+  margin-left: auto;
+  min-height: 20px;
+  color: var(--muted);
+}
+
+.discardAll:where(:hover, [data-focus-visible]) {
+  color: var(--danger);
+}
+
+.confirmText {
+  margin: 0;
+  line-height: 1.5;
+}

@@ -1,6 +1,7 @@
 import { appendFileSync, lstatSync, readFileSync } from 'node:fs'
 import type { FileChange, StatusCode } from '../../shared/ipc'
 import { realUnder, resolveUnder } from '../safe-path'
+import { opInProgress } from './conflict'
 import { git } from './runner'
 
 const code = (c: string | undefined) => (c && c !== '.' ? (c as StatusCode) : null)
@@ -158,6 +159,24 @@ export async function discardPaths(cwd: string, paths: string[], env?: NodeJS.Pr
   }
   // shortcut: clean takes pathspecs on argv only; thousands of untracked files at once could hit argv limits, batch then.
   if (untracked.length) await git(['--literal-pathspecs', 'clean', '-f', '-q', '--', ...untracked], { cwd, env })
+}
+
+/**
+ * Discard all changes (or only those to `paths`) into a backup stash "Discarded changes <date>" the user can restore from Stashes.
+ * Untracked files only with `untracked`; ignored files never. Refused mid merge/rebase/cherry-pick/revert. Returns the backup stash's sha; null = nothing to discard.
+ */
+export async function discardAll(cwd: string, paths: string[] | null, untracked: boolean, env?: NodeJS.ProcessEnv): Promise<string | null> {
+  const op = await opInProgress(cwd, env)
+  if (op) throw new Error(`A ${op} is in progress: finish or abort it before discarding all changes`)
+  const wanted = paths && new Set(paths)
+  const files = (await getStatus(cwd, env)).filter((f) => (untracked || f.unstaged !== '?') && (!wanted || wanted.has(f.path) || (f.origPath && wanted.has(f.origPath))))
+  if (!files.length) return null
+  if (!(await git(['rev-parse', '--verify', '-q', 'HEAD'], { cwd, env, background: true }).then(() => true, () => false)))
+    throw new Error('Nothing to back up the changes onto yet: make a first commit, or discard files one by one')
+  const msg = `Discarded changes ${new Date().toLocaleString('sv').slice(0, 16)}` // sv locale = "YYYY-MM-DD HH:MM"
+  const spec = files.flatMap((f) => (f.origPath ? [f.origPath, f.path] : [f.path]))
+  await git(['--literal-pathspecs', 'stash', 'push', '--quiet', ...(untracked ? ['--include-untracked'] : []), '-m', msg, ...PATHSPEC_STDIN], { cwd, env, stdin: spec.join('\0') })
+  return (await git(['rev-parse', '--verify', '-q', 'refs/stash'], { cwd, env })).stdout.trim()
 }
 
 export type HunkAction = 'stage' | 'unstage' | 'discard'

@@ -1,7 +1,7 @@
-import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import { applyHunk, discardPaths, getDiff } from '../../src/main/git/changes'
+import { applyHunk, discardAll, discardPaths, getDiff } from '../../src/main/git/changes'
 import { createRepoFixture, type RepoFixture } from '../fixtures/repo'
 
 const LINES = Array.from({ length: 30 }, (_, i) => `line ${i}`)
@@ -55,5 +55,68 @@ describe('discard', () => {
     await applyHunk(fx.work, { path: 'f.txt', untracked: false }, first!, 'discard', fx.env)
     expect(read('f.txt')).toContain('line 1\n')
     expect(read('f.txt')).toContain('second\n')
+  })
+  it('discard all: backs everything up in a "Discarded changes" stash, keeps untracked and ignored files unless opted in', async () => {
+    fx = createRepoFixture()
+    fx.commitFile('.gitignore', 'build/\n')
+    fx.commitFile('gone.txt', 'g\n')
+    writeFileSync(path.join(fx.work, 'README.md'), 'staged\n')
+    fx.git(['add', 'README.md'])
+    writeFileSync(path.join(fx.work, 'README.md'), 'staged then edited\n')
+    rmSync(path.join(fx.work, 'gone.txt'))
+    writeFileSync(path.join(fx.work, 'added.txt'), 'a\n')
+    fx.git(['add', 'added.txt'])
+    writeFileSync(path.join(fx.work, 'loose.txt'), 'l\n')
+    mkdirSync(path.join(fx.work, 'build'))
+    writeFileSync(path.join(fx.work, 'build', 'out.o'), 'o\n')
+
+    const sha = await discardAll(fx.work, null, false, fx.env)
+    expect(read('README.md')).toBe('# fixture\n')
+    expect(read('gone.txt')).toBe('g\n')
+    expect(existsSync(path.join(fx.work, 'added.txt'))).toBe(false)
+    expect(fx.git(['status', '--porcelain'])).toBe('?? loose.txt')
+    expect(fx.git(['stash', 'list', '--format=%H %gs'])).toMatch(new RegExp(`^${sha} On main: Discarded changes \\d{4}-\\d\\d-\\d\\d \\d\\d:\\d\\d$`))
+
+    // Opt in: untracked files go into the backup too; ignored ones stay.
+    const loose = await discardAll(fx.work, null, true, fx.env)
+    expect(existsSync(path.join(fx.work, 'loose.txt'))).toBe(false)
+    expect(read('build/out.o')).toBe('o\n')
+    expect(fx.git(['status', '--porcelain'])).toBe('')
+    expect(await discardAll(fx.work, null, true, fx.env)).toBeNull()
+
+    // Both backups restore (newest first).
+    expect(fx.git(['rev-parse', 'stash@{0}'])).toBe(loose)
+    fx.git(['stash', 'pop', '-q'])
+    expect(read('loose.txt')).toBe('l\n')
+    expect(fx.git(['rev-parse', 'stash@{0}'])).toBe(sha)
+    fx.git(['stash', 'pop', '-q'])
+    expect(read('README.md')).toBe('staged then edited\n')
+    expect(existsSync(path.join(fx.work, 'gone.txt'))).toBe(false)
+    expect(read('added.txt')).toBe('a\n')
+  })
+
+  it('discard all limited to paths keeps the other changes; only-untracked without opt-in is a no-op', async () => {
+    fx = createRepoFixture()
+    fx.commitFile('a.txt', 'a\n')
+    writeFileSync(path.join(fx.work, 'a.txt'), 'changed\n')
+    writeFileSync(path.join(fx.work, 'README.md'), 'changed\n')
+    writeFileSync(path.join(fx.work, 'loose.txt'), 'l\n')
+    expect(await discardAll(fx.work, ['loose.txt'], false, fx.env)).toBeNull()
+    expect(await discardAll(fx.work, ['a.txt', 'loose.txt'], true, fx.env)).toMatch(/^[0-9a-f]{40}$/)
+    expect(read('a.txt')).toBe('a\n')
+    expect(existsSync(path.join(fx.work, 'loose.txt'))).toBe(false)
+    expect(fx.git(['status', '--porcelain'])).toBe('M README.md')
+  })
+
+  it('discard all is refused during a merge in progress and changes nothing', async () => {
+    fx = createRepoFixture()
+    fx.git(['checkout', '-q', '-b', 'other'])
+    fx.commitFile('README.md', 'theirs\n')
+    fx.git(['checkout', '-q', 'main'])
+    fx.commitFile('README.md', 'ours\n')
+    expect(() => fx.git(['merge', '-q', 'other'])).toThrow()
+    await expect(discardAll(fx.work, null, true, fx.env)).rejects.toThrow('A merge is in progress')
+    expect(fx.git(['stash', 'list'])).toBe('')
+    expect(fx.git(['status', '--porcelain'])).toBe('UU README.md')
   })
 })

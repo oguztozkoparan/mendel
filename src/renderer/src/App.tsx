@@ -148,7 +148,7 @@ export function App() {
       </header>
       {createPortal(banners, bannerHost)}
       <AppBanners.Provider value={bannerHost}>
-        {current ? <RepoView key={current.id} repo={current} focus={focus} /> : <PaneBanners />}
+        {current ? <RepoView key={current.id} repo={current} focus={focus} onNotice={setNotice} /> : <PaneBanners />}
       </AppBanners.Provider>
       {!current && (
         <main className={s.welcome}>

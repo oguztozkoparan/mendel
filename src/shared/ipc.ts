@@ -247,6 +247,7 @@ export type MenuCommand =
   | 'sync:pull'
   | 'sync:push'
   | 'sync:rebase'
+  | 'changes:discardAll'
   | 'status:refresh'
   | 'settings'
 
@@ -384,6 +385,11 @@ export const invoke = {
   ),
   /** Discard all changes to these files after a native confirm; false = user cancelled. */
   'changes:discard': res<boolean>()(paths),
+  /**
+   * Discard all changes (or only `paths`) after the renderer's confirm, into a backup stash "Discarded changes <date>".
+   * Untracked files only with `untracked`. Refused during a merge/rebase/cherry-pick/revert. Resolves with the backup stash sha; null = nothing to discard.
+   */
+  'changes:discardAll': res<string | null>()(z.object({ repo: repoId, paths: z.array(relPath).min(1).max(100_000).optional(), untracked: z.boolean() }).strict()),
   /** Native right-click menu for a changed file (discard, ignore, reveal, open in editor, copy path); main runs the pick. */
   'changes:menu': res<void>()(z.object({ repo: repoId, path: relPath, origPath: relPath.optional(), untracked: z.boolean() }).strict()),
   'commit:info': res<CommitInfo>()(inRepo),
