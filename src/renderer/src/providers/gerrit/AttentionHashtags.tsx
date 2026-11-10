@@ -54,7 +54,7 @@ export function AttentionHashtags({ repo, change: ch, me }: { repo: string; chan
               <select aria-label="Add to attention" value={pick} onChange={(e) => setPick(e.target.value)} disabled={busy}>
                 <option value="">Add to attention…</option>
                 {candidates.map((x) => (
-                  <option key={x._account_id} value={x._account_id}>
+                  <option key={x._account_id} value={x._account_id} title={who(x)}>
                     {who(x)}
                   </option>
                 ))}

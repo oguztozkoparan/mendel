@@ -105,8 +105,8 @@ export function HistoryView(p: { repo: string; decorate?: (c: CommitSummary) => 
         <div className={s.branchRow}>
           <select aria-label="History branch" className={s.branch} value={ref} onChange={(e) => setRef(e.target.value)}>
             <option value="">Current branch{branches.data?.current ? ` (${branches.data.current})` : ''}</option>
-            {branches.data?.local.filter((b) => b.name !== branches.data?.current).map((b) => <option key={b.name}>{b.name}</option>)}
-            {branches.data?.remote.map((b) => <option key={b}>{b}</option>)}
+            {branches.data?.local.filter((b) => b.name !== branches.data?.current).map((b) => <option key={b.name} title={b.name}>{b.name}</option>)}
+            {branches.data?.remote.map((b) => <option key={b} title={b}>{b}</option>)}
           </select>
           {/* Current branch, unfiltered, HEAD unpushed: there is something to edit. */}
           {!ref && !filtered && commits[0]?.unpushed && (
