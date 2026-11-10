@@ -243,6 +243,8 @@
   min-width: 0;
   min-height: 0;
   overflow: auto;
+  /* containing block for absolutely positioned bits (react-aria's visually hidden inputs): else they escape the scroller and scroll the whole window */
+  position: relative;
   background: var(--bg);
 }
 
