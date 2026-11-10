@@ -55,6 +55,10 @@
   white-space: nowrap;
 }
 
+.nested {
+  margin-left: 12px;
+}
+
 .missing {
   opacity: 0.5;
 }

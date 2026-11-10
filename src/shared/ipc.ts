@@ -40,6 +40,8 @@ export interface RepoEntry {
   name: string
   /** false when the folder was deleted/moved: shown greyed with Locate / Remove. */
   exists: boolean
+  /** Set for a linked worktree (`name` is then its main repo's name): main worktree path and branch (null = detached). */
+  worktree?: { main: string; branch: string | null }
 }
 
 export interface CloneProgress {
@@ -76,6 +78,24 @@ export interface BranchInfo {
   upstream: string | null
   ahead: number
   behind: number
+}
+
+/** One entry of `git worktree list` (bare entries skipped). */
+export interface WorktreeInfo {
+  /** As git reports it; send back unchanged to open/remove. */
+  path: string
+  /** null when detached. */
+  branch: string | null
+  /** HEAD sha; null before the first commit. */
+  head: string | null
+  /** The main worktree (cannot be removed). */
+  main: boolean
+  /** The worktree of the repo that asked. */
+  current: boolean
+  /** Lock reason ('' = locked without one); null = not locked. */
+  locked: string | null
+  /** Its folder is gone: `git worktree prune` drops it. */
+  prunable: boolean
 }
 
 export interface Branches {
@@ -273,6 +293,8 @@ const byId = z.object({ id: repoId }).strict()
 /** Repo-relative path; main additionally checks it with resolveUnder (TECH.md §6.4). */
 const relPath = z.string().min(1).max(4096)
 const inRepo = z.object({ repo: repoId }).strict()
+/** Worktree path as `worktree:list` returned it; main only acts on it if `git worktree list` reports it for that repo. */
+const worktreePath = z.string().min(1).max(4096)
 /** Main validates further (known branch, `git check-ref-format --branch`, no leading `-`). */
 const branchName = z.string().min(1).max(255)
 const sha = z.string().regex(/^[0-9a-f]{7,64}$/)
@@ -382,6 +404,22 @@ export const invoke = {
   'stash:action': res<SyncResult | false>()(z.object({ repo: repoId, sha, action: z.enum(['apply', 'pop', 'drop']) }).strict()),
   /** Restore (pop) or discard (confirm first) the current branch's "Stash & switch" changes. false = cancelled. */
   'branch:stash': res<boolean>()(z.object({ repo: repoId, action: z.enum(['restore', 'discard']) }).strict()),
+  'worktree:list': res<WorktreeInfo[]>()(inRepo),
+  /** Parent folder new worktrees go into (default: next to the main worktree). `pick` shows the native folder dialog first. */
+  'worktree:parent': res<string>()(z.object({ repo: repoId, pick: z.boolean() }).strict()),
+  /**
+   * `git worktree add` into `<parent>/<folder>`: a new branch `branch` (from listed branch `base`, else HEAD) when `create`,
+   * else the listed local/remote branch `branch`. `open`: open it (resolves with its entry), else null.
+   */
+  'worktree:add': res<RepoEntry | null>()(
+    z.object({ repo: repoId, branch: branchName, create: z.boolean(), base: branchName.optional(), folder: z.string().min(1).max(255), open: z.boolean() }).strict()
+  ),
+  /** Open a worktree `git worktree list` reports for `repo` (adds it to recents). */
+  'worktree:open': res<RepoEntry>()(z.object({ repo: repoId, path: worktreePath }).strict()),
+  /** Remove a listed linked worktree after a native confirm (and a second one to force when it has changes); false = cancelled. */
+  'worktree:remove': res<boolean>()(z.object({ repo: repoId, path: worktreePath }).strict()),
+  /** `git worktree prune`: drop entries whose folder is gone. */
+  'worktree:prune': res<void>()(inRepo),
   'sync:state': res<SyncState>()(inRepo),
   /** Long ops below are cancellable with `sync:cancel`; git auth prompts arrive via `auth:prompt`. */
   /** `auto`: background auto-fetch; never prompts for credentials and is skipped while another op runs. */

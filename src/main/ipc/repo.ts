@@ -16,6 +16,12 @@ function inRepo(id: string, rel?: string): string {
   return abs
 }
 
+/** `<parent>/<name>` for a single folder-name segment from the renderer (clone, new worktree); null if it is not one. */
+export function childDir(parent: string, name: string): string | null {
+  const n = name.trim()
+  return n && !/[\\/:*?"<>|]/.test(n) && n !== '.' && n !== '..' ? resolveUnder(parent, n) : null
+}
+
 /** repoTopLevel; on "dubious ownership" ask (native, in main) to trust exactly that folder, then retry (S16). */
 export async function topLevelTrusting(dir: string, win: BrowserWindow | null): Promise<string> {
   try {
@@ -62,8 +68,7 @@ export const repoHandlers: Handlers<
   'repo:clone': async ({ url, name }) => {
     if (cloning) throw new Error('A clone is already running')
     const parent = cloneParent()
-    const n = name.trim()
-    const dest = n && !/[\\/:*?"<>|]/.test(n) && n !== '.' && n !== '..' ? resolveUnder(parent, n) : null
+    const dest = childDir(parent, name)
     if (!dest) throw new Error('Invalid folder name')
     cloning = new AbortController()
     try {
