@@ -1,11 +1,14 @@
 .dialog {
   width: 620px;
+  /* fixed height: switching sections never resizes the dialog; the section panel scrolls instead */
+  height: min(640px, calc(100vh - 80px));
 }
 
 .tabs {
+  flex: 1;
+  min-height: 0;
   display: flex;
   gap: 16px;
-  min-height: 300px;
 }
 
 .sections {
@@ -26,10 +29,18 @@
 
 .panel {
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 12px;
+  overflow: auto;
+  /* room for the controls' focus rings and key shadows inside the scroller */
+  padding: 3px 6px 8px 3px;
   outline: none;
+}
+
+.panel > * {
+  flex: none;
 }
 
 .radios {
