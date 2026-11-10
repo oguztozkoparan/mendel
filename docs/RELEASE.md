@@ -10,8 +10,22 @@ switch to the `generic` HTTPS feed shown there to host elsewhere.
 2. `git push --follow-tags`.
 3. `.github/workflows/release.yml` runs on the tag: verifies the tag is on `main`, builds macOS (dmg + zip, arm64 + x64), Windows (nsis x64) and Linux (AppImage + deb x64), uploads everything plus `latest*.yml` to a **draft** GitHub Release, then sets its notes from `node scripts/changelog.mjs vX.Y.Z` (`feat(...)` → Features, `bug(...)` → Fixes since the previous tag).
 
+## Release notes
+Every release uses the same sections, in this order. Title: `vX.Y.Z`.
+
+| Section | Written by | Content |
+|---|---|---|
+| Summary (no heading) | hand, before publishing | 1–3 sentences: what this release is for |
+| `## Highlights` | hand, optional | the few changes worth reading about, in user words; for releases with many features |
+| `## Features` | `scripts/changelog.mjs` | `feat(scope)` commits since the previous tag: `- **scope**: description (hash)` |
+| `## Fixes` | `scripts/changelog.mjs` | `bug(scope)` commits, same shape |
+| `## Install` | `scripts/changelog.mjs` | file per platform, git requirement, unsigned-build steps |
+| `## Notes` | hand, optional | known issues, upgrade steps, anything unusual about this release (a skipped version, a re-cut) |
+
+CI fills the draft with the generated sections; add the summary (and Highlights / Notes when needed) in the draft before publishing.
+
 ## Publish the draft
-GitHub → Releases → the `vX.Y.Z` draft → check assets and notes → **Publish release**.
+GitHub → Releases → the `vX.Y.Z` draft → check assets, add the summary to the notes → **Publish release**.
 Installed apps see the update only after this (they never read drafts).
 
 ## Signing

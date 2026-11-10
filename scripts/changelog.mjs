@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Release notes from commit subjects since the previous tag (TECH.md §4):
-// feat(scope) -> Features, bug(scope) -> Fixes, feat(release) skipped.
+// feat(scope) -> Features, bug(scope) -> Fixes, feat(release) skipped; a version tag also gets an Install section.
 // Usage: node scripts/changelog.mjs [tag] [prevTag]   (tag defaults to HEAD, prevTag to the tag before it)
 import { execFileSync } from 'node:child_process'
 
@@ -26,4 +26,21 @@ for (const line of log.split('\n').filter(Boolean)) {
 const out = []
 if (groups.feat.length) out.push('## Features', '', ...groups.feat, '')
 if (groups.bug.length) out.push('## Fixes', '', ...groups.bug, '')
-process.stdout.write(out.length ? out.join('\n') : 'No user-facing changes.\n')
+if (!out.length) out.push('No user-facing changes.', '')
+// Format: docs/RELEASE.md -> Release notes. Only for a version tag; the unsigned-build line goes when signing lands.
+const v = /^v(\d+\.\d+\.\d+)$/.exec(tag)?.[1]
+if (v)
+  out.push(
+    '## Install',
+    '',
+    '| Platform | File |',
+    '|---|---|',
+    `| macOS (Apple silicon) | \`Mendel-${v}-arm64.dmg\` |`,
+    `| macOS (Intel) | \`Mendel-${v}.dmg\` |`,
+    `| Windows | \`Mendel-Setup-${v}.exe\` |`,
+    `| Linux | \`Mendel-${v}.AppImage\` or \`mendel_${v}_amd64.deb\` |`,
+    '',
+    'Needs git 2.30 or newer on the PATH. Builds are not code-signed yet: on macOS allow the first launch in System Settings → Privacy & Security → Open Anyway; on Windows choose More info → Run anyway.',
+    ''
+  )
+process.stdout.write(out.join('\n'))

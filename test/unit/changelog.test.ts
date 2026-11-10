@@ -20,9 +20,10 @@ describe('scripts/changelog.mjs', () => {
     repo.commitFile('e', '1', 'feat(release): v0.2.0')
     repo.git(['tag', 'v0.2.0'])
 
-    expect(changelog(repo, 'v0.2.0')).toBe(
-      `## Features\n\n- **update**: update pill (${feat})\n\n## Fixes\n\n- **git**: fix push error (${fix})\n`
-    )
+    const notes = changelog(repo, 'v0.2.0')
+    expect(notes).toMatch(new RegExp(`^## Features\n\n- \\*\\*update\\*\\*: update pill \\(${feat}\\)\n\n## Fixes\n\n- \\*\\*git\\*\\*: fix push error \\(${fix}\\)\n\n## Install\n`))
+    expect(notes).toContain('`Mendel-0.2.0-arm64.dmg`')
+    expect(notes).toContain('`mendel_0.2.0_amd64.deb`')
     expect(changelog(repo, 'v0.1.0')).toContain('- **app**: old feature')
   })
 
