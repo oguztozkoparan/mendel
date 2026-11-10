@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { RefreshCw } from 'lucide-react'
 import { AnimatePresence } from 'motion/react'
 import { useEffect, useState } from 'react'
 import { Button, Checkbox, Header, ListBox, ListBoxItem, ListBoxSection } from 'react-aria-components'
@@ -95,8 +96,8 @@ export function Reviews({ repo, state, focus }: { repo: RepoEntry; state: Provid
               This project only
             </Checkbox>
             <span className={s.grow} />
-            <Button aria-label="Refresh reviews" onPress={() => void lists.refetch()}>
-              ⟳
+            <Button className="ghost" aria-label="Refresh reviews" onPress={() => void lists.refetch()}>
+              <RefreshCw size={14} aria-hidden />
             </Button>
           </div>
         )}
