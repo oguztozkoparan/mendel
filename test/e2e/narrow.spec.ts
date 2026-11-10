@@ -21,7 +21,9 @@ const overflow = (win: Page) =>
 
 test('no horizontal overflow or clipped buttons at the minimum window width', async () => {
   const fx = createRepoFixture()
-  fx.commitFile('some/deeply/nested/folder/with-a-rather-long-file-name.txt', 'one\n')
+  // long trailer name (person chip) and a long branch (the commit button) must end in an ellipsis, not clip
+  fx.commitFile('some/deeply/nested/folder/with-a-rather-long-file-name.txt', 'one\n', 'add file\n\nReviewed-by: Maximilian Alexander Featherstonehaugh-Montgomery <max@example.com>')
+  fx.git(['checkout', '-q', '-b', 'feature/a-rather-long-branch-name-that-overflows-the-commit-button'])
   writeFileSync(path.join(fx.work, 'some/deeply/nested/folder/with-a-rather-long-file-name.txt'), 'one\ntwo\n')
   const app = await launchApp(fx.env)
   const { win } = app

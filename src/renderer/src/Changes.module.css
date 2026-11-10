@@ -233,6 +233,12 @@
   border-top: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
 }
 
+.commitLabel {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .summaryField {
   position: relative;
   display: flex;

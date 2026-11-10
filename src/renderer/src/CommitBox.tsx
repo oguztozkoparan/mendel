@@ -88,6 +88,7 @@ export function CommitBox(p: { repo: string; hasStaged: boolean; hint?: CommitHi
   }
   const branch = info.data?.branch
   const descriptionClass = settings?.descriptionRuler ? `${s.description} ${s.ruler}` : s.description
+  const commitLabel = rebasing ? 'Commit and continue rebase' : amending ? 'Amend last commit' : branch ? `Commit to ${branch}` : 'Commit'
 
   return (
     <>
@@ -137,7 +138,10 @@ export function CommitBox(p: { repo: string; hasStaged: boolean; hint?: CommitHi
           </p>
         )}
         <Button type="submit" className={op ? undefined : 'primary'} isDisabled={!canCommit}>
-          {rebasing ? 'Commit and continue rebase' : amending ? 'Amend last commit' : branch ? `Commit to ${branch}` : 'Commit'}
+          {/* a long branch name ends in an ellipsis; the span carries the tooltip (RAC Button takes no title) */}
+          <span className={s.commitLabel} title={commitLabel}>
+            {commitLabel}
+          </span>
         </Button>
         {info.data?.author && <small className={s.author}>Committing as {info.data.author}</small>}
       </form>
