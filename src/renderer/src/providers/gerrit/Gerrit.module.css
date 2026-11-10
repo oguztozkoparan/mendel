@@ -311,3 +311,17 @@
   align-items: center;
   padding: 2px 0;
 }
+
+/* Mine | History segmented control (concept segmented tabs), full sidebar width */
+.subTabs {
+  display: flex;
+  padding: 8px 10px 0;
+}
+
+.subTabs > :global(.segmented) {
+  flex: 1;
+}
+
+.subTabs :global(.segmented) > button {
+  flex: 1;
+}

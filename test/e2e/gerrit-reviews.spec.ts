@@ -48,3 +48,34 @@ test('rejected credential → "Connect to Gerrit" with expiry hint; server error
   await win.getByRole('button', { name: 'Retry' }).click()
   await expect(win.getByRole('region', { name: 'Connect to Gerrit' })).toContainText('may have expired')
 })
+
+test('History: paged list of the project, load more, owner: + status: search, open a change', async () => {
+  const old = mock.changes.find((c) => c._number === 90)!
+  for (let i = 0; i < 60; i++) mock.changes.push({ ...old, _number: 200 + i, subject: `Old change ${i}`, updated: '2026-09-01 10:00:00.000000000' })
+  g = await launchGerrit(mock)
+  const { win } = g
+  await connectGerrit(win, mock)
+  await win.getByRole('radio', { name: 'History' }).or(win.getByRole('button', { name: 'History', exact: true })).click()
+  const list = win.getByRole('listbox', { name: 'Review history' })
+  await expect(list.getByRole('option').first()).toContainText('Draft: refactor')
+  const searches = () => mock.find('GET', '/a/changes/?').map((r) => new URL(r.url, 'http://x').searchParams).filter((p) => p.has('n'))
+  expect(searches().at(-1)!.get('q')).toBe('project:"p/q"')
+  expect(searches().at(-1)!.get('S')).toBe('0')
+
+  // Infinite scroll: scrolling to the end asks for the next page (S=50) and shows its rows.
+  await list.evaluate((el) => (el.scrollTop = el.scrollHeight))
+  await expect.poll(() => searches().some((p) => p.get('S') === '50')).toBe(true)
+  await list.evaluate((el) => (el.scrollTop = el.scrollHeight))
+  await expect(list.getByRole('option').filter({ hasText: 'Old change 0#200 ·' })).toBeVisible()
+
+  const box = win.getByRole('searchbox', { name: 'Search reviews' })
+  await box.fill('bogus:1')
+  await box.press('Enter')
+  await expect(win.getByRole('alert')).toContainText('Unknown qualifier bogus:')
+  await box.fill('owner:self status:merged import')
+  await box.press('Enter')
+  await expect(list.getByRole('option')).toHaveCount(1)
+  expect(searches().at(-1)!.get('q')).toBe('project:"p/q" message:"import" owner:"self" status:"merged"')
+  await list.getByRole('option').filter({ hasText: '#90 · Merged' }).click()
+  await expect(win.getByRole('heading', { name: 'Initial import' })).toBeVisible()
+})

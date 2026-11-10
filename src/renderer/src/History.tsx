@@ -410,8 +410,8 @@ function CommitTags(p: { repo: string; sha: string }) {
   )
 }
 
-/** "?" next to the History search: the qualifiers it understands. */
-function SearchHelp() {
+/** "?" next to a search field (History, Reviews History): the qualifiers it understands. */
+export function SearchHelp({ rows = QUALIFIERS, note = 'Plain words search commit messages. Everything is ANDed; Enter applies.' }: { rows?: [string, string][]; note?: string }) {
   const [open, setOpen] = useState(false)
   return (
     <DialogTrigger isOpen={open} onOpenChange={setOpen}>
@@ -423,7 +423,7 @@ function SearchHelp() {
           <PopPopover placement="bottom end" className={r.popover}>
             <Dialog aria-label="Search help" className={r.menu}>
               <dl className={s.searchHelp}>
-                {QUALIFIERS.map(([k, v]) => (
+                {rows.map(([k, v]) => (
                   <div key={k}>
                     <dt>
                       <code>{k}</code>
@@ -432,7 +432,7 @@ function SearchHelp() {
                   </div>
                 ))}
               </dl>
-              <small className={s.searchHelpNote}>Plain words search commit messages. Everything is ANDed; Enter applies.</small>
+              <small className={s.searchHelpNote}>{note}</small>
             </Dialog>
           </PopPopover>
         )}

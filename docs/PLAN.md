@@ -49,7 +49,7 @@ Cross-platform desktop git client (Electron + React + Vite + TypeScript), GitHub
 - **Review notifications (new incoming review) → later.** MVP refreshes on focus and on an interval.
 
 ### Done after MVP
-Line staging, stash list, tags, blame, history search & file history, cherry-pick/revert UI, `mendel` CLI launcher, Gerrit attention set + hashtags, Gerrit related changes, review notifications (new incoming reviews), interactive rebase of unpushed commits.
+Line staging, stash list, tags, blame, history search & file history, cherry-pick/revert UI, `mendel` CLI launcher, Gerrit attention set + hashtags, Gerrit related changes, review notifications (new incoming reviews), interactive rebase of unpushed commits, Gerrit review history with advanced search.
 
 ### Later
 GitHub provider (PRs; needs its own design pass first: the provider interface only covers what Gerrit uses).
@@ -121,6 +121,7 @@ Common states: **loading** = skeleton rows (no spinners blocking the whole windo
 
 ### 3.7 Reviews tab (Gerrit provider)
 - Left: sections **Outgoing** (owner:self, open), **Incoming** (reviewer:self, not owner, open), **Recently closed** (owner:self, merged/abandoned, last 10). Filter toggle "This project only" (default on). Each row: subject, #number, owner avatar initial, status, label summary (CR +2/−1, V +1), updated time, WIP/unresolved-comment count.
+- Sidebar segmented control **Mine | History**. Mine = the sections above. History = every change of the project (any status, newest updated first; "This project only" applies), paged 50 at a time (`n`/`S`, `_more_changes`) with infinite scroll, same rows. Search field above it like the git History search ("?" help, inline error for unknown qualifiers): plain words → `message:`, qualifiers `owner:` `reviewer:` `author:` `committer:` `status:` `project:` `branch:` `topic:` `hashtag:` `change:` `file:` `label:` `is:` `before:` `after:` `age:`, ANDed. The renderer sends operator/value pairs (`gerrit:search`); main allow-lists the operators, re-checks values and quotes/escapes each one; no raw query passthrough.
 - Main: change detail (3.8).
 - Empty: "No open changes" + "Send for review" hint. Error: auth missing/invalid → card "Connect to Gerrit" → settings section. Server unreachable → retry. Not configured base URL → "Set Gerrit URL".
 - Refresh on tab focus, on window focus, and every N min (setting).
