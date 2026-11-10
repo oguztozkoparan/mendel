@@ -191,6 +191,11 @@
   outline: none;
 }
 
+.fileRow :global(.hl) {
+  inset: 0 6px;
+  border-radius: var(--ctl-radius);
+}
+
 .fileRow[data-focus-visible] {
   box-shadow: var(--focus);
 }
