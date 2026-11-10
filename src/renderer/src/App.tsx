@@ -35,7 +35,13 @@ export function App() {
   const onError = (e: unknown, retry?: () => void) => setError(bannerError(e, retry))
   const [cloning, setCloning] = useState(false)
   const [notice, setNotice] = useState<Notice | null>(null)
-  const [settings, setSettings] = useState(false)
+  /** Open Settings section: 'General' by default; null = closed. */
+  const [settings, setSettings] = useState<string | null>(null)
+  useEffect(() => {
+    const open = (e: Event) => setSettings((e as CustomEvent<string>).detail)
+    window.addEventListener('mendel:settings', open)
+    return () => window.removeEventListener('mendel:settings', open)
+  }, [])
   const [sending, setSending] = useState(false)
   /** "Open change #N" from the send toast: RepoView switches to Reviews and selects it. */
   const [focus, setFocus] = useState<{ change: number } | null>(null)
@@ -86,7 +92,7 @@ export function App() {
     clone: () => setCloning(true)
   }
   useMenuCommand((cmd) => {
-    if (cmd === 'settings') setSettings(true)
+    if (cmd === 'settings') setSettings('General')
     else if (!usable) return
     else if (cmd === 'repo:open') actions.add()
     else if (cmd === 'repo:clone') actions.clone()
@@ -136,7 +142,7 @@ export function App() {
         )}
         <div className={s.spacer} />
         <UpdatePill />
-        <Button className={`icon ${s.settings}`} aria-label="Settings" onPress={() => setSettings(true)}>
+        <Button className={`icon ${s.settings}`} aria-label="Settings" onPress={() => setSettings('General')}>
           <Gear size={16} />
         </Button>
       </header>
@@ -187,7 +193,7 @@ export function App() {
           />
         )}
         {sending && current && <SendForReview key="send" repo={current.id} onClose={() => setSending(false)} onSent={sent} />}
-        {settings && <SettingsDialog key="settings" repo={current?.id} onClose={() => setSettings(false)} />}
+        {settings && <SettingsDialog key="settings" repo={current?.id} section={settings} onClose={() => setSettings(null)} />}
       </AnimatePresence>
       <AuthPromptDialog />
     </div>

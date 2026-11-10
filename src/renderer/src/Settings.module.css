@@ -85,3 +85,36 @@
 .status {
   align-items: center;
 }
+
+/* Git providers page: one card per provider (concept .provider: name, live dot, host). */
+.provider {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: var(--pad-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--r-panel);
+}
+
+.providerHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.live {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--git-add);
+}
+
+.providerHost {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.grow {
+  flex: 1;
+  align-self: center;
+}

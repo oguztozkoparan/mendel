@@ -30,7 +30,7 @@ test('preferences persist across restart and drive the app', async () => {
 
     await dialog.getByRole('tab', { name: 'Commit' }).click()
     await dialog.getByLabel('Summary soft limit').fill('50')
-    await dialog.getByRole('tab', { name: 'Git' }).click()
+    await dialog.getByRole('tab', { name: 'Git', exact: true }).click()
     await dialog.getByText('Rebase', { exact: true }).click()
     await expect(dialog.getByLabel('Name (user.name)')).toHaveValue('Test User')
     await dialog.getByLabel('Name (user.name)').fill('New Name')

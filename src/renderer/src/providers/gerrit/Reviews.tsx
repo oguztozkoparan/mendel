@@ -8,7 +8,7 @@ import { GERRIT_QUALIFIERS, parseGerritSearch, type GerritSearch } from '../../.
 import type { ProviderState, RepoEntry } from '../../../../shared/ipc'
 import a from '../../App.module.css'
 import { PaneBanners } from '../../ErrorBanner'
-import { useSettings } from '../../Settings'
+import { openSettings, useSettings } from '../../Settings'
 import { Segmented } from '../../controls'
 import { SearchHelp } from '../../History'
 import h from '../../History.module.css'
@@ -110,11 +110,11 @@ export function Reviews({ repo, state, focus }: { repo: RepoEntry; state: Provid
         <div className={s.sideHeader}>
           <span className={s.grow}>{d.project || d.host}</span>
           {d.baseUrl && (
-            <Button className="ghost" onPress={() => setDialog('connect')}>
+            <Button className="ghost" onPress={() => openSettings('Git providers')}>
               Account…
             </Button>
           )}
-          <Button className="ghost" onPress={() => setDialog('provider')}>
+          <Button className="ghost" onPress={() => openSettings('Git providers')}>
             Gerrit settings…
           </Button>
         </div>

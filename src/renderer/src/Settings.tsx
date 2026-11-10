@@ -11,6 +11,9 @@ import s from './Settings.module.css'
 import { Segmented } from './controls'
 import { DialogShell, Highlight, withTransition } from './motion'
 
+/** Open the Settings dialog on `section` from anywhere in the renderer (App owns the dialog). */
+export const openSettings = (section: string) => window.dispatchEvent(new CustomEvent('mendel:settings', { detail: section }))
+
 export const useSettings = () => useQuery({ queryKey: ['settings'], queryFn: () => window.mendel['settings:get']() })
 
 export function Toggle(p: { label: string; value: boolean; onChange(v: boolean): void }) {
@@ -45,7 +48,7 @@ const schemeChange = () =>
   })
 
 /** Settings modal with sections (PLAN.md §3.11, §6). Every change is saved right away. */
-export function SettingsDialog(p: { repo?: string; onClose(): void }) {
+export function SettingsDialog(p: { repo?: string; section?: string; onClose(): void }) {
   const qc = useQueryClient()
   const q = useSettings()
   const [error, setError] = useState<string | null>(null)
@@ -59,9 +62,9 @@ export function SettingsDialog(p: { repo?: string; onClose(): void }) {
         <Heading slot="title" id="settings-title">
           Settings
         </Heading>
-        <Tabs orientation="vertical" className={s.tabs}>
+        <Tabs orientation="vertical" defaultSelectedKey={p.section} className={s.tabs}>
           <TabList aria-label="Sections" className={s.sections}>
-            {['General', 'Git', 'Commit', 'Gerrit', 'Updates', 'Advanced'].map((t) => (
+            {['General', 'Git', 'Commit', 'Git providers', 'Updates', 'Advanced'].map((t) => (
               <Tab key={t} id={t}>
                 {({ isSelected }) => (
                   <>
@@ -110,15 +113,18 @@ export function SettingsDialog(p: { repo?: string; onClose(): void }) {
             <Toggle label="Spellcheck" value={st.spellcheck} onChange={(spellcheck) => set({ spellcheck })} />
             <Toggle label="Show 72-column ruler in description" value={st.descriptionRuler} onChange={(descriptionRuler) => set({ descriptionRuler })} />
           </TabPanel>
-          <TabPanel id="Gerrit" className={s.panel}>
-            <GerritSection repo={p.repo} />
-            <Choice
-              label="Reviews refresh"
-              value={st.reviewsRefreshMinutes}
-              options={[[1, 'Every minute'], [5, 'Every 5 min'], [15, 'Every 15 min'], [30, 'Every 30 min']]}
-              onChange={(reviewsRefreshMinutes) => set({ reviewsRefreshMinutes })}
-            />
-            <Toggle label="Review notifications" value={st.reviewNotifications} onChange={(reviewNotifications) => set({ reviewNotifications })} />
+          <TabPanel id="Git providers" className={s.panel}>
+            {/* One card per provider; GitHub / Bitbucket get their own card here when they land. */}
+            <section className={s.provider} aria-labelledby="provider-gerrit">
+              <GerritSection repo={p.repo} />
+              <Choice
+                label="Reviews refresh"
+                value={st.reviewsRefreshMinutes}
+                options={[[1, 'Every minute'], [5, 'Every 5 min'], [15, 'Every 15 min'], [30, 'Every 30 min']]}
+                onChange={(reviewsRefreshMinutes) => set({ reviewsRefreshMinutes })}
+              />
+              <Toggle label="Review notifications" value={st.reviewNotifications} onChange={(reviewNotifications) => set({ reviewNotifications })} />
+            </section>
           </TabPanel>
           <TabPanel id="Updates" className={s.panel}>
             <Toggle label="Check for updates automatically" value={st.autoUpdateCheck} onChange={(autoUpdateCheck) => set({ autoUpdateCheck })} />
@@ -255,17 +261,37 @@ export function IdentityForm() {
   )
 }
 
-/** Current repo's provider override and Gerrit account (PLAN.md §6), reusing the Reviews tab dialogs. */
+/** Gerrit card header, current repo's provider override and Gerrit account (PLAN.md §6), reusing the Reviews tab dialogs. */
 function GerritSection({ repo }: { repo?: string }) {
+  const qc = useQueryClient()
   const q = useQuery({ queryKey: ['provider', repo], queryFn: () => window.mendel['provider:get']({ repo: repo! }), enabled: !!repo })
   const [dialog, setDialog] = useState<'provider' | 'connect' | null>(null)
   const st = q.data
   const d = st?.detection
-  if (!repo) return <p className={a.muted}>Open a repository to set its provider and Gerrit account.</p>
-  if (!st) return null
   const gerrit = d?.provider === 'gerrit'
+  const header = (
+    <div className={s.providerHead}>
+      <strong id="provider-gerrit">Gerrit</strong>
+      {gerrit && <span className={s.live} aria-hidden />}
+      <span className={s.providerHost}>{gerrit ? d.host : 'Not used by this repository'}</span>
+    </div>
+  )
+  if (!repo)
+    return (
+      <>
+        {header}
+        <p className={a.muted}>Open a repository to set its provider and Gerrit account.</p>
+      </>
+    )
+  if (!st) return header
+  const signOut = () =>
+    void window.mendel['gerrit:disconnect']({ repo }).then(() => {
+      void qc.invalidateQueries({ queryKey: ['provider', repo] })
+      void qc.invalidateQueries({ queryKey: ['gerrit', repo] })
+    })
   return (
     <>
+      {header}
       <Row label="This repository">
         <span>
           {gerrit ? `Gerrit${d.baseUrl ? ` at ${d.baseUrl}` : ' (URL not set)'}` : 'No provider'} · provider setting: {st.override.provider}
@@ -273,12 +299,13 @@ function GerritSection({ repo }: { repo?: string }) {
       </Row>
       {gerrit && (
         <Row label="Account">
-          <span>{st.credentialUser ? `Connected as ${st.credentialUser}` : 'Not connected'}</span>
+          <span className={s.grow}>{st.credentialUser ? `Connected as ${st.credentialUser}` : 'Not connected'}</span>
+          {d.baseUrl && <Button onPress={() => setDialog('connect')}>Connect…</Button>}
+          {st.credentialUser && <Button onPress={signOut}>Sign out</Button>}
         </Row>
       )}
       <div className={a.row}>
         <Button onPress={() => setDialog('provider')}>Repository provider…</Button>
-        {gerrit && d.baseUrl && <Button onPress={() => setDialog('connect')}>Connect…</Button>}
       </div>
       <AnimatePresence>
         {dialog === 'provider' && <RepoProviderDialog key="provider" repo={repo} state={st} onClose={() => setDialog(null)} />}
