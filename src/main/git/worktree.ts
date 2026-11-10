@@ -53,8 +53,9 @@ export async function addWorktree(cwd: string, dest: string, o: { branch: string
   if (!path.isAbsolute(dest)) throw new Error('Invalid folder')
   let args: string[]
   if (o.create) {
-    if (o.base) await fullBranchRef(cwd, o.base, env)
-    args = ['-b', await validateBranchName(cwd, o.branch, env), ...endOfOptions(dest, ...(o.base ? [o.base] : []))]
+    // the full ref, so a tag with the same short name can't make git refuse it as ambiguous
+    const base = o.base ? await fullBranchRef(cwd, o.base, env) : null
+    args = ['-b', await validateBranchName(cwd, o.branch, env), ...endOfOptions(dest, ...(base ? [base] : []))]
   } else if ((await fullBranchRef(cwd, o.branch, env)).startsWith('refs/heads/')) {
     args = endOfOptions(dest, o.branch)
   } else {
