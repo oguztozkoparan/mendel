@@ -34,6 +34,17 @@ describe('gerrit detection', () => {
     expect(candidates(remote('https://h:8443/a/p'))).toEqual(['https://h:8443', 'https://h:8443/r', 'https://h:8443/gerrit'])
   })
 
+  it('a server without anonymous access is found by its /a/ Basic realm, version unknown', async () => {
+    const closed: Probe = async (url) =>
+      url === 'https://closed/a/config/server/version'
+        ? { status: 401, body: 'Unauthorized', auth: 'Basic realm="Gerrit Code Review"' }
+        : url.endsWith('/a/config/server/version')
+          ? { status: 401, body: '', auth: 'Basic realm="Other"' }
+          : { status: 200, body: '<html>login</html>' }
+    expect(await gerritProvider.detect([remote('https://closed/p/q.git')], closed)).toMatchObject({ baseUrl: 'https://closed', serverVersion: '' })
+    expect(await gerritProvider.detect([remote('https://other/p/q.git')], closed)).toBeNull()
+  })
+
   it('no hints and probe 404 → no provider; github.com is never probed', async () => {
     expect(await gerritProvider.detect([remote('https://plain.example.com/x/y.git')], async () => ({ status: 404, body: 'nope' }))).toBeNull()
     let probed = false

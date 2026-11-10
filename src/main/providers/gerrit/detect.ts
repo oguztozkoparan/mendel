@@ -22,10 +22,17 @@ export function candidates(r: Remote): string[] {
   return [...new Set(out)]
 }
 
-/** `GET <base>/config/server/version` → version string if this is Gerrit (200 + XSSI prefix), else null. */
+/**
+ * `GET <base>/config/server/version` → version string if this is Gerrit (200 + XSSI prefix), else null.
+ * Servers without anonymous access redirect that to /login; their authenticated `/a/` endpoint answers
+ * 401 with Gerrit's Basic realm, which also identifies Gerrit ('' = version unknown until signed in).
+ */
 export async function probeGerrit(base: string, probe: Probe): Promise<string | null> {
   const res = await probe(`${base}/config/server/version`)
-  if (res?.status !== 200 || !res.body.startsWith(XSSI)) return null
+  if (res?.status !== 200 || !res.body.startsWith(XSSI)) {
+    const auth = await probe(`${base}/a/config/server/version`)
+    return auth?.status === 401 && /realm="Gerrit Code Review"/i.test(auth.auth ?? '') ? '' : null
+  }
   try {
     const v: unknown = JSON.parse(res.body.slice(XSSI.length))
     return typeof v === 'string' ? v : ''

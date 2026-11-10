@@ -19,7 +19,7 @@ export const allowLoopbackHttp = testSeams
 const probe: Probe = async (url) => {
   try {
     const res = await net.fetch(url, { signal: AbortSignal.timeout(3000) })
-    return { status: res.status, body: await readCapped(res, 64 * 1024) }
+    return { status: res.status, body: await readCapped(res, 64 * 1024), auth: res.headers.get('www-authenticate') ?? undefined }
   } catch {
     return null
   }
