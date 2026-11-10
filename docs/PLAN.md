@@ -54,6 +54,8 @@ Line staging, stash list, tags, blame, history search & file history, cherry-pic
 ### Later
 GitHub provider (PRs; needs its own design pass first: the provider interface only covers what Gerrit uses).
 
+Code signing: macOS Developer ID + notarization and a Windows certificate (secrets and open checks in `docs/RELEASE.md` → Signing). Until then releases are unsigned and macOS opens the download page instead of self-installing. With it: split signing and publishing into separate CI jobs (RELEASE.md → CI hardening).
+
 ### Deferred (revisit on demand)
 - **3-way merge editor**: large; users already have an editor (see "Conflict UI" above).
 - **Gerrit drafts sync**: drafts are local until sent by design; syncing with server drafts adds a second source of truth and conflicts.
@@ -436,7 +438,7 @@ Test setup: e2e fixtures create temp repos + a local bare remote; a **mock Gerri
 - Version source: `package.json` `version`, semver. Tag `vX.Y.Z` triggers CI.
 - CI matrix builds macOS (arm64 + x64, dmg + zip), Windows (x64 installer), Linux (AppImage + deb), generates update metadata, uploads to a **draft** release; a human publishes it (publishing = what the update checker sees).
 - Release notes generated from `feat(...)`/`bug(...)` commits since the previous tag, grouped Features / Fixes.
-- Local command `npm run release -- <major|minor|patch>`: verifies clean tree on default branch + passing typecheck/tests, bumps version, commits `feat(release): vX.Y.Z` (only `feat`/`bug` prefixes are allowed by the commit hook), tags. Pushing the tag is manual (CLAUDE.md: no push unless asked).
+- Local command `npm run release`: verifies clean tree on default branch + passing typecheck/tests, bumps version (bump picked from the commits since the last tag: `feat` → minor, only `bug` → patch; `-- <major|minor|patch>` overrides), commits `feat(release): vX.Y.Z` (only `feat`/`bug` prefixes are allowed by the commit hook), tags. Pushing the tag is manual (CLAUDE.md: no push unless asked).
 - Signing: macOS Developer ID + notarization and Windows code signing via CI secrets when available. Without them builds still release, but macOS auto-install is disabled (flow 4.10 step 3).
 
 ---

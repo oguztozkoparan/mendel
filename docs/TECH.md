@@ -104,7 +104,7 @@ Integrity: HTTPS + `sha512` per file in `latest*.yml` (checked by electron-updat
 Build targets: mac `dmg` + `zip` (zip is **required** for `latest-mac.yml`), arch `arm64` and `x64`; win `nsis` x64 (+arm64 later); linux `AppImage` + `deb` x64.
 
 Release process (in repo):
-1. `npm run release -- minor` → `npm version -m "feat(release): v%s" minor` (message passes `scripts/commit-msg`; the default `npm version` message `1.2.0` would be rejected) → commit + tag `v1.2.0`; then `git push --follow-tags`.
+1. `npm run release` (bump from the commits since the last tag, or forced: `npm run release -- minor`) → `npm version -m "feat(release): v%s" minor` (message passes `scripts/commit-msg`; the default `npm version` message `1.2.0` would be rejected) → commit + tag `v1.2.0`; then `git push --follow-tags`.
 2. `.github/workflows/release.yml` on `push: tags: ['v*']`, matrix `macos-latest`, `windows-latest`, `ubuntu-latest`: checkout → setup-node 24 → `npm ci` → `npm run typecheck && npm test` → `npx electron-builder --publish always` (`GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}`, `permissions: contents: write`). electron-builder creates/updates a **draft** release.
 3. Final job (`needs: build`): `node scripts/changelog.mjs v<prev> v<new> > notes.md` then `gh release edit v<new> --notes-file notes.md --draft=false`.
 4. Pin all third-party actions by commit SHA.
@@ -252,7 +252,7 @@ Scripts:
 | `test` | `vitest run` |
 | `e2e` | `npm run build && playwright test` |
 | `dist` | `npm run build && electron-builder --publish never` |
-| `release` | `npm version -m "feat(release): v%s"` (run `npm run release -- minor`; npm appends the arg). Then push manually: `git push --follow-tags` |
+| `release` | `npm version -m "feat(release): v%s"` (run `npm run release`; the script picks the bump from the commits since the last tag, or takes `-- minor`). Then push manually: `git push --follow-tags` |
 
 ## Open questions / risks
 1. Repo host undecided: GitHub provider assumes a **public** repo; private GitHub or internal host → use the generic provider on an HTTPS static host.

@@ -30,4 +30,18 @@ describe('scripts/release.mjs guards', () => {
     expect(r.status).toBe(1)
     expect(r.stderr).toContain('HEAD is not origin/main')
   })
+
+  it('picks the bump from the commits since the last tag', () => {
+    repo = createRepoFixture()
+    repo.git(['tag', 'v1.0.0'])
+    expect(release(repo).stderr).toContain('no feat/bug commits since v1.0.0')
+    repo.commitFile('a.txt', 'x\n', 'bug(app): fix')
+    repo.git(['push', '-q', 'origin', 'main'])
+    expect(release(repo).stdout).toContain('release: patch bump (last tag v1.0.0)') // then stops: the fixture has no npm project
+    repo.commitFile('b.txt', 'x\n', 'feat(app): add')
+    repo.git(['push', '-q', 'origin', 'main'])
+    expect(release(repo).stdout).toContain('release: minor bump')
+    expect(release(repo, 'major').stdout).toContain('release: major bump')
+    expect(repo.git(['tag'])).toBe('v1.0.0')
+  })
 })

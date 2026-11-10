@@ -4,8 +4,9 @@ Releases and the in-app update feed use GitHub `oguztozkoparan/mendel` (`publish
 switch to the `generic` HTTPS feed shown there to host elsewhere.
 
 ## Cut a release
-1. On an up-to-date, clean `main`: `npm run release -- <major|minor|patch>`.
-   It checks the tree and branch, runs `typecheck` and `test`, then `npm version` commits `feat(release): vX.Y.Z` and tags `vX.Y.Z`. Nothing is pushed.
+1. On an up-to-date, clean `main`: `npm run release`.
+   It checks the tree and branch, picks the bump from the commits since the last tag (any `feat` → minor, only `bug` → patch; force one with `npm run release -- <major|minor|patch>`), runs `typecheck` and `test`, then `npm version` commits `feat(release): vX.Y.Z` and tags `vX.Y.Z`. Nothing is pushed.
+   First release (no tag yet): the version in `package.json` is tagged as it is, without a bump commit.
 2. `git push --follow-tags`.
 3. `.github/workflows/release.yml` runs on the tag: verifies the tag is on `main`, builds macOS (dmg + zip, arm64 + x64), Windows (nsis x64) and Linux (AppImage + deb x64), uploads everything plus `latest*.yml` to a **draft** GitHub Release, then sets its notes from `node scripts/changelog.mjs vX.Y.Z` (`feat(...)` → Features, `bug(...)` → Fixes since the previous tag).
 

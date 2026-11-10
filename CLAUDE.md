@@ -10,7 +10,7 @@
 - dev: `npm run dev` · build: `npm run build` · typecheck: `npm run typecheck` (`tsc -b`)
 - test: `npm test` (vitest unit + git integration) · single file: `npx vitest run test/unit/<file>.test.ts`
 - e2e: `npm run e2e` (builds with `--mode e2e`, then Playwright `_electron` against `out/main/index.js`) · single: `npx playwright test test/e2e/<file>.spec.ts` after an e2e-mode build (`npx electron-vite build --mode e2e`; a plain `npm run build` compiles the test seams out)
-- package: `npm run dist` (electron-builder, `electron-builder.yml`) · release: `npm run release -- <major|minor|patch>`
+- package: `npm run dist` (electron-builder, `electron-builder.yml`) · release: `npm run release` (bump from commits since the last tag; force with `-- <major|minor|patch>`)
 
 ## Commits
 - Feature: `feat(<scope>): <description>` · bug fix: `bug(<scope>): <description>`. No other prefixes. Enforced by `scripts/commit-msg` (installed to `.git/hooks/commit-msg`).
