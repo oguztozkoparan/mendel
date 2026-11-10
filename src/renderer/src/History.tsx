@@ -1,6 +1,7 @@
 import { keepPreviousData, useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
+import { AnimatePresence } from 'motion/react'
 import { useMemo, useState, type FormEvent, type ReactNode } from 'react'
-import { Button, Collection, GridList, GridListItem, GridListLoadMoreItem, Input, Label, ListBox, ListBoxItem, ListLayout, SearchField, TextField, Virtualizer } from 'react-aria-components'
+import { Button, Collection, Dialog, DialogTrigger, GridList, GridListItem, GridListLoadMoreItem, Input, Label, ListBox, ListBoxItem, ListLayout, SearchField, TextField, Virtualizer } from 'react-aria-components'
 import { Diff, Hunk } from 'react-diff-view'
 import type { CommitDetail, CommitSummary } from '../../shared/ipc'
 import a from './App.module.css'
@@ -10,7 +11,8 @@ import { useParsedDiff, visible } from './DiffView'
 import { bannerError, ErrorBanner, type BannerError } from './ErrorBanner'
 import s from './History.module.css'
 import { RebaseDialog } from './RebaseDialog'
-import { Highlight } from './motion'
+import { Highlight, PopPopover } from './motion'
+import r from './Repos.module.css'
 import { ago } from './time'
 
 const PAGE = 100
@@ -220,51 +222,44 @@ function CommitView(p: { repo: string; sha: string; pick?: 'cherry-pick' | 'reve
   const [summary, ...body] = d.message.split('\n')
   const f = d.files.find((x) => x.path === file) ?? d.files[0]
   const date = (ms: number) => new Date(ms).toLocaleString()
+  const name = (who: string) => who.replace(/\s*<[^>]*>$/, '')
   return (
     <div className={s.detail} aria-label="Commit detail">
       <h2 className={s.title}>{summary}</h2>
+      {/* concept .who: one muted line; full SHA, emails and absolute dates live in the tooltips */}
+      <p className={s.who}>
+        <span title={`Author: ${d.author}, ${date(d.authorDate)}${d.committer !== d.author ? `\nCommitter: ${d.committer}, ${date(d.committerDate)}` : ''}`}>
+          {name(d.author)} committed {ago(d.authorDate)}
+        </span>
+        {' · '}
+        <Button
+          className={s.sha}
+          aria-label={`${copied ? 'Copied' : 'Copy'} SHA ${d.sha}`}
+          onPress={() => void window.mendel['app:copy']({ text: d.sha }).then(() => setCopied(true))}
+        >
+          <code title={`${d.sha}\n${date(d.committerDate)}\nClick to copy`}>{d.sha.slice(0, 7)}</code>
+          {copied && <span aria-hidden> copied</span>}
+        </Button>
+        {d.parents.length > 0 && (
+          <>
+            {' · '}
+            {d.parents.length > 1 ? 'parents' : 'parent'} <code title={d.parents.join('\n')}>{d.parents.map((x) => x.slice(0, 7)).join(' ')}</code>
+          </>
+        )}
+      </p>
+      <CommitTags repo={p.repo} sha={d.sha} />
       <div className={s.actions}>
-        {p.onAmend && <Button onPress={p.onAmend}>Amend last commit</Button>}
         {/* Merge commits need a mainline (-m): not offered. */}
         {p.pick && d.parents.length < 2 && (
           <Button isDisabled={busy} onPress={pick}>
             {p.pick === 'revert' ? 'Revert commit' : 'Cherry-pick onto current branch'}
           </Button>
         )}
+        {p.onAmend && <Button onPress={p.onAmend}>Amend last commit</Button>}
+        <TagButton repo={p.repo} sha={d.sha} />
       </div>
       {error && <p role="alert" className={c.empty}>{error}</p>}
       {body.join('\n').trim() && <pre className={s.message}>{body.join('\n').trim()}</pre>}
-      <dl className={s.fields}>
-        <dt>Author</dt>
-        <dd>
-          {d.author} · {date(d.authorDate)}
-        </dd>
-        {d.committer !== d.author && (
-          <>
-            <dt>Committer</dt>
-            <dd>
-              {d.committer} · {date(d.committerDate)}
-            </dd>
-          </>
-        )}
-        <dt>SHA</dt>
-        <dd>
-          <code>{d.sha}</code>{' '}
-          <Button className="ghost" onPress={() => void window.mendel['app:copy']({ text: d.sha }).then(() => setCopied(true))}>{copied ? 'Copied' : 'Copy'}</Button>
-        </dd>
-        {d.parents.length > 0 && (
-          <>
-            <dt>{d.parents.length > 1 ? 'Parents' : 'Parent'}</dt>
-            <dd>
-              <code>{d.parents.map((x) => x.slice(0, 7)).join(' ')}</code>
-            </dd>
-          </>
-        )}
-        <dt>Tags</dt>
-        <dd>
-          <CommitTags repo={p.repo} sha={d.sha} />
-        </dd>
-      </dl>
       <Virtualizer layout={ListLayout} layoutOptions={{ rowHeight: 30 }}>
         <ListBox
           aria-label="Changed files"
@@ -302,52 +297,83 @@ function CommitView(p: { repo: string; sha: string; pick?: 'cherry-pick' | 'reve
   )
 }
 
-/** Tags on this commit (Push / Delete) and a small create form; a message makes the tag annotated. */
+/** Tags on this commit as chips (Push / Delete). */
 function CommitTags(p: { repo: string; sha: string }) {
   const qc = useQueryClient()
   const q = useQuery({ queryKey: ['tags', p.repo], queryFn: () => window.mendel['tag:list']({ repo: p.repo }) })
-  const [name, setName] = useState('')
-  const [message, setMessage] = useState('')
   const [error, setError] = useState<string | null>(null)
   const run = (op: Promise<unknown>) => {
     setError(null)
-    return op.then(
+    void op.then(
       () => refreshRepo(qc, p.repo),
       (err: Error) => setError(err.message)
     )
   }
-  const submit = (e: FormEvent) => {
-    e.preventDefault()
-    void run(window.mendel['tag:create']({ repo: p.repo, name: name.trim(), sha: p.sha, message: message.trim() || undefined }).then(() => (setName(''), setMessage(''))))
-  }
+  const tags = q.data?.filter((t) => t.sha === p.sha) ?? []
+  if (!tags.length && !error) return null
   return (
-    <>
-      {q.data
-        ?.filter((t) => t.sha === p.sha)
-        .map((t) => (
-          <span key={t.name} aria-label={`Tag ${t.name}`}>
-            <code>{t.name}</code> <Button onPress={() => void run(window.mendel['tag:push']({ repo: p.repo, name: t.name }))}>Push</Button>{' '}
-            <Button onPress={() => void run(window.mendel['tag:delete']({ repo: p.repo, name: t.name }))}>Delete…</Button>{' '}
-          </span>
-        ))}
-      <form onSubmit={submit} aria-label="Create tag" className={s.tagForm}>
-        <TextField value={name} onChange={setName} aria-label="Tag name">
-          <Input placeholder="Tag name" spellCheck={false} />
-        </TextField>
-        <TextField value={message} onChange={setMessage}>
-          <Label className={a.muted}>Message (optional, annotated)</Label>
-          <Input spellCheck={false} />
-        </TextField>
-        <Button type="submit" isDisabled={!name.trim()}>
-          Create tag
-        </Button>
-      </form>
+    <div className={s.tags}>
+      {tags.map((t) => (
+        <span key={t.name} aria-label={`Tag ${t.name}`} className={s.tag}>
+          <code>{t.name}</code>
+          <Button className="ghost" onPress={() => run(window.mendel['tag:push']({ repo: p.repo, name: t.name }))}>Push</Button>
+          <Button className="ghost" onPress={() => run(window.mendel['tag:delete']({ repo: p.repo, name: t.name }))}>Delete…</Button>
+        </span>
+      ))}
       {error && (
         <p role="alert" className={a.error}>
           {error}
         </p>
       )}
-    </>
+    </div>
+  )
+}
+
+/** "Tag…" popover: name and optional message (a message makes the tag annotated). */
+function TagButton(p: { repo: string; sha: string }) {
+  const qc = useQueryClient()
+  const [open, setOpen] = useState(false)
+  const [name, setName] = useState('')
+  const [message, setMessage] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const submit = (e: FormEvent) => {
+    e.preventDefault()
+    setError(null)
+    void window.mendel['tag:create']({ repo: p.repo, name: name.trim(), sha: p.sha, message: message.trim() || undefined }).then(
+      () => (setName(''), setMessage(''), setOpen(false), refreshRepo(qc, p.repo)),
+      (err: Error) => setError(err.message)
+    )
+  }
+  return (
+    <DialogTrigger isOpen={open} onOpenChange={(o) => (setOpen(o), setError(null))}>
+      <Button>Tag…</Button>
+      <AnimatePresence>
+        {open && (
+          <PopPopover placement="bottom start" className={r.popover}>
+            <Dialog aria-label="Create tag" className={r.menu}>
+              <form onSubmit={submit} className={s.tagForm}>
+                <TextField value={name} onChange={setName} autoFocus className={a.field}>
+                  <Label>Tag name</Label>
+                  <Input spellCheck={false} />
+                </TextField>
+                <TextField value={message} onChange={setMessage} className={a.field}>
+                  <Label>Message (optional, annotated)</Label>
+                  <Input spellCheck={false} />
+                </TextField>
+                {error && (
+                  <p role="alert" className={a.error}>
+                    {error}
+                  </p>
+                )}
+                <Button type="submit" isDisabled={!name.trim()}>
+                  Create tag
+                </Button>
+              </form>
+            </Dialog>
+          </PopPopover>
+        )}
+      </AnimatePresence>
+    </DialogTrigger>
   )
 }
 

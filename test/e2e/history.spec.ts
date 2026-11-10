@@ -19,10 +19,10 @@ test('history lists commits newest first; selecting shows message, files and dif
     await expect(list.getByRole('row').first()).toContainText('unpushed')
     await expect(list.getByRole('row').last()).not.toContainText('unpushed')
     const detail = win.getByLabel('Commit detail')
-    await expect(detail).toContainText(sha)
+    await expect(detail.getByRole('button', { name: `Copy SHA ${sha}` })).toContainText(sha.slice(0, 7))
     await expect(win.getByLabel('Commit diff')).toContainText('bee')
-    await detail.getByRole('button', { name: 'Copy' }).click()
-    await expect(detail.getByRole('button', { name: 'Copied' })).toBeVisible()
+    await detail.getByRole('button', { name: `Copy SHA ${sha}` }).click()
+    await expect(detail.getByRole('button', { name: `Copied SHA ${sha}` })).toBeVisible()
     expect(await app.app.evaluate(({ clipboard }) => clipboard.readText())).toBe(sha)
 
     await list.getByRole('row', { name: /Add a/ }).click()
