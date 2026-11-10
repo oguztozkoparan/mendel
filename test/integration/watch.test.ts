@@ -31,4 +31,19 @@ describe('watchRepo', () => {
     writeFileSync(path.join(fx.work, '.gitignore'), 'build/\n/venv\n')
     expect((await linuxWatchDirs(fx.work, fx.env)).sort()).toEqual(['.git', 'src'])
   })
+
+  it("a linked worktree also fires when only its index changes (git dir outside the work tree)", async () => {
+    const fx = createRepoFixture()
+    dir = fx.dir
+    const wt = path.join(fx.dir, 'wt')
+    fx.git(['worktree', 'add', '-q', '-b', 'feat', wt])
+    writeFileSync(path.join(wt, 'a.txt'), 'a')
+    await new Promise((r) => setTimeout(r, 500))
+    let calls = 0
+    watchRepo(wt, () => calls++)
+    await new Promise((r) => setTimeout(r, 500))
+    calls = 0
+    fx.git(['add', 'a.txt'], wt) // writes <main>/.git/worktrees/wt/index only
+    await expect.poll(() => calls, { timeout: 3000 }).toBeGreaterThan(0)
+  })
 })
