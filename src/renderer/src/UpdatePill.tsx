@@ -1,7 +1,8 @@
 import { AnimatePresence } from 'motion/react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { UpdateState } from '../../shared/ipc'
 import { PopPanel } from './motion'
+import { openSettings } from './Settings'
 import s from './UpdatePill.module.css'
 
 /** Shift the panel left so it stays 12px inside the window (react-aria popovers clamp themselves). */
@@ -21,8 +22,21 @@ export function UpdatePill() {
     return window.mendel.on('update:state', setState)
   }, [])
 
-  // Checking and its result live in Settings → Updates; the toolbar only shows a found update.
-  if (state.status !== 'available' && state.status !== 'downloading' && state.status !== 'downloaded') return null
+  // Checking and its result live in Settings → Updates; the toolbar only shows a found update,
+  // and an error only when it ends an update the pill was already showing (a failed download must not just vanish).
+  const shown = useRef(false)
+  const found = state.status === 'available' || state.status === 'downloading' || state.status === 'downloaded'
+  if (found) shown.current = true
+  else if (state.status !== 'error') shown.current = false
+  if (state.status === 'error' && shown.current)
+    return (
+      <div className={s.root}>
+        <button type="button" className={s.pill} title={state.message} onClick={() => openSettings('Updates')}>
+          Update failed…
+        </button>
+      </div>
+    )
+  if (!found) return null
   return (
     <div className={s.root}>
       {state.status === 'available' && (
