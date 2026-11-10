@@ -118,7 +118,15 @@ export function ChangesView(p: {
       if (sha)
         p.onNotice({
           text: 'Changes discarded. A backup is saved in Stashes.',
-          action: { label: 'Undo', run: () => act(window.mendel['stash:action']({ repo: repo.id, sha, action: 'pop', index: true }).finally(() => refreshLocal(qc, repo.id))) }
+          // The notice outlives this view (it follows the user across tabs): report the outcome through another notice, not local state.
+          action: {
+            label: 'Undo',
+            run: () =>
+              window.mendel['stash:action']({ repo: repo.id, sha, action: 'pop', index: true })
+                .then((r) => r === 'conflict' && p.onNotice({ text: 'Backup restored with conflicts: resolve them in Changes.' }))
+                .catch((e: Error) => p.onNotice({ text: `Undo failed: ${e.message}. The backup is still in Stashes.` }))
+                .finally(() => refreshLocal(qc, repo.id))
+          }
         })
     })
   /** PLAN.md §7: Space stages/unstages and Mod+Backspace discards the selected file while the file list has focus. */
