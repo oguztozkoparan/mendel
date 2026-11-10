@@ -90,8 +90,8 @@ test('History: paged list of the project, load more, owner: + status: search, op
   // Typing without Enter searches once the input pauses: one request for the whole word, not one per key.
   await box.fill('')
   await expect.poll(() => searches().at(-1)!.get('q')).toBe('project:"p/q"')
-  const typed = searches().length
   await box.pressSequentially('refactor', { delay: 40 })
   await expect.poll(() => searches().at(-1)!.get('q')).toBe('project:"p/q" message:"refactor"')
-  expect(searches().length).toBe(typed + 1)
+  const typedQueries = searches().map((u) => u.get('q')!).filter((q) => q.includes('message:"r'))
+  expect(typedQueries).toEqual(['project:"p/q" message:"refactor"']) // no request for "r", "re", "ref", …
 })
