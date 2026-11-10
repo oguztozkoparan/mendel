@@ -58,7 +58,10 @@ export function Reviews({ repo, state, focus }: { repo: RepoEntry; state: Provid
     placeholderData: keepPreviousData
   })
   // A change can move between pages while paging (updated sorts it to the top): keep its first occurrence only.
-  const historyChanges = useMemo(() => [...new Map((history.data?.pages.flatMap((p) => p.changes) ?? []).reverse().map((ch) => [ch._number, ch])).values()].reverse(), [history.data])
+  const historyChanges = useMemo(() => {
+    const seen = new Set<number>()
+    return (history.data?.pages.flatMap((p) => p.changes) ?? []).filter((ch) => !seen.has(ch._number) && !!seen.add(ch._number))
+  }, [history.data])
   const listError = lists.error ?? (tab === 'history' ? history.error : null)
   // Keyed by credential user: reconnecting as someone else re-reads the account id.
   const self = useQuery({ queryKey: ['gerrit', repo.id, 'self', state.credentialUser], queryFn: () => window.mendel['gerrit:self']({ repo: repo.id }), enabled: ready, staleTime: Infinity })
