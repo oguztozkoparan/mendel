@@ -57,6 +57,11 @@ test('history search by message and author:; file history from a commit file', a
     await expect(list).toContainText('No matching commits')
     await msg.press('Escape')
     await expect(list.getByRole('row')).toHaveCount(4)
+    await msg.fill('ADD')
+    await msg.press('Enter')
+    await expect(list.getByRole('row')).toHaveCount(2)
+    await msg.fill('') // what the native clear (×) reports
+    await expect(list.getByRole('row')).toHaveCount(4)
 
     await expect(win.getByLabel('Commit detail').getByRole('heading', { name: 'Tweak a' })).toBeVisible()
     await win.getByLabel('Commit detail').getByRole('button', { name: 'File history' }).click()

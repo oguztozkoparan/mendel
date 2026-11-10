@@ -76,6 +76,14 @@ test('History: paged list of the project, load more, owner: + status: search, op
   await box.press('Enter')
   await expect(list.getByRole('option')).toHaveCount(1)
   expect(searches().at(-1)!.get('q')).toBe('project:"p/q" message:"import" owner:"self" status:"merged"')
+  const before = searches().length
+  await box.fill('') // what the native clear (×) reports
+  await expect.poll(() => searches().length).toBeGreaterThan(before)
+  expect(searches().at(-1)!.get('q')).toBe('project:"p/q"')
+  await expect(list.getByRole('option')).not.toHaveCount(1)
+  await box.fill('owner:self status:merged import')
+  await box.press('Enter')
+  await expect(list.getByRole('option')).toHaveCount(1)
   await list.getByRole('option').filter({ hasText: '#90 · Merged' }).click()
   await expect(win.getByRole('heading', { name: 'Initial import' })).toBeVisible()
 })

@@ -122,7 +122,8 @@ export function HistoryView(p: { repo: string; decorate?: (c: CommitSummary) => 
             className={s.grep}
             isInvalid={queryErrors.length > 0}
             validationBehavior="aria"
-            onChange={() => queryErrors.length && setQueryErrors([])}
+            // the native × (and select-all + delete) only reports an empty value, never onClear
+            onChange={(v) => (v === '' ? search('') : queryErrors.length && setQueryErrors([]))}
             onSubmit={search}
             onClear={() => search('')}
           >

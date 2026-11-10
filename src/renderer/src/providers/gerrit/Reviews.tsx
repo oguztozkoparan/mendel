@@ -180,7 +180,8 @@ export function Reviews({ repo, state, focus }: { repo: RepoEntry; state: Provid
                 className={h.grep}
                 isInvalid={searchErrors.length > 0}
                 validationBehavior="aria"
-                onChange={() => searchErrors.length && setSearchErrors([])}
+                // the native × (and select-all + delete) only reports an empty value, never onClear
+                onChange={(v) => (v === '' ? applySearch('') : searchErrors.length && setSearchErrors([]))}
                 onSubmit={applySearch}
                 onClear={() => applySearch('')}
               >
