@@ -409,7 +409,7 @@ export const invoke = {
   /** All stashes, newest first. */
   'stash:list': res<StashEntry[]>()(inRepo),
   /** Apply, pop or drop (native confirm first; false = cancelled) the stash with commit `sha`; 'conflict' = apply/pop left unmerged files. */
-  'stash:action': res<SyncResult | false>()(z.object({ repo: repoId, sha, action: z.enum(['apply', 'pop', 'drop']) }).strict()),
+  'stash:action': res<SyncResult | false>()(z.object({ repo: repoId, sha, action: z.enum(['apply', 'pop', 'drop']), index: z.boolean().optional() }).strict()),
   /** Restore (pop) or discard (confirm first) the current branch's "Stash & switch" changes. false = cancelled. */
   'branch:stash': res<boolean>()(z.object({ repo: repoId, action: z.enum(['restore', 'discard']) }).strict()),
   'worktree:list': res<WorktreeInfo[]>()(inRepo),

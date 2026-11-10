@@ -34,8 +34,8 @@ export const branchHandlers: Handlers<'branch:list' | 'branch:create' | 'branch:
     return true
   },
   'stash:list': ({ repo }) => listStashes(repoRoot(repo)),
-  'stash:action': async ({ repo, sha, action }, e) => {
+  'stash:action': async ({ repo, sha, action, index }, e) => {
     if (action === 'drop' && !(await confirm(e, 'Drop', 'Drop this stash?', 'Its changes will be lost.'))) return false
-    return stashAction(repoRoot(repo), sha, action)
+    return stashAction(repoRoot(repo), sha, action, undefined, index)
   }
 }

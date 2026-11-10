@@ -118,7 +118,7 @@ export function ChangesView(p: {
       if (sha)
         p.onNotice({
           text: 'Changes discarded. A backup is saved in Stashes.',
-          action: { label: 'Undo', run: () => act(window.mendel['stash:action']({ repo: repo.id, sha, action: 'pop' }).finally(() => refreshLocal(qc, repo.id))) }
+          action: { label: 'Undo', run: () => act(window.mendel['stash:action']({ repo: repo.id, sha, action: 'pop', index: true }).finally(() => refreshLocal(qc, repo.id))) }
         })
     })
   /** PLAN.md §7: Space stages/unstages and Mod+Backspace discards the selected file while the file list has focus. */

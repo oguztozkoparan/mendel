@@ -130,10 +130,19 @@ export async function listStashes(cwd: string, env?: NodeJS.ProcessEnv): Promise
  * Apply, pop or drop the stash with commit `sha`; its `stash@{n}` is looked up now, so a shifted list cannot hit the wrong entry.
  * 'conflict' = apply/pop left unmerged files (a conflicting pop keeps the stash); nothing to continue, only files to resolve.
  */
-export async function stashAction(cwd: string, sha: string, action: 'apply' | 'pop' | 'drop', env?: NodeJS.ProcessEnv): Promise<SyncResult> {
+/** `index`: also restore what was staged (apply/pop `--index`), falling back to a plain apply when git can't. */
+export async function stashAction(cwd: string, sha: string, action: 'apply' | 'pop' | 'drop', env?: NodeJS.ProcessEnv, index = false): Promise<SyncResult> {
   const { stdout } = await git(['stash', 'list', '--format=%gd%x00%H'], { cwd, env })
   const ref = stdout.split('\n').map((l) => l.split('\0')).find(([r, h]) => r && h === sha)?.[0]
   if (!ref) throw new Error('Unknown stash')
+  if (index && action !== 'drop') {
+    try {
+      await git(['stash', action, '--index', '--quiet', ref], { cwd, env })
+      return 'ok'
+    } catch (err) {
+      if (!(err instanceof GitError && /--index/.test(err.stderr))) return conflictAware(cwd, Promise.reject(err), env) // fallback only for "Conflicts in index. Try without --index."
+    }
+  }
   return conflictAware(cwd, git(['stash', action, '--quiet', ref], { cwd, env }), env)
 }
 

@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
+import { stashAction } from '../../src/main/git/branch'
 import { applyHunk, discardAll, discardPaths, getDiff } from '../../src/main/git/changes'
 import { createRepoFixture, type RepoFixture } from '../fixtures/repo'
 
@@ -118,5 +119,19 @@ describe('discard', () => {
     await expect(discardAll(fx.work, null, true, fx.env)).rejects.toThrow('A merge is in progress')
     expect(fx.git(['stash', 'list'])).toBe('')
     expect(fx.git(['status', '--porcelain'])).toBe('UU README.md')
+  })
+
+  it('undo of discard all restores the staged state (stash pop --index)', async () => {
+    fx = createRepoFixture()
+    fx.commitFile('a.txt', 'a\n')
+    writeFileSync(path.join(fx.work, 'a.txt'), 'staged\n')
+    fx.git(['add', 'a.txt'])
+    writeFileSync(path.join(fx.work, 'a.txt'), 'staged then edited\n')
+    const sha = (await discardAll(fx.work, null, false, fx.env))!
+    expect(fx.git(['status', '--porcelain'])).toBe('')
+    expect(await stashAction(fx.work, sha, 'pop', fx.env, true)).toBe('ok')
+    expect(fx.git(['status', '--porcelain'])).toBe('MM a.txt')
+    expect(fx.git(['show', ':a.txt'])).toBe('staged')
+    expect(read('a.txt')).toBe('staged then edited\n')
   })
 })
