@@ -147,7 +147,16 @@
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
-  align-items: baseline;
+  align-items: center;
+}
+
+/* Attention / Hashtags controls: ghost-button height so the rows stay close to the text rows above */
+.labelRow :is(input, select) {
+  height: calc(var(--ctl-h) - 4px);
+}
+
+.labelRow input {
+  width: 160px;
 }
 
 .labelRow strong {

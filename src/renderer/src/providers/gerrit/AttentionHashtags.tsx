@@ -45,7 +45,7 @@ export function AttentionHashtags({ repo, change: ch, me }: { repo: string; chan
           {needsMe(ch, me) && <span className={s.attention}>Needs your attention</span>}
           <span>{inSet.map((e) => who(e.account)).join(', ') || 'None'}</span>
           {needsMe(ch, me) && (
-            <Button isDisabled={busy} onPress={() => attention('self', false)}>
+            <Button className="ghost" isDisabled={busy} onPress={() => attention('self', false)}>
               Remove me
             </Button>
           )}
@@ -59,7 +59,7 @@ export function AttentionHashtags({ repo, change: ch, me }: { repo: string; chan
                   </option>
                 ))}
               </select>
-              <Button isDisabled={busy || !pick} onPress={() => attention(Number(pick), true)}>
+              <Button className="ghost" isDisabled={busy || !pick} onPress={() => attention(Number(pick), true)}>
                 Add
               </Button>
             </>
@@ -76,9 +76,9 @@ export function AttentionHashtags({ repo, change: ch, me }: { repo: string; chan
             </Button>
           </span>
         ))}
-        <input aria-label="New hashtag" value={tag} onChange={(e) => setTag(e.target.value)} disabled={busy} maxLength={100} />
-        <button type="submit" disabled={busy || !tag.trim()}>
-          Add hashtag
+        <input aria-label="New hashtag" placeholder="Add hashtag" value={tag} onChange={(e) => setTag(e.target.value)} disabled={busy} maxLength={100} />
+        <button type="submit" className="ghost" aria-label="Add hashtag" disabled={busy || !tag.trim()}>
+          Add
         </button>
       </form>
       {error && (
