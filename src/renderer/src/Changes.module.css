@@ -86,6 +86,9 @@
   --diff-gutter-delete-background-color: var(--diff-del-gutter);
   --diff-code-delete-background-color: var(--diff-del-bg);
   --diff-selection-background-color: var(--diff-sel);
+  /* picked lines: react-diff-view's own pale yellow is unreadable under dark text colours */
+  --diff-gutter-selected-background-color: var(--diff-sel);
+  --diff-code-selected-background-color: var(--diff-sel);
   font-size: 12px;
 }
 
@@ -143,16 +146,16 @@
 }
 
 /* Line-staging checkbox gets its own slot at the left of the old-number gutter, so it never covers a line number. */
-.diff :global(col.diff-gutter-col:first-child) {
+.staging :global(col.diff-gutter-col:first-child) {
   width: calc(7ch + 22px);
 }
 
-.diff :global(td.diff-gutter:first-child) {
+.staging :global(td.diff-gutter:first-child) {
   position: relative;
   padding-left: calc(1ch + 22px);
 }
 
-.diff .checkbox {
+.staging .checkbox {
   position: absolute;
   top: 50%;
   left: 6px;

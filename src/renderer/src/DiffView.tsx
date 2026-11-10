@@ -168,7 +168,7 @@ function DiffSection(p: { repo: string; file: FileChange; act: Act; staged: bool
         hunks={visible(parsed.hunks, p.whitespace)}
         selectedChanges={[...picked]}
         renderGutter={renderGutter}
-        className={s.diff}
+        className={`${s.diff} ${s.staging}`}
       >
         {(hunks) =>
           hunks.flatMap((h) => [
