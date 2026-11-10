@@ -6,6 +6,7 @@ import { Button, Checkbox } from 'react-aria-components'
 import type { FileChange } from '../../shared/ipc'
 import s from './Changes.module.css'
 import { diffStat } from './diffStat'
+import { highlight } from './highlight'
 import { staggerIn } from './motion'
 import { Toggle, useSettings } from './Settings'
 
@@ -108,6 +109,8 @@ function DiffSection(p: { repo: string; file: FileChange; act: Act; staged: bool
   const { file, staged } = p
   const q = useQuery(diffQuery(p.repo, file, staged))
   const { parsed, gate } = useParsedDiff(q.data)
+  const hunks = useMemo(() => (parsed ? visible(parsed.hunks, p.whitespace) : []), [parsed, p.whitespace])
+  const tokens = useMemo(() => highlight(hunks, file.path), [hunks, file.path])
   // DiffView is keyed by file: rows slide in once per shown file, not on every refetch.
   const section = useRef<HTMLElement>(null)
   const staggered = useRef(false)
@@ -165,7 +168,8 @@ function DiffSection(p: { repo: string; file: FileChange; act: Act; staged: bool
       <Diff
         viewType="unified"
         diffType={parsed.type}
-        hunks={visible(parsed.hunks, p.whitespace)}
+        hunks={hunks}
+        tokens={tokens}
         selectedChanges={[...picked]}
         renderGutter={renderGutter}
         className={`${s.diff} ${s.staging}`}

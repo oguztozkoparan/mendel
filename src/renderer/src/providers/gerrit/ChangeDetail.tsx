@@ -16,6 +16,7 @@ import 'react-diff-view/style/index.css'
 import type { GerritChange, GerritComment } from '../../../../shared/gerrit'
 import c from '../../Changes.module.css'
 import { useParsedDiff, visible } from '../../DiffView'
+import { highlight } from '../../highlight'
 import { AttentionHashtags } from './AttentionHashtags'
 import { ChangeActions } from './ChangeActions'
 import { Composer, DraftView, Thread, usePending, type Pending, type PendingStore } from './Comments'
@@ -248,6 +249,7 @@ function FileDiff(p: FileDiffProps) {
 
   // Anchor threads, new drafts and the open composer to diff rows; anything unanchored is shown above the diff.
   const hunks = useMemo(() => (parsed ? visible(parsed.hunks) : []), [parsed])
+  const tokens = useMemo(() => highlight(hunks, p.path), [hunks, p.path])
   const sideOf = (x: { side?: string; patch_set?: number }): Side => (x.side === 'PARENT' || (!!p.base && x.patch_set === p.base) ? 'old' : 'new')
   const keyOf = (side: Side, line?: number) => {
     const ch = line ? (side === 'old' ? findChangeByOldLineNumber(hunks, line) : findChangeByNewLineNumber(hunks, line)) : undefined
@@ -290,7 +292,7 @@ function FileDiff(p: FileDiffProps) {
   else if (!parsed.hunks.length) body = <p className={c.empty}>No content changes</p>
   else
     body = (
-      <Diff viewType="split" diffType={parsed.type} hunks={hunks} widgets={widgets} gutterEvents={gutterEvents} className={c.diff}>
+      <Diff viewType="split" diffType={parsed.type} hunks={hunks} tokens={tokens} widgets={widgets} gutterEvents={gutterEvents} className={c.diff}>
         {(hunks) => hunks.map((h) => <Hunk key={h.content} hunk={h} />)}
       </Diff>
     )

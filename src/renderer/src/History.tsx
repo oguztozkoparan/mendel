@@ -11,6 +11,7 @@ import { refreshRepo, useBranches } from './Branches'
 import { FileFilter, matchFile } from './Changes'
 import c from './Changes.module.css'
 import { useParsedDiff, visible } from './DiffView'
+import { highlight, highlightLines, renderTokens } from './highlight'
 import { bannerError, ErrorBanner, PaneBanners, type BannerError } from './ErrorBanner'
 import s from './History.module.css'
 import { RebaseDialog } from './RebaseDialog'
@@ -492,6 +493,7 @@ function TagButton(p: { repo: string; sha: string }) {
 function BlameView(p: { repo: string; sha: string; path: string; onPick?: (sha: string) => void }) {
   const q = useQuery({ queryKey: ['blame', p.repo, p.sha, p.path], queryFn: () => window.mendel['history:blame']({ repo: p.repo, sha: p.sha, path: p.path }) })
   const rows = useMemo(() => q.data?.map((x, i) => ({ ...x, id: i })) ?? [], [q.data])
+  const tokens = useMemo(() => (q.data ? highlightLines(q.data.map((x) => x.text), p.path) : undefined), [q.data, p.path])
   if (q.error) return <p role="alert" className={c.empty}>{q.error.message}</p>
   if (!q.data) return null
   return (
@@ -503,7 +505,7 @@ function BlameView(p: { repo: string; sha: string; path: string; onPick?: (sha: 
               <code>{x.sha.slice(0, 7)}</code> {x.author} · {ago(x.date)}
             </span>
             <span className={s.blameNo}>{x.id + 1}</span>
-            <span>{x.text}</span>
+            <span className="syntax">{tokens?.[x.id] ? renderTokens(tokens[x.id]!) : x.text}</span>
           </GridListItem>
         )}
       </GridList>
@@ -517,6 +519,8 @@ function CommitFileDiff(p: { repo: string; sha: string; file: CommitDetail['file
     queryFn: () => window.mendel['history:diff']({ repo: p.repo, sha: p.sha, path: p.file.path, origPath: p.file.origPath })
   })
   const { parsed, gate } = useParsedDiff(q.data)
+  const hunks = useMemo(() => (parsed ? visible(parsed.hunks) : []), [parsed])
+  const tokens = useMemo(() => highlight(hunks, p.file.path), [hunks, p.file.path])
   if (q.error) return <p role="alert" className={c.empty}>{q.error.message}</p>
   if (!q.data) return null
   if (parsed?.isBinary || /^Binary files /m.test(q.data)) return <p className={c.empty}>Binary file changed</p>
@@ -524,7 +528,7 @@ function CommitFileDiff(p: { repo: string; sha: string; file: CommitDetail['file
   if (!parsed?.hunks.length) return <p className={c.empty}>No content changes</p>
   return (
     <section className={c.diffPane} aria-label="Commit diff">
-      <Diff viewType="unified" diffType={parsed.type} hunks={visible(parsed.hunks)} className={c.diff}>
+      <Diff viewType="unified" diffType={parsed.type} hunks={hunks} tokens={tokens} className={c.diff}>
         {(hunks) => hunks.map((h) => <Hunk key={h.content} hunk={h} />)}
       </Diff>
     </section>

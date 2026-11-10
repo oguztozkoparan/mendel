@@ -114,6 +114,21 @@
   --diff-sel: color-mix(in srgb, var(--accent) 20%, transparent);
   /* edge ring of pressed accent keys (checkbox, radio); module CSS has no hex */
   --a-edge: color-mix(in srgb, var(--accent), #000 32%);
+  /* syntax (Prism tokens in diffs/blame); each >= 4.5:1 on --bg, add/del rows and every accent's --diff-sel */
+  --syn-keyword: light-dark(#7c2fbf, #d19af5);
+  --syn-string: light-dark(#864d00, #f2c46d);
+  --syn-number: light-dark(#a4320e, #ff9d73);
+  --syn-comment: light-dark(#515c65, #a3aeb6);
+  --syn-function: light-dark(#1e54bd, #82b4ff);
+  --syn-type: light-dark(#0d655f, #5fd3c4);
+  --syn-property: light-dark(#035f91, #7cc4ff);
+  --syn-operator: light-dark(#4f5c67, #b5c0c8);
+  --syn-punctuation: light-dark(#515c66, #a6b1ba);
+  --syn-tag: light-dark(#1d6831, #6fdc8c);
+  --syn-attr: light-dark(#035f91, #7cc4ff);
+  --syn-variable: light-dark(#a02a6a, #f59ac7);
+  --syn-regex: light-dark(#a4320e, #ff9d73);
+  --syn-constant: light-dark(#a4320e, #ff9d73);
 }
 
 html[data-platform='win32'] {
@@ -596,3 +611,20 @@ textarea,
 .diff-code {
   cursor: text;
 }
+
+/* Prism token classes (refractor) inside diff code cells and blame lines */
+:is(.diff-code, .syntax) .token:is(.comment, .prolog, .doctype, .cdata) { color: var(--syn-comment); font-style: italic; }
+:is(.diff-code, .syntax) .token:is(.keyword, .atrule, .rule, .important) { color: var(--syn-keyword); }
+:is(.diff-code, .syntax) .token:is(.string, .char, .template-string, .attr-value, .url, .inserted) { color: var(--syn-string); }
+:is(.diff-code, .syntax) .token.number { color: var(--syn-number); }
+:is(.diff-code, .syntax) .token:is(.boolean, .constant, .symbol, .entity, .builtin) { color: var(--syn-constant); }
+:is(.diff-code, .syntax) .token:is(.function, .function-variable) { color: var(--syn-function); }
+:is(.diff-code, .syntax) .token:is(.class-name, .maybe-class-name, .namespace) { color: var(--syn-type); }
+:is(.diff-code, .syntax) .token:is(.property, .selector, .key) { color: var(--syn-property); }
+:is(.diff-code, .syntax) .token:is(.operator, .arrow) { color: var(--syn-operator); }
+:is(.diff-code, .syntax) .token.punctuation { color: var(--syn-punctuation); }
+:is(.diff-code, .syntax) .token.tag { color: var(--syn-tag); }
+:is(.diff-code, .syntax) .token.attr-name { color: var(--syn-attr); }
+:is(.diff-code, .syntax) .token:is(.variable, .parameter, .deleted) { color: var(--syn-variable); }
+:is(.diff-code, .syntax) .token.regex { color: var(--syn-regex); }
+:is(.diff-code, .syntax) .token:is(.bold, .title) { font-weight: 600; }
