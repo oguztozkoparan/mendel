@@ -29,7 +29,8 @@ export function candidates(r: Remote): string[] {
  */
 export async function probeGerrit(base: string, probe: Probe): Promise<string | null> {
   const res = await probe(`${base}/config/server/version`)
-  if (res?.status !== 200 || !res.body.startsWith(XSSI)) {
+  if (!res) return null // unreachable or timed out: no second probe
+  if (res.status !== 200 || !res.body.startsWith(XSSI)) {
     const auth = await probe(`${base}/a/config/server/version`)
     return auth?.status === 401 && /realm="Gerrit Code Review"/i.test(auth.auth ?? '') ? '' : null
   }
