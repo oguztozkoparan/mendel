@@ -14,9 +14,8 @@
   flex: none;
   display: flex;
   -webkit-app-region: drag;
-  /* open hand over the drag area where the OS lets the page set the cursor (macOS); Windows/Linux hit-test the drag
-     region natively and keep their arrow. No "grabbing": during a native window move the OS owns the cursor. */
-  cursor: grab;
+  /* No page cursor here: every OS hit-tests drag regions natively and shows its arrow (CSS `cursor` is ignored;
+     measured on macOS with the system cursor). */
   border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
   box-shadow: inset 0 -1px 0 var(--hi-low);
   background: var(--bg-side);
