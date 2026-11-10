@@ -150,6 +150,8 @@
   gap: 8px;
   flex-wrap: wrap;
   align-items: center;
+  /* hanging indent: wrapped values and controls line up under the first value, not under the label */
+  padding-left: 118px;
 }
 
 /* Attention / Hashtags controls: ghost-button height so the rows stay close to the text rows above */
@@ -163,6 +165,13 @@
 
 .labelRow strong {
   min-width: 110px;
+  margin-left: -118px;
+}
+
+/* the hashtag × is one glyph wide: give it a usable hit area */
+.labelRow .link {
+  min-width: 18px;
+  min-height: 18px;
 }
 
 .attention {
