@@ -17,6 +17,8 @@ import { Highlight, PopPopover } from './motion'
 import r from './Repos.module.css'
 import { ago } from './time'
 import { fitRow, graphRows, type GraphRow } from './graph'
+import { Trailers } from './CommitTrailers'
+import { splitTrailers } from './trailers'
 
 const PAGE = 100
 /** Commit graph geometry (concept .lane: 30px column, dot centre 15px; row height as the list's). */
@@ -270,6 +272,7 @@ function CommitView(p: { repo: string; sha: string; pick?: 'cherry-pick' | 'reve
   const d = q.data
   if (!d) return null
   const [summary, ...body] = d.message.split('\n')
+  const { text, trailers } = splitTrailers(body.join('\n'))
   const shown = query.trim() ? d.files.filter(matchFile(query)) : d.files
   // The picked file stays selected while the filter still shows it.
   const f = shown.find((x) => x.path === file) ?? shown[0]
@@ -311,7 +314,8 @@ function CommitView(p: { repo: string; sha: string; pick?: 'cherry-pick' | 'reve
         <TagButton repo={p.repo} sha={d.sha} />
       </div>
       {error && <p role="alert" className={c.empty}>{error}</p>}
-      {body.join('\n').trim() && <pre className={s.message}>{body.join('\n').trim()}</pre>}
+      {text && <pre className={s.message}>{text}</pre>}
+      {trailers.length > 0 && <Trailers repo={p.repo} trailers={trailers} />}
       <FileFilter value={query} onChange={setQuery} count={shown !== d.files ? `${shown.length} of ${d.files.length} files` : undefined} className={s.filesFilter} />
       <Virtualizer layout={ListLayout} layoutOptions={{ rowHeight: 30 }}>
         <ListBox

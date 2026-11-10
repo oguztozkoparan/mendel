@@ -59,7 +59,7 @@ export function DialogShell({ children, ...p }: Pick<ModalOverlayProps, 'classNa
 }
 
 /** react-aria Popover that grows from its trigger; render it as `{open && <PopPopover>}` inside <AnimatePresence>. */
-export function PopPopover(p: Pick<PopoverProps, 'className' | 'placement'> & { children: ReactNode }) {
+export function PopPopover(p: Pick<PopoverProps, 'className' | 'placement' | 'isNonModal'> & { children: ReactNode }) {
   const rm = useReducedMotion()
   // While AnimatePresence plays the exit, the trigger is already closed: keep react-aria rendering it.
   const present = useIsPresent()

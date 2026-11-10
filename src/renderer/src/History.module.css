@@ -343,3 +343,113 @@
 .filesFilter {
   margin: 18px 26px -10px;
 }
+
+/* commit trailers (Trailers.tsx): one row per key, muted sentence-case label, flat chips like .tag */
+.trailers {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 68ch;
+  padding: 14px 26px 0;
+}
+
+.trailerGroup {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.trailerKey {
+  flex: none;
+  width: 92px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.trailerChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+.chip {
+  gap: 6px;
+  min-height: 22px;
+  max-width: 100%;
+  padding: 0 8px;
+  font-weight: inherit;
+  font-size: 12px;
+  background: color-mix(in srgb, var(--fg) 5%, transparent);
+  box-shadow: none;
+  cursor: var(--cursor-action);
+}
+
+.chip:where(:hover) {
+  filter: none;
+  background: color-mix(in srgb, var(--fg) 9%, transparent);
+}
+
+.chip[data-focus-visible] {
+  box-shadow: var(--focus);
+}
+
+.chip code,
+.chip span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chip:has(.avatar) {
+  padding-left: 2px;
+}
+
+.avatar {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+.chipNote {
+  color: var(--muted);
+}
+
+.trailerOther {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.personDialog {
+  outline: none;
+}
+
+.person {
+  min-width: 220px;
+  max-width: 320px;
+  gap: 2px;
+}
+
+.personEmail {
+  user-select: text;
+  cursor: text;
+  overflow-wrap: anywhere;
+}
+
+.personRoles {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.personCopy {
+  align-self: flex-start;
+  margin-top: 8px;
+}

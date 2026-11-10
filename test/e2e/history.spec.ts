@@ -218,3 +218,40 @@ test('filter a commit’s changed files by path; selection kept while visible; E
     fx.cleanup()
   }
 })
+
+test('commit trailers render as chips: person card with email, Change-Id copies, URL copies without Gerrit', async () => {
+  const fx = createRepoFixture()
+  const changeId = 'Ie7152f0c74c598a2d6c3443c610bceac2be412cf'
+  fx.commitFile('t.txt', 't\n', `Trailer commit\n\nBody line.\n\nChange-Id: ${changeId}\nReviewed-on: https://cb.example.com/c/lura/dcs/+/23288\nReviewed-by: Berkay Haberal <berkay@example.com>\nTested-by: Berkay Haberal <berkay@example.com>\nBug: 42`)
+  const app = await launchApp(fx.env)
+  const { win } = app
+  try {
+    await openRepo(app, fx.work)
+    await win.getByRole('tab', { name: 'History' }).click()
+    const detail = win.getByLabel('Commit detail')
+    const trailers = detail.getByLabel('Trailers')
+    await expect(detail).toContainText('Body line.')
+    await expect(detail.locator('pre')).not.toContainText('Change-Id')
+    await expect(trailers).toContainText('Reviewed by')
+    await expect(trailers).toContainText('Bug: 42')
+
+    await trailers.getByRole('button', { name: 'Berkay Haberal, Reviewed' }).press('Enter')
+    const card = win.getByRole('dialog', { name: 'Berkay Haberal' })
+    await expect(card).toContainText('berkay@example.com')
+    await expect(card).toContainText('Reviewed, Tested')
+    await card.getByRole('button', { name: 'Copy email' }).click()
+    await expect.poll(() => app.app.evaluate(({ clipboard }) => clipboard.readText())).toBe('berkay@example.com')
+    await win.keyboard.press('Escape')
+    await expect(card).toBeHidden()
+
+    await trailers.getByRole('button', { name: `Copy ${changeId}` }).click()
+    await expect(trailers.getByRole('button', { name: `Copied ${changeId}` })).toBeVisible()
+    await expect.poll(() => app.app.evaluate(({ clipboard }) => clipboard.readText())).toBe(changeId)
+
+    await trailers.getByRole('button', { name: 'Copy https://cb.example.com/c/lura/dcs/+/23288' }).click()
+    await expect.poll(() => app.app.evaluate(({ clipboard }) => clipboard.readText())).toBe('https://cb.example.com/c/lura/dcs/+/23288')
+  } finally {
+    await app.close()
+    fx.cleanup()
+  }
+})
