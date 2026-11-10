@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { createContext, useContext, useState, type ReactNode } from 'react'
 import { Button } from 'react-aria-components'
 import type { IpcError } from '../../shared/ipc'
 import a from './App.module.css'
@@ -51,3 +51,7 @@ export function ErrorBanner({ error, onDismiss }: { error: BannerError; onDismis
     </div>
   )
 }
+
+/** App-wide banners (error, notices, conflict, stash), shown at the top of whichever content pane is open, never over the sidebar. */
+export const AppBanners = createContext<ReactNode>(null)
+export const PaneBanners = () => <>{useContext(AppBanners)}</>

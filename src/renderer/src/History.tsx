@@ -9,7 +9,7 @@ import a from './App.module.css'
 import { refreshRepo, useBranches } from './Branches'
 import c from './Changes.module.css'
 import { useParsedDiff, visible } from './DiffView'
-import { bannerError, ErrorBanner, type BannerError } from './ErrorBanner'
+import { bannerError, ErrorBanner, PaneBanners, type BannerError } from './ErrorBanner'
 import s from './History.module.css'
 import { RebaseDialog } from './RebaseDialog'
 import { Highlight, PopPopover } from './motion'
@@ -119,6 +119,7 @@ export function HistoryView(p: { repo: string; decorate?: (c: CommitSummary) => 
         </Virtualizer>
       </aside>
       <section className={a.main}>
+        <PaneBanners />
         {q.error ? (
           <p role="alert" className={c.empty}>
             {q.error.message}
@@ -188,6 +189,7 @@ export function StashesView(p: { repo: string }) {
         </GridList>
       </aside>
       <section className={a.main}>
+        <PaneBanners />
         {error && <ErrorBanner error={error} onDismiss={() => setError(null)} />}
         {q.error ? (
           <p role="alert" className={c.empty}>

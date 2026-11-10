@@ -10,7 +10,7 @@ import { AuthPromptDialog } from './AuthPromptDialog'
 import { BranchSelector, refreshLocal, refreshRepo, StashBanner } from './Branches'
 import { CloneDialog } from './CloneDialog'
 import logo from '../../../build/icon.svg'
-import { bannerError, ErrorBanner, type BannerError } from './ErrorBanner'
+import { AppBanners, bannerError, ErrorBanner, type BannerError } from './ErrorBanner'
 import { ConflictBanner } from './Conflicts'
 import { RepoList, RepoSelector, type RepoActions } from './Repos'
 import { useMenuCommand } from './menu'
@@ -95,6 +95,25 @@ export function App() {
     else if (cmd === 'status:refresh' && current) void refreshRepo(qc, current.id)
   })
 
+  const banners = (
+    <>
+      {error && <ErrorBanner error={error} onDismiss={() => setError(null)} />}
+      <AnimatePresence>
+        {notice && (
+          <Toast key={notice.text}>
+            <div role="alert" className={`${s.banner} ${s.notice}`}>
+              <span>{notice.text}</span>
+              {notice.action && <Button onPress={() => (setNotice(null), notice.action!.run())}>{notice.action.label}</Button>}
+              <Button onPress={() => setNotice(null)}>Dismiss</Button>
+            </div>
+          </Toast>
+        )}
+      </AnimatePresence>
+      {current && <ConflictBanner key={`conflict:${current.id}`} repo={current.id} onError={onError} />}
+      {current && <StashBanner key={`stash:${current.id}`} repo={current.id} onError={onError} />}
+    </>
+  )
+
   return (
     <div className={s.app}>
       <header className={s.toolbar} aria-label="Toolbar">
@@ -115,23 +134,14 @@ export function App() {
           <Gear size={16} />
         </Button>
       </header>
-      {error && <ErrorBanner error={error} onDismiss={() => setError(null)} />}
-      <AnimatePresence>
-        {notice && (
-          <Toast key={notice.text}>
-            <div role="alert" className={`${s.banner} ${s.notice}`}>
-              <span>{notice.text}</span>
-              {notice.action && <Button onPress={() => (setNotice(null), notice.action!.run())}>{notice.action.label}</Button>}
-              <Button onPress={() => setNotice(null)}>Dismiss</Button>
-            </div>
-          </Toast>
-        )}
-      </AnimatePresence>
-      {current && <ConflictBanner key={`conflict:${current.id}`} repo={current.id} onError={onError} />}
-      {current && <StashBanner key={`stash:${current.id}`} repo={current.id} onError={onError} />}
       {current ? (
-        <RepoView key={current.id} repo={current} focus={focus} />
+        <AppBanners.Provider value={banners}>
+          <RepoView key={current.id} repo={current} focus={focus} />
+        </AppBanners.Provider>
       ) : (
+        banners
+      )}
+      {!current && (
         <main className={s.welcome}>
           <img src={logo} alt="" width={96} height={96} />
           <h1>Mendel</h1>

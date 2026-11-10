@@ -7,7 +7,7 @@ import { CommitBox } from './CommitBox'
 import s from './Changes.module.css'
 import { Highlight } from './motion'
 import { DiffView } from './DiffView'
-import { bannerError, ErrorBanner, type BannerError } from './ErrorBanner'
+import { bannerError, ErrorBanner, PaneBanners, type BannerError } from './ErrorBanner'
 import { useGerritCommitHint } from './providers/gerrit/commitHint'
 
 /** Letter shown in the list: index side first, untracked shows as added. */
@@ -110,6 +110,7 @@ export function ChangesView({ repo, amend, onAmendDone }: { repo: RepoEntry; ame
         <CommitBox repo={repo.id} hasStaged={files.some((f) => f.staged)} hint={hint} amend={amend} onAmendDone={onAmendDone} />
       </aside>
       <section className={a.main}>
+        <PaneBanners />
         {error && <ErrorBanner error={error} onDismiss={() => setError(null)} />}
         {status.error ? (
           <p role="alert" className={s.empty}>

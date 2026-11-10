@@ -6,6 +6,7 @@ import { Button, Checkbox, Header, ListBox, ListBoxItem, ListBoxSection } from '
 import { GERRIT_AUTH_ERROR, type GerritChange } from '../../../../shared/gerrit'
 import type { ProviderState, RepoEntry } from '../../../../shared/ipc'
 import a from '../../App.module.css'
+import { PaneBanners } from '../../ErrorBanner'
 import { useSettings } from '../../Settings'
 import { ChangeDetail } from './ChangeDetail'
 import c from '../../Changes.module.css'
@@ -151,7 +152,10 @@ export function Reviews({ repo, state, focus }: { repo: RepoEntry; state: Provid
           </ListBox>
         )}
       </aside>
-      <section className={a.main}>{main}</section>
+      <section className={a.main}>
+        <PaneBanners />
+        {main}
+      </section>
       <AnimatePresence>
         {dialog === 'provider' && <RepoProviderDialog key="provider" repo={repo.id} state={state} onClose={() => setDialog(null)} />}
         {dialog === 'connect' && <GerritConnectDialog key="connect" repo={repo.id} state={state} expired={authFailed} onClose={() => setDialog(null)} />}
