@@ -325,3 +325,99 @@
 .subTabs :global(.segmented) > button {
   flex: 1;
 }
+
+/* Change Log | Comment Threads (Activity.tsx) */
+.activityBar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.activity {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.logRow {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.logRow:last-child {
+  border-bottom: 0;
+}
+
+.logRow p {
+  margin: 2px 0 0;
+  cursor: text;
+  overflow-wrap: anywhere;
+}
+
+.logRow p[data-clamp] {
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.logRow[data-system],
+.logRow[data-system] strong {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.psChip {
+  flex: none;
+  padding: 0 6px;
+  border-radius: var(--ctl-radius);
+  background: color-mix(in srgb, var(--fg) 5%, transparent);
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.threadRow {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  /* text aligns with the log rows; the hover fill bleeds into the gutter */
+  width: calc(100% + 12px);
+  margin: 0 -6px;
+  min-height: 0;
+  padding: 2px 6px;
+  border: 0;
+  border-radius: var(--ctl-radius);
+  background: none;
+  box-shadow: none;
+  font-weight: inherit;
+  text-align: left;
+  cursor: var(--cursor-action);
+}
+
+.threadRow:where(:hover) {
+  filter: none;
+  background: var(--bg-hover);
+}
+
+.threadRow[data-focus-visible] {
+  box-shadow: var(--focus);
+}
+
+.excerpt {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.state {
+  flex: none;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.state[data-unresolved] {
+  color: var(--git-mod);
+  font-weight: 600;
+}

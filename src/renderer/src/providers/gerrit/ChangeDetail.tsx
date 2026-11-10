@@ -17,6 +17,7 @@ import type { GerritChange, GerritComment } from '../../../../shared/gerrit'
 import c from '../../Changes.module.css'
 import { useParsedDiff, visible } from '../../DiffView'
 import { highlight } from '../../highlight'
+import { Activity } from './Activity'
 import { AttentionHashtags } from './AttentionHashtags'
 import { ChangeActions } from './ChangeActions'
 import { Composer, DraftView, Thread, usePending, type Pending, type PendingStore } from './Comments'
@@ -41,6 +42,7 @@ export function ChangeDetail({ repo, number, me, onBack, onOpen }: { repo: strin
   const [psSel, setPs] = useState<number | null>(null)
   const [base, setBase] = useState<number | undefined>(undefined)
   const [picked, setPicked] = useState<string | null>(null)
+  const [focus, setFocus] = useState<{ id: string } | null>(null)
   const ch = q.data
   const revs = ch ? revisionsOf(ch) : []
   const current = revs.find((r) => r.sha === ch?.current_revision) ?? revs.at(-1)
@@ -106,6 +108,7 @@ export function ChangeDetail({ repo, number, me, onBack, onOpen }: { repo: strin
             onChange={(e) => {
               const n = Number(e.target.value)
               setPs(n)
+              setFocus(null)
               if (base && base >= n) setBase(undefined)
             }}
           >
@@ -172,12 +175,23 @@ export function ChangeDetail({ repo, number, me, onBack, onOpen }: { repo: strin
         </section>
       )}
 
+      <Activity
+        messages={ch.messages ?? []}
+        comments={comments.data ?? []}
+        onOpenThread={(t) => {
+          setPs(t[0].patch_set ?? null)
+          setBase(undefined)
+          setPicked(t[0].path)
+          setFocus({ id: t[0].id })
+        }}
+      />
+
       <ListBox
         aria-label="Files"
         selectionMode="single"
         disallowEmptySelection
         selectedKeys={file ? [file] : []}
-        onSelectionChange={(k) => k !== 'all' && k.size && setPicked(String([...k][0]))}
+        onSelectionChange={(k) => k !== 'all' && k.size && (setPicked(String([...k][0])), setFocus(null))}
         className={s.files}
       >
         {paths.map((p) => {
@@ -213,6 +227,7 @@ export function ChangeDetail({ repo, number, me, onBack, onOpen }: { repo: strin
           comments={shown.filter((cm) => cm.path === file)}
           pending={pending}
           canComment={{ old: isCurrent && !base, new: isCurrent }}
+          focus={focus}
         />
       )}
       <AnimatePresence>
@@ -235,6 +250,8 @@ type FileDiffProps = {
   pending: PendingStore
   /** New comments only on the current patch set (the reply posts there); left side only against Base (PARENT). */
   canComment: Record<Side, boolean>
+  /** Thread (root id) picked in Comment Threads: scrolled into view. */
+  focus: { id: string } | null
 }
 
 function FileDiff(p: FileDiffProps) {
@@ -258,7 +275,7 @@ function FileDiff(p: FileDiffProps) {
   const drafts = p.pending.list.filter((d) => !d.in_reply_to && d.path === p.path && d.patch_set === p.ps && (d.side !== 'PARENT' || !p.base))
   const items = new Map<string, ReactNode[]>()
   const put = (key: string, node: ReactNode) => items.set(key, [...(items.get(key) ?? []), node])
-  for (const t of threadsOf(p.comments)) put(keyOf(sideOf(t[0]), t[0].line), <Thread key={t[0].id} repo={p.repo} thread={t} fallbackPs={p.ps} pending={p.pending} />)
+  for (const t of threadsOf(p.comments)) put(keyOf(sideOf(t[0]), t[0].line), <Thread key={t[0].id} repo={p.repo} thread={t} fallbackPs={p.ps} pending={p.pending} focus={p.focus?.id === t[0].id ? p.focus : undefined} />)
   for (const d of drafts) put(keyOf(d.side === 'PARENT' ? 'old' : 'new', d.line), <DraftView key={d.key} draft={d} onRemove={() => p.pending.remove(d.key)} />)
   if (composing) {
     const { side, line } = composing

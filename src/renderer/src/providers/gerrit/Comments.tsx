@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Button } from 'react-aria-components'
 import type { GerritComment, GerritDraft } from '../../../../shared/gerrit'
 import s from './Gerrit.module.css'
@@ -69,8 +69,11 @@ export function DraftView({ draft, onRemove }: { draft: Pending; onRemove(): voi
 }
 
 /** One thread (root + replies via in_reply_to): author, time, resolved state; Reply / Done / Ack add pending replies. */
-export function Thread(p: { repo: string; thread: GerritComment[]; fallbackPs: number; pending: PendingStore }) {
+export function Thread(p: { repo: string; thread: GerritComment[]; fallbackPs: number; pending: PendingStore; focus?: object }) {
   const [replying, setReplying] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  // A new `focus` object (Comment Threads click) scrolls this thread into view, also when clicked again.
+  useEffect(() => void (p.focus && ref.current?.scrollIntoView({ block: 'center' })), [p.focus])
   const root = p.thread[0]
   const last = p.thread.at(-1)!
   const unresolved = !!last.unresolved
@@ -78,7 +81,7 @@ export function Thread(p: { repo: string; thread: GerritComment[]; fallbackPs: n
   const reply = (message: string, stillUnresolved: boolean) =>
     p.pending.add({ path: root.path, patch_set: root.patch_set ?? p.fallbackPs, line: root.line, side: root.side, in_reply_to: last.id, message, unresolved: stillUnresolved })
   return (
-    <div role="group" aria-label={`Comment thread by ${who(root.author)}`} className={s.thread} data-unresolved={unresolved || undefined}>
+    <div ref={ref} role="group" aria-label={`Comment thread by ${who(root.author)}`} className={s.thread} data-unresolved={unresolved || undefined}>
       {p.thread.map((c) => (
         <div key={c.id} className={s.comment}>
           <div className={s.commentHead}>
