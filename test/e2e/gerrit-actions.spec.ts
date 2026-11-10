@@ -21,12 +21,18 @@ test('Submit / Abandon / Rebase shown only when listed in actions', async () => 
   const { win } = g
   await connectGerrit(win, mock)
   await open(/Add feature X/)
-  for (const name of ['Submit…', 'Rebase', 'Abandon…']) await expect(win.getByRole('button', { name })).toBeVisible()
+  for (const name of ['Submit…', 'Rebase']) await expect(win.getByRole('button', { name })).toBeVisible()
+  await win.getByRole('button', { name: 'More actions' }).click()
+  await expect(win.getByRole('menuitem', { name: 'Abandon…' })).toBeVisible()
+  await win.keyboard.press('Escape')
 
   await win.getByText('This project only').click()
   await open(/Fix crash in parser/) // incoming change without actions
   await expect(win.getByRole('heading', { name: 'Fix crash in parser' })).toBeVisible()
-  for (const name of ['Submit…', 'Rebase', 'Abandon…']) await expect(win.getByRole('button', { name })).toHaveCount(0)
+  for (const name of ['Submit…', 'Rebase']) await expect(win.getByRole('button', { name })).toHaveCount(0)
+  await win.getByRole('button', { name: 'More actions' }).click()
+  await expect(win.getByRole('menuitem', { name: 'Copy fetch command' })).toBeVisible()
+  await expect(win.getByRole('menuitem', { name: 'Abandon…' })).toHaveCount(0)
 })
 
 test('Submit → confirm → POST submit, detail shows Merged and a pull hint', async () => {
@@ -56,7 +62,8 @@ test('Abandon with message, then Rebase success and conflict', async () => {
   await expect(win.getByRole('status')).toHaveText('Rebased on the server.')
   expect(mock.find('POST', '/a/changes/101/rebase')).toHaveLength(2)
 
-  await win.getByRole('button', { name: 'Abandon…' }).click()
+  await win.getByRole('button', { name: 'More actions' }).click()
+  await win.getByRole('menuitem', { name: 'Abandon…' }).click()
   const dialog = win.getByRole('dialog', { name: 'Abandon #101?' })
   await dialog.getByLabel('Message (optional)').fill('Not needed')
   await dialog.getByRole('button', { name: 'Abandon' }).click()

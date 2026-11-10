@@ -1,15 +1,25 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { Ellipsis } from 'lucide-react'
 import { AnimatePresence } from 'motion/react'
 import { useState, type FormEvent } from 'react'
-import { Button, Dialog, Heading } from 'react-aria-components'
+import { Button, Dialog, Heading, Menu, MenuItem, MenuTrigger } from 'react-aria-components'
 import { fetchCommand, GERRIT_REBASE_CONFLICT, type GerritChange } from '../../../../shared/gerrit'
 import a from '../../App.module.css'
 import { refreshRepo } from '../../Branches'
 import type { Revision } from './ChangeDetail'
 import s from './Gerrit.module.css'
-import { DialogShell } from '../../motion'
+import r from '../../Repos.module.css'
+import { DialogShell, Highlight, PopPopover } from '../../motion'
 
 type Action = 'submit' | 'abandon' | 'rebase'
+
+/** More-menu item label with the sliding hover plate, as in SyncButton. */
+const item = (label: string) => ({ isFocused }: { isFocused: boolean }) => (
+  <>
+    {isFocused && <Highlight id="change-more" />}
+    {label}
+  </>
+)
 const DONE: Record<Action, string> = {
   submit: 'Change merged. Pull to update your local branch.',
   abandon: 'Change abandoned.',
@@ -18,6 +28,7 @@ const DONE: Record<Action, string> = {
 
 /**
  * Submit / Rebase (current revision actions) and Abandon (change actions): shown only when the server lists them (PLAN.md §4.5).
+ * Abandon and Copy fetch command sit in the More menu.
  * Checkout locally (patch set `ps`, §4.7) and, after a server rebase conflict, Rebase locally (§4.8) work on the local repo.
  */
 export function ChangeActions({ repo, change, current, ps }: { repo: string; change: GerritChange; current?: Revision; ps: number }) {
@@ -25,6 +36,7 @@ export function ChangeActions({ repo, change, current, ps }: { repo: string; cha
   const [confirm, setConfirm] = useState<'submit' | 'abandon' | null>(null)
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
+  const [more, setMore] = useState(false)
   const [notice, setNotice] = useState<{ error: boolean; text: string } | null>(null)
   const remote = useQuery({ queryKey: ['provider', repo], queryFn: () => window.mendel['provider:get']({ repo }) }).data?.detection?.remote
   const ra = current?.actions ?? {}
@@ -72,23 +84,41 @@ export function ChangeActions({ repo, change, current, ps }: { repo: string; cha
       <Button isDisabled={busy} onPress={checkout}>
         Checkout locally
       </Button>
-      {remote && (
-        <Button
-          isDisabled={busy}
-          onPress={() =>
-            void window.mendel['app:copy']({ text: fetchCommand(remote, change._number, ps) }).then(
-              () => setNotice({ error: false, text: 'Fetch command copied' }),
-              (err: Error) => setNotice({ error: true, text: err.message })
-            )
-          }
-        >
-          Copy fetch command
-        </Button>
-      )}
-      {ca.abandon && (
-        <Button isDisabled={busy || !ca.abandon.enabled} onPress={() => setConfirm('abandon')}>
-          Abandon…
-        </Button>
+      {(remote || ca.abandon) && (
+        <MenuTrigger isOpen={more} onOpenChange={setMore}>
+          <Button className="ghost" aria-label="More actions" isDisabled={busy}>
+            <Ellipsis size={14} aria-hidden />
+          </Button>
+          <AnimatePresence>
+            {more && (
+              <PopPopover placement="bottom end" className={r.popover}>
+                <Menu
+                  className={r.menu}
+                  disabledKeys={ca.abandon?.enabled ? [] : ['abandon']}
+                  onAction={(k) =>
+                    k === 'abandon'
+                      ? setConfirm('abandon')
+                      : void window.mendel['app:copy']({ text: fetchCommand(remote!, change._number, ps) }).then(
+                          () => setNotice({ error: false, text: 'Fetch command copied' }),
+                          (err: Error) => setNotice({ error: true, text: err.message })
+                        )
+                  }
+                >
+                  {remote && (
+                    <MenuItem id="fetch" className={r.item}>
+                      {item('Copy fetch command')}
+                    </MenuItem>
+                  )}
+                  {ca.abandon && (
+                    <MenuItem id="abandon" className={`${r.item} danger`}>
+                      {item('Abandon…')}
+                    </MenuItem>
+                  )}
+                </Menu>
+              </PopPopover>
+            )}
+          </AnimatePresence>
+        </MenuTrigger>
       )}
       {notice && (
         <span role={notice.error ? 'alert' : 'status'} className={notice.error ? a.error : s.meta}>
