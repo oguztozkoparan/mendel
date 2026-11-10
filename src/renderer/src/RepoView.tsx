@@ -39,7 +39,8 @@ export function RepoView({ repo, focus }: { repo: RepoEntry; focus?: { change: n
     else if (c === 'tab:provider' && gerrit) setTab('reviews')
   })
   return (
-    <Tabs className={s.repoView} selectedKey={tab} onSelectionChange={setTab}>
+    // Reviews disappears when the provider is removed: an unknown selectedKey leaves no tab or panel shown.
+    <Tabs className={s.repoView} selectedKey={tab === 'reviews' && !gerrit ? 'changes' : tab} onSelectionChange={setTab}>
       <TabList aria-label="Views" className={s.tabs}>
         <Tab id="changes">{tabLabel('Changes')}</Tab>
         <Tab id="history">{tabLabel('History')}</Tab>
