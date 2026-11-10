@@ -410,6 +410,13 @@ select option:disabled {
   select:where(:hover:not(:disabled)) {
     filter: brightness(1.15);
   }
+
+  /* the picker sat at --bg with a near-invisible hairline: raise it, give it a visible edge and a deeper shadow */
+  ::picker(select) {
+    border-color: color-mix(in srgb, var(--fg) 14%, transparent);
+    background: var(--bg-raised);
+    box-shadow: inset 0 1px 0 var(--hi-low), 0 12px 32px var(--drop);
+  }
 }
 
 /* Switch (react-aria Switch, see controls.tsx): recessed track, round knob. */
