@@ -55,8 +55,10 @@ test('menu accelerators match PLAN §7 and trigger their actions', async () => {
     await expect(win.getByRole('dialog', { name: 'New branch' })).toBeVisible()
     await win.keyboard.press('Escape')
     await click(app, 'settings')
-    await expect(win.getByRole('dialog', { name: 'Settings' })).toBeVisible()
+    // focus moves into the dialog a moment after it shows; Escape before that reaches nothing
+    await expect(win.getByRole('dialog', { name: 'Settings' })).toBeFocused()
     await win.keyboard.press('Escape')
+    await expect(win.getByRole('dialog', { name: 'Settings' })).toHaveCount(0)
     await click(app, 'repo:clone')
     await expect(win.getByRole('dialog', { name: 'Clone repository' })).toBeVisible()
     await win.getByRole('dialog', { name: 'Clone repository' }).getByRole('button', { name: 'Cancel' }).click()
