@@ -37,7 +37,9 @@
   /* glass neutrals: light */
   --border: rgb(15 23 30 / 0.1);
   --bg: #ffffff;
-  --bg-side: rgb(246 248 250 / 0.5);
+  /* glass alpha/muted hold --fg >= 7:1, muted >= 4.5:1 (also on --bg-selected) over a near-black material */
+  --bg-side: rgb(246 248 250 / 0.85);
+  --muted-glass: #444f59;
   --bg-raised: #ffffff;
   --bg-hover: rgb(15 23 30 / 0.05);
   --fg: #0f171e;
@@ -73,7 +75,8 @@
   :root {
     --border: rgb(255 255 255 / 0.08);
     --bg: #12171c;
-    --bg-side: rgb(22 28 34 / 0.44);
+    --bg-side: rgb(22 28 34 / 0.9);
+    --muted-glass: #afbac2;
     --bg-raised: #1a2026;
     --bg-hover: rgb(255 255 255 / 0.06);
     --fg: #e8eef2;

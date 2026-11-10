@@ -26,7 +26,7 @@ export const glass = process.platform === 'darwin' || (process.platform === 'win
  */
 const overlay = () => {
   const dark = nativeTheme.shouldUseDarkColors
-  const color = glass ? (dark ? '#161c228c' : '#f6f8fa9e') : dark ? '#141a1f' : '#f9fbfc'
+  const color = glass ? (dark ? '#161c22e6' : '#f6f8fad9') : dark ? '#141a1f' : '#f9fbfc'
   return { color, symbolColor: dark ? '#e8eef2' : '#0f171e', height: TOOLBAR_H }
 }
 

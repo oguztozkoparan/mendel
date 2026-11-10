@@ -49,24 +49,24 @@
 }
 
 .letter[data-status='A'] {
-  color: var(--git-add);
+  color: color-mix(in srgb, var(--git-add), var(--fg) 35%);
   background: color-mix(in srgb, var(--git-add) 14%, transparent);
 }
 
 .letter[data-status='D'],
 .letter[data-status='U'] {
-  color: var(--danger);
+  color: color-mix(in srgb, var(--danger), var(--fg) 35%);
   background: color-mix(in srgb, var(--danger) 14%, transparent);
 }
 
 .letter[data-status='M'] {
-  color: var(--git-mod);
+  color: color-mix(in srgb, var(--git-mod), var(--fg) 35%);
   background: color-mix(in srgb, var(--git-mod) 14%, transparent);
 }
 
 .letter[data-status='R'],
 .letter[data-status='C'] {
-  color: var(--git-ren);
+  color: color-mix(in srgb, var(--git-ren), var(--fg) 35%);
   background: color-mix(in srgb, var(--git-ren) 14%, transparent);
 }
 
