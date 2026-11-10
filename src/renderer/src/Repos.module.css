@@ -129,6 +129,7 @@
   align-items: center;
   border-right: 1px solid var(--border);
   -webkit-app-region: no-drag;
+  cursor: default;
 }
 
 .sync .trigger {
