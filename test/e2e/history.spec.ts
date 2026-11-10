@@ -62,6 +62,10 @@ test('history search by message and author:; file history from a commit file', a
     await expect(list.getByRole('row')).toHaveCount(2)
     await msg.fill('') // what the native clear (×) reports
     await expect(list.getByRole('row')).toHaveCount(4)
+    await msg.pressSequentially('add', { delay: 30 }) // no Enter: applies once typing pauses
+    await expect(list.getByRole('row')).toHaveCount(2)
+    await msg.fill('')
+    await expect(list.getByRole('row')).toHaveCount(4)
 
     await expect(win.getByLabel('Commit detail').getByRole('heading', { name: 'Tweak a' })).toBeVisible()
     await win.getByLabel('Commit detail').getByRole('button', { name: 'File history' }).click()

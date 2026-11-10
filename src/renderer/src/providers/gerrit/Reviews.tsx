@@ -7,6 +7,7 @@ import { GERRIT_AUTH_ERROR, type GerritChange } from '../../../../shared/gerrit'
 import { GERRIT_QUALIFIERS, parseGerritSearch, type GerritSearch } from '../../../../shared/gerritQuery'
 import type { ProviderState, RepoEntry } from '../../../../shared/ipc'
 import a from '../../App.module.css'
+import { useDebounced } from '../../debounce'
 import { PaneBanners } from '../../ErrorBanner'
 import { openSettings, useSettings } from '../../Settings'
 import { Segmented } from '../../controls'
@@ -26,7 +27,8 @@ export function Reviews({ repo, state, focus }: { repo: RepoEntry; state: Provid
   const [projectOnly, setProjectOnly] = useState(true)
   const [selected, setSelected] = useState<number | null>(null)
   const [tab, setTab] = useState<'mine' | 'history'>('mine')
-  // History search applies on Enter; an invalid search keeps the last applied one and shows why.
+  // History search applies as you type (debounced: one Gerrit request per pause, not per key) and on Enter;
+  // an invalid search keeps the last applied one and shows why.
   const [search, setSearch] = useState<GerritSearch>({})
   const [searchErrors, setSearchErrors] = useState<string[]>([])
   const applySearch = (v: string) => {
@@ -34,6 +36,7 @@ export function Reviews({ repo, state, focus }: { repo: RepoEntry; state: Provid
     setSearchErrors(errors)
     if (!errors.length) setSearch(query)
   }
+  const typed = useDebounced(applySearch, 400)
   useEffect(() => void (focus && setSelected(focus.change)), [focus])
   const d = state.detection!
   const ready = !!d.baseUrl && !!state.credentialUser
@@ -181,13 +184,13 @@ export function Reviews({ repo, state, focus }: { repo: RepoEntry; state: Provid
                 isInvalid={searchErrors.length > 0}
                 validationBehavior="aria"
                 // the native × (and select-all + delete) only reports an empty value, never onClear
-                onChange={(v) => (v === '' ? applySearch('') : searchErrors.length && setSearchErrors([]))}
-                onSubmit={applySearch}
-                onClear={() => applySearch('')}
+                onChange={(v) => (v === '' ? typed.now('') : typed.run(v))}
+                onSubmit={typed.now}
+                onClear={() => typed.now('')}
               >
                 <Input placeholder="Search, owner:, status:, label:…" spellCheck={false} />
               </SearchField>
-              <SearchHelp rows={GERRIT_QUALIFIERS} note="Plain words search commit messages. Everything is ANDed; Enter applies." />
+              <SearchHelp rows={GERRIT_QUALIFIERS} note="Plain words search commit messages. Everything is ANDed; applies as you type." />
               {searchErrors.length > 0 && (
                 <p role="alert" className={h.queryError}>
                   {searchErrors.join(' · ')}

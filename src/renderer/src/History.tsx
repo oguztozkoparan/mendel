@@ -21,6 +21,7 @@ import { ago } from './time'
 import { fitRow, graphRows, type GraphRow } from './graph'
 import { Trailers } from './CommitTrailers'
 import { splitTrailers } from './trailers'
+import { useDebounced } from './debounce'
 
 const PAGE = 100
 /** Commit graph geometry (concept .lane: 30px column, dot centre 15px; row height as the list's). */
@@ -64,7 +65,7 @@ export function HistoryView(p: { repo: string; decorate?: (c: CommitSummary) => 
   if (ref && br && !(br.remote.includes(ref) || br.local.some((x) => x.name === ref && x.name !== br.current))) setRef('')
   // Keyed by HEAD: a new commit/checkout starts a fresh first page, and `--skip` pages stay consistent within one HEAD.
   // Not stale on its own (no all-pages refetch on focus); refreshRepo trims it to page 1 before invalidating.
-  // Applied filters (search fields apply on Enter, not per keystroke); empty = unfiltered.
+  // Applied filters (the search applies as you type, debounced, and on Enter); empty = unfiltered.
   // `path` = the File history button (wins over a `path:` in the search).
   const [filter, setFilter] = useState<{ query?: HistoryQuery; path?: string }>({})
   const [queryErrors, setQueryErrors] = useState<string[]>([])
@@ -74,6 +75,7 @@ export function HistoryView(p: { repo: string; decorate?: (c: CommitSummary) => 
     setQueryErrors(errors)
     if (!errors.length) setFilter((f) => ({ ...f, query: hasQuery(query) ? query : undefined }))
   }
+  const typed = useDebounced(search, 300)
   const setPath = (path?: string) => setFilter((f) => ({ ...f, path }))
   const filtered = !!(filter.query || filter.path)
   const q = useInfiniteQuery({
@@ -123,9 +125,9 @@ export function HistoryView(p: { repo: string; decorate?: (c: CommitSummary) => 
             isInvalid={queryErrors.length > 0}
             validationBehavior="aria"
             // the native × (and select-all + delete) only reports an empty value, never onClear
-            onChange={(v) => (v === '' ? search('') : queryErrors.length && setQueryErrors([]))}
-            onSubmit={search}
-            onClear={() => search('')}
+            onChange={(v) => (v === '' ? typed.now('') : typed.run(v))}
+            onSubmit={typed.now}
+            onClear={() => typed.now('')}
           >
             <Input placeholder="Search, change:, author:, path:…" spellCheck={false} />
           </SearchField>
@@ -412,7 +414,7 @@ function CommitTags(p: { repo: string; sha: string }) {
 }
 
 /** "?" next to a search field (History, Reviews History): the qualifiers it understands. */
-export function SearchHelp({ rows = QUALIFIERS, note = 'Plain words search commit messages. Everything is ANDed; Enter applies.' }: { rows?: [string, string][]; note?: string }) {
+export function SearchHelp({ rows = QUALIFIERS, note = 'Plain words search commit messages. Everything is ANDed; applies as you type.' }: { rows?: [string, string][]; note?: string }) {
   const [open, setOpen] = useState(false)
   return (
     <DialogTrigger isOpen={open} onOpenChange={setOpen}>

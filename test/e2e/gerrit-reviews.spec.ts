@@ -86,4 +86,12 @@ test('History: paged list of the project, load more, owner: + status: search, op
   await expect(list.getByRole('option')).toHaveCount(1)
   await list.getByRole('option').filter({ hasText: '#90 · Merged' }).click()
   await expect(win.getByRole('heading', { name: 'Initial import' })).toBeVisible()
+
+  // Typing without Enter searches once the input pauses: one request for the whole word, not one per key.
+  await box.fill('')
+  await expect.poll(() => searches().at(-1)!.get('q')).toBe('project:"p/q"')
+  const typed = searches().length
+  await box.pressSequentially('refactor', { delay: 40 })
+  await expect.poll(() => searches().at(-1)!.get('q')).toBe('project:"p/q" message:"refactor"')
+  expect(searches().length).toBe(typed + 1)
 })
