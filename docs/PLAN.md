@@ -239,7 +239,7 @@ See section 6. Modal window/page with left sections.
 ## 5. Provider plugin model
 
 ### 5.1 Principles
-- Built-in modules: main-side logic in `src/main/providers/<id>/` (detection, REST, git commands, secrets), renderer-side views in `src/renderer/providers/<id>/` registered under the same id. Renderer talks to the provider only through typed IPC, like everything else.
+- Built-in modules: main-side logic in `src/main/providers/<id>/` (detection, REST, git commands, secrets), renderer-side views in `src/renderer/src/providers/<id>/` registered under the same id. Renderer talks to the provider only through typed IPC, like everything else.
 - At most one active provider per repo. Git core never imports a provider; providers call git core.
 - Providers are independent: a provider never imports another provider's code (GitHub never imports from a Gerrit folder or file, and the reverse). What two providers need lives in a neutral module (`src/main/providers/credentials.ts`, `http.ts`, `remotes.ts`, `src/main/git/branch.ts` `checkoutRef`, `src/renderer/src/providers/Provider.module.css`). Settings → Git providers has a section per provider (plus a provider-neutral "This repository" section).
 - A provider adds; it never removes git core features (Gerrit can hide the plain Push from the main button but keeps it in the menu behind a confirm "Push directly to refs/heads/<branch>?").
