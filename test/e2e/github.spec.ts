@@ -168,6 +168,13 @@ test('signed in: open pull requests list, detail as plain text, Open on GitHub a
     await win.getByRole('button', { name: 'More on GitHub' }).click()
     await expect.poll(opened).toBe('https://github.com/o/r/pulls')
 
+    // Clicking the selected pull request again deselects it: the account card with Sign out is back.
+    await list.getByRole('option', { name: /Add the thing/ }).click()
+    await expect(win.getByRole('heading', { name: 'Add the thing' })).toHaveCount(0)
+    await expect(win.getByRole('region', { name: 'GitHub account' }).getByRole('button', { name: 'Sign out' })).toBeVisible()
+    await list.getByRole('option', { name: /Add the thing/ }).click()
+    await expect(win.getByRole('heading', { name: 'Add the thing' })).toBeVisible()
+
     // Refetch: the selection survives while the PR is still open, and deselects once it is gone.
     mock.pulls = [mockPull(7, { title: 'Add the thing', login: 'mona', head: 'feat-thing' }), mockPull(9, { title: 'Brand new' })]
     mock.more = false

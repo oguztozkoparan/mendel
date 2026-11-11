@@ -119,7 +119,7 @@ export function PullRequests({ repo, state }: { repo: string; state: ProviderSta
             aria-label="Pull requests"
             selectionMode="single"
             selectedKeys={pr ? [pr.number] : []}
-            onSelectionChange={(k) => k !== 'all' && k.size && setSelected(Number([...k][0]))}
+            onSelectionChange={(k) => k !== 'all' && setSelected(k.size ? Number([...k][0]) : null)}
             className={c.list}
           >
             {list.pulls.map((p) => (
