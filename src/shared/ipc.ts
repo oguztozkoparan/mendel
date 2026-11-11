@@ -524,6 +524,8 @@ export const invoke = {
   'github:checkout': res<string | null>()(z.object({ repo: repoId, number: z.number().int().positive().max(Number.MAX_SAFE_INTEGER) }).strict()),
   /** Open https://github.com/<owner>/<repo>/pulls in the browser (url built in main). */
   'github:openPulls': res<void>()(inRepo),
+  /** Open a link from a pull request body: main resolves it against the repo page and opens it only when it is on https://github.com (githubLink, onGithub). */
+  'github:openLink': res<void>()(z.object({ repo: repoId, href: z.string().min(1).max(4096) }).strict()),
   /** Open https://github.com/<owner>/<repo>/compare/<upstream branch>?expand=1 for the current branch (url built in main); rejects unless its upstream is on the GitHub remote. */
   'github:createPull': res<void>()(inRepo),
   'gerrit:commitHint': res<GerritCommitHint>()(inRepo),

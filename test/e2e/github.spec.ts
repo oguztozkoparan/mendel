@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
-import { mockPull, startGithubMock, type GithubMock } from '../fixtures/github-mock'
+import { mockPull, richBody, startGithubMock, type GithubMock } from '../fixtures/github-mock'
 import { createRepoFixture } from '../fixtures/repo'
 import { launchApp, openRepo, type LaunchedApp } from './launch'
 
@@ -140,7 +140,7 @@ async function signIn(win: LaunchedApp['win']) {
   await expect(win.getByRole('dialog', { name: 'Sign in to GitHub' })).toHaveCount(0)
 }
 
-test('signed in: open pull requests list, detail as plain text, Open on GitHub and More on GitHub open main-built urls, refresh picks up changes', async () => {
+test('signed in: open pull requests list, detail as Markdown, Open on GitHub and More on GitHub open main-built urls, refresh picks up changes', async () => {
   const mock = await startGithubMock({ pending: 0 })
   mock.pulls = [mockPull(7, { title: 'Add the thing', login: 'mona', body: '<b>not html</b>\n**not markdown**', head: 'feat-thing' }), mockPull(8, { title: 'WIP idea', draft: true })]
   mock.more = true
@@ -161,8 +161,10 @@ test('signed in: open pull requests list, detail as plain text, Open on GitHub a
     await list.getByRole('option', { name: /Add the thing/ }).click()
     const main = win.locator('section').filter({ has: win.getByRole('heading', { name: 'Add the thing' }) }).first()
     await expect(main.getByLabel('Branches')).toHaveText('feat-thing → main')
-    await expect(win.getByRole('region', { name: 'Description' })).toHaveText('<b>not html</b>\n**not markdown**')
-    await expect(win.getByRole('region', { name: 'Description' }).locator('b, strong, img')).toHaveCount(0)
+    // Markdown, raw HTML skipped
+    await expect(win.getByRole('region', { name: 'Description' })).toHaveText('not html not markdown')
+    await expect(win.getByRole('region', { name: 'Description' }).locator('strong')).toHaveText('not markdown')
+    await expect(win.getByRole('region', { name: 'Description' }).locator('b, img')).toHaveCount(0)
     await win.getByRole('button', { name: 'Open on GitHub' }).click()
     await expect.poll(opened).toBe('https://github.com/o/r/pull/7')
     await win.getByRole('button', { name: 'More on GitHub' }).click()
@@ -190,6 +192,80 @@ test('signed in: open pull requests list, detail as plain text, Open on GitHub a
     await win.getByRole('button', { name: 'Sign out' }).click()
     await expect(win.getByRole('region', { name: 'Sign in to GitHub' })).toBeVisible()
     await expect(win.getByText('No open pull requests')).toHaveCount(0)
+  } finally {
+    await close()
+    await mock.close()
+  }
+})
+
+test('pull request body: GitHub-flavoured Markdown, no raw HTML or images, links open only on github.com through main', async () => {
+  const mock = await startGithubMock({ pending: 0 })
+  mock.pulls = [mockPull(7, { title: 'Rich body', body: richBody }), mockPull(8, { title: 'No body', body: null }), mockPull(9, { title: 'Blank body', body: '  \n ' })]
+  const { app, win, close } = await launchGithub(mock)
+  try {
+    await app.evaluate(({ shell, clipboard }) => {
+      const g = globalThis as unknown as { __opened: string[]; __copied: string[] }
+      g.__opened = []
+      g.__copied = []
+      shell.openExternal = async (u: string) => void g.__opened.push(u)
+      clipboard.writeText = async (t: string) => void g.__copied.push(t)
+    })
+    const opened = () => app.evaluate(() => (globalThis as unknown as { __opened: string[] }).__opened)
+    const copied = () => app.evaluate(() => (globalThis as unknown as { __copied: string[] }).__copied)
+    const errors: string[] = []
+    win.on('console', (m) => m.type() === 'error' && errors.push(m.text()))
+    await signIn(win)
+    const list = win.getByRole('listbox', { name: 'Pull requests' })
+    await list.getByRole('option', { name: /Rich body/ }).click()
+    const body = win.getByRole('region', { name: 'Description' })
+    await expect(body.getByRole('heading', { name: 'Summary heading', level: 1 })).toBeVisible()
+    await expect(body.getByRole('heading', { name: 'Changes', level: 2 })).toBeVisible()
+    await expect(body.getByText('This paragraph has a soft line break')).toBeVisible() // soft break reflows
+    for (const [sel, text] of [['code', 'inline code'], ['strong', 'bold'], ['em', 'italic'], ['del', 'struck'], ['blockquote', 'A quoted line']])
+      await expect(body.locator(sel, { hasText: text })).toBeVisible()
+    await expect(body.getByRole('listitem').filter({ hasText: 'second item' })).toBeVisible()
+    const boxes = body.getByRole('checkbox')
+    await expect(boxes).toHaveCount(2)
+    await expect(boxes.first()).toBeChecked()
+    await expect(boxes.nth(1)).not.toBeChecked()
+    for (const b of await boxes.all()) await expect(b).toBeDisabled()
+    await expect(body.getByRole('table')).toBeVisible()
+    await expect(body.getByRole('columnheader', { name: 'A long column' })).toBeVisible()
+    await expect(body.locator('pre code')).toContainText("const longLine = 'code-code-")
+    await expect(body.locator('hr')).toHaveCount(1)
+    // raw HTML is skipped, images are a text placeholder
+    await expect(body.getByText('[image: diagram alt]')).toBeVisible()
+    await expect(win.locator('script:not([src]), img, details, iframe')).toHaveCount(0)
+    expect(await win.evaluate(() => [...document.querySelectorAll('*')].filter((el) => [...el.attributes].some((a) => a.name.startsWith('on'))).length)).toBe(0)
+    await expect(body).not.toContainText('alert(1)')
+    await expect(body).not.toContainText('Hidden')
+    await expect(body).not.toContainText('template comment')
+    await expect(body).toContainText('Inline html.')
+    // github.com links (relative ones resolved against the repo page) open through main; nothing else does
+    await body.getByRole('link', { name: 'relative link' }).click()
+    await body.getByRole('link', { name: 'github link' }).click()
+    await body.getByRole('link', { name: 'https://github.com/o/r/wiki' }).click()
+    await expect.poll(opened).toEqual(['https://github.com/o/r/docs/guide.md', 'https://github.com/o/r/issues/1', 'https://github.com/o/r/wiki'])
+    await expect(body.getByRole('link', { name: 'script link' })).toHaveCount(0)
+    await body.getByText('script link', { exact: true }).click() // its own paragraph: plain text, opens nothing
+    const external = body.getByRole('link', { name: 'external link' })
+    await external.hover()
+    await expect(win.getByRole('tooltip')).toHaveText('https://example.com/page\nClick to copy')
+    await external.click()
+    await expect(body.getByRole('status')).toHaveText('Copied')
+    expect(await copied()).toEqual(['https://example.com/page'])
+    // footnote reference and back-reference are plain text (in-page anchors would resolve to the repository page)
+    await expect(body.locator('sup')).toHaveText('1')
+    await expect(body).toContainText('The footnote text.')
+    await expect(body.locator('sup a, .footnotes a')).toHaveCount(0)
+    expect(await opened()).toHaveLength(3)
+    await expect(win.getByRole('heading', { name: 'Rich body' })).toBeVisible() // the renderer never navigated
+    expect(errors.filter((e) => /Content.Security.Policy/i.test(e))).toEqual([])
+
+    for (const t of ['No body', 'Blank body']) {
+      await list.getByRole('option', { name: new RegExp(t) }).click()
+      await expect(win.getByRole('region', { name: 'Description' })).toHaveText('No description')
+    }
   } finally {
     await close()
     await mock.close()

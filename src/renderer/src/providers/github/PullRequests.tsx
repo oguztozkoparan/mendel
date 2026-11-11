@@ -1,14 +1,17 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { RefreshCw } from 'lucide-react'
 import { AnimatePresence } from 'motion/react'
-import { useId, useState } from 'react'
+import { useId, useState, type ReactNode } from 'react'
 import { Button, ListBox, ListBoxItem } from 'react-aria-components'
-import { GITHUB_AUTH_ERROR, GITHUB_NOT_VISIBLE, type GithubPull } from '../../../../shared/github'
+import { GITHUB_AUTH_ERROR, GITHUB_NOT_VISIBLE, githubLink, onGithub, type GithubPull } from '../../../../shared/github'
 import type { ProviderState } from '../../../../shared/ipc'
 import a from '../../App.module.css'
 import { refreshRepo, useBranches } from '../../Branches'
 import c from '../../Changes.module.css'
+import { useCopy } from '../../CommitTrailers'
 import { PaneBanners } from '../../ErrorBanner'
+import { Markdown } from '../../Markdown'
+import md from '../../Markdown.module.css'
 import { Highlight } from '../../motion'
 import { useSettings } from '../../Settings'
 import { ago } from '../../time'
@@ -166,7 +169,7 @@ export function PullRequests({ repo, state }: { repo: string; state: ProviderSta
 
 const FORK = 'Fork pull requests: check out on GitHub'
 
-/** Detail of one pull request (from the list; no extra request). The body is plain text: no Markdown, HTML or images. */
+/** Detail of one pull request (from the list; no extra request). The body is GitHub-flavoured Markdown: no raw HTML, images not loaded. */
 function PullDetail({ repo, project, pr }: { repo: string; project: string; pr: GithubPull }) {
   const qc = useQueryClient()
   const [busy, setBusy] = useState(false)
@@ -213,9 +216,51 @@ function PullDetail({ repo, project, pr }: { repo: string; project: string; pr: 
           )}
         </div>
       </header>
-      <section aria-label="Description" className={s.body} tabIndex={0}>
-        {pr.body?.trim() ? pr.body : <span className={pc.meta}>No description</span>}
+      <section aria-label="Description" className={`${s.body} ${md.markdown}`} tabIndex={0}>
+        {pr.body?.trim() ? (
+          <Markdown
+            gfm
+            text={pr.body}
+            link={({ href, children }) => (
+              <BodyLink repo={repo} project={project} href={href}>
+                {children}
+              </BodyLink>
+            )}
+          />
+        ) : (
+          <span className={pc.meta}>No description</span>
+        )}
       </section>
     </div>
+  )
+}
+
+/** A link in a pull request body: main opens it when it is on github.com (and checks again); any other URL is copied, never opened. */
+function BodyLink({ repo, project, href, children }: { repo: string; project: string; href?: string; children?: ReactNode }) {
+  const [copied, copy] = useCopy()
+  // href is '' when react-markdown's urlTransform dropped an unsafe scheme (javascript:, data:, file:...).
+  // Footnote links (remark-gfm, '#user-content-fn…') are in-page anchors: plain text, not the repository page.
+  const u = href ? githubLink(project, href) : null
+  if (!href || !u || href.startsWith('#user-content-fn')) return <>{children}</>
+  const open = onGithub(u)
+  return (
+    <>
+      <a
+        href={u.href}
+        data-tip={`${u.href}\n${open ? 'Click to open' : 'Click to copy'}`}
+        onClick={(e) => {
+          e.preventDefault()
+          if (open) void window.mendel['github:openLink']({ repo, href })
+          else copy(u.href)
+        }}
+      >
+        {children}
+      </a>
+      {copied && (
+        <span role="status" className={s.copied}>
+          Copied
+        </span>
+      )}
+    </>
   )
 }

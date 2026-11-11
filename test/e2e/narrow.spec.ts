@@ -2,17 +2,17 @@ import { expect, test, type Page } from '@playwright/test'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { startGerritMock } from '../fixtures/gerrit-mock'
-import { mockPull, startGithubMock } from '../fixtures/github-mock'
+import { mockPull, richBody, startGithubMock } from '../fixtures/github-mock'
 import { createRepoFixture } from '../fixtures/repo'
 import { connectGerrit, launchGerrit } from './gerrit'
 import { launchApp, openRepo } from './launch'
 
-/** Elements that overflow sideways: wider content than box (not a horizontal scroller), or poking past the window edge. */
+/** Elements that overflow sideways: wider content than box (not a horizontal scroller), or poking past the window edge. Content of a pull request body's code blocks and tables scrolls inside them (checked on its own). */
 const overflow = (win: Page) =>
   win.evaluate(() => {
     const w = document.documentElement.clientWidth
     return [...document.querySelectorAll<HTMLElement>('body *')]
-      .filter((el) => el.getClientRects().length && !el.closest('.diff, [role="dialog"] pre, [hidden]'))
+      .filter((el) => el.getClientRects().length && !el.closest('.diff, [role="dialog"] pre, [hidden], section[aria-label="Description"] :is(pre, table) *'))
       .filter((el) => {
         const r = el.getBoundingClientRect()
         const ox = getComputedStyle(el).overflowX
@@ -238,7 +238,7 @@ test('Settings → Git providers fits the minimum window with a long Gerrit host
   }
 })
 
-test('GitHub Pull requests list and detail fit the minimum window with very long title, branches, login and body', async () => {
+test('GitHub Pull requests list and detail fit the minimum window with very long title, branches, login and body; a Markdown body scrolls wide blocks inside itself', async () => {
   const fx = createRepoFixture()
   const url = 'https://github.com/an-organization-with-a-long-name/a-repository-name-that-goes-on-and-on-and-on.git'
   fx.git(['remote', 'set-url', 'origin', url])
@@ -247,7 +247,7 @@ test('GitHub Pull requests list and detail fit the minimum window with very long
   const title = 'A pull request title that keeps going and going well past any reasonable width of the sidebar or the main pane'
   const head = 'feature/a-very-long-head-branch-name-that-does-not-fit-anywhere-in-a-narrow-window'
   const base = 'release/a-very-long-base-branch-name-that-also-does-not-fit'
-  mock.pulls = [mockPull(12345, { title, head, base, draft: true, login: 'a-github-login-that-is-very-long-indeed-and-goes-on', body: 'x'.repeat(2000) })]
+  mock.pulls = [mockPull(12345, { title, head, base, draft: true, login: 'a-github-login-that-is-very-long-indeed-and-goes-on', body: 'x'.repeat(2000) }), mockPull(7, { title: 'Rich body', body: richBody })]
   mock.more = true
   const app = await launchApp({ ...fx.env, MENDEL_E2E_GITHUB: mock.url })
   const { win } = app
@@ -287,6 +287,19 @@ test('GitHub Pull requests list and detail fit the minimum window with very long
     expect(await ellipsis(branches), 'branches end in an ellipsis').toBe(true)
     // mockPull heads are o/r: from this repo that is a fork, shown as owner/repo:branch
     await tooltip(win, branches, `o/r:${head} → ${base}`)
+    // Markdown body: the long code line and the wide table scroll inside themselves, never the pane.
+    await win.getByRole('option', { name: /Rich body/ }).click()
+    const desc = win.getByRole('region', { name: 'Description' })
+    await expect(desc.getByRole('table')).toBeVisible()
+    expect(await overflow(win), 'Markdown body').toEqual([])
+    const sideways = (loc: Loc) => loc.evaluate((el) => ({ wider: el.scrollWidth > el.clientWidth + 1, ox: getComputedStyle(el).overflowX, right: el.getBoundingClientRect().right }))
+    const pane = await sideways(desc)
+    expect(pane.wider, 'body has no horizontal overflow').toBe(false)
+    for (const loc of [desc.locator('pre'), desc.getByRole('table')]) {
+      const m = await sideways(loc)
+      expect(m).toMatchObject({ wider: true, ox: 'auto' })
+      expect(m.right).toBeLessThanOrEqual(pane.right)
+    }
     mock.pullsMode = 'notFound'
     await win.getByRole('button', { name: 'Refresh pull requests' }).click()
     await expect(win.getByRole('region', { name: 'GitHub App cannot see the repository' })).toBeVisible()
