@@ -76,9 +76,10 @@ function save(): void {
 export const getSettings = (): Settings => load().prefs
 
 const listeners: ((s: Settings) => void)[] = []
-/** Called after every change (e.g. theme). */
-export function onSettingsChanged(fn: (s: Settings) => void): void {
+/** Called after every change (e.g. theme). Returns the unsubscribe. */
+export function onSettingsChanged(fn: (s: Settings) => void): () => void {
   listeners.push(fn)
+  return () => void listeners.splice(listeners.indexOf(fn), 1)
 }
 
 export function setSettings(patch: Partial<Settings>): Settings {

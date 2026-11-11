@@ -68,6 +68,55 @@ test('preferences persist across restart and drive the app', async () => {
   }
 })
 
+test('soft themes apply at once, persist across restart, and clear on Dark / Light / System', async () => {
+  const fx = createRepoFixture()
+  const userData = path.join(fx.dir, 'userData')
+  let app = await launchApp({ ...fx.env, MENDEL_E2E_USERDATA: userData })
+  const html = () => app.win.locator('html')
+  const bg = () => app.win.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--bg').trim())
+  try {
+    await openRepo(app, fx.work)
+    await app.win.getByRole('button', { name: 'Settings' }).click()
+    const dialog = app.win.getByRole('dialog', { name: 'Settings' })
+    await dialog.getByText('Dark', { exact: true }).click()
+    await expect.poll(() => dark(app.win)).toBe(true)
+    const darkBg = await bg()
+    await dialog.getByText('Soft dark', { exact: true }).click()
+    await expect(html()).toHaveAttribute('data-theme', 'soft-dark')
+    expect(await dark(app.win)).toBe(true)
+    expect(await bg()).not.toBe(darkBg)
+    await dialog.getByText('Dark', { exact: true }).click()
+    await expect(html()).not.toHaveAttribute('data-theme')
+    expect(await bg()).toBe(darkBg)
+
+    await dialog.getByText('Light', { exact: true }).click()
+    await expect.poll(() => dark(app.win)).toBe(false)
+    const lightBg = await bg()
+    await dialog.getByText('Soft light', { exact: true }).click()
+    await expect(html()).toHaveAttribute('data-theme', 'soft-light')
+    expect(await dark(app.win)).toBe(false)
+    expect(await bg()).not.toBe(lightBg)
+    await dialog.getByText('System', { exact: true }).click()
+    await expect(html()).not.toHaveAttribute('data-theme')
+    await dialog.getByText('Soft light', { exact: true }).click()
+    await expect(html()).toHaveAttribute('data-theme', 'soft-light')
+    await expect.poll(() => dark(app.win)).toBe(false)
+    await dialog.getByText('Light', { exact: true }).click()
+    await expect(html()).not.toHaveAttribute('data-theme')
+    await dialog.getByText('Soft dark', { exact: true }).click()
+    await expect.poll(() => dark(app.win)).toBe(true)
+
+    await app.close()
+    expect(JSON.parse(readFileSync(path.join(userData, 'settings.json'), 'utf8'))).toMatchObject({ theme: 'soft-dark' })
+    app = await launchApp({ ...fx.env, MENDEL_E2E_USERDATA: userData })
+    await expect(html()).toHaveAttribute('data-theme', 'soft-dark')
+    await expect.poll(() => dark(app.win)).toBe(true)
+  } finally {
+    await app.close()
+    fx.cleanup()
+  }
+})
+
 test('reopen last repo off starts on the welcome screen', async () => {
   const fx = createRepoFixture()
   const userData = path.join(fx.dir, 'userData')

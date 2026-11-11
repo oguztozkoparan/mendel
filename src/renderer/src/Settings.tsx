@@ -41,6 +41,10 @@ function Choice<T extends string | number>(p: { label: string; value: T; options
   )
 }
 
+/** Soft themes are token overrides on top of their base scheme (global.css); the others clear them. */
+export const applyTheme = (theme: Settings['theme']) =>
+  theme.startsWith('soft-') ? (document.documentElement.dataset.theme = theme) : delete document.documentElement.dataset.theme
+
 /** Resolves when the OS-level color scheme flips after a theme change, or after 200ms when it does not change. */
 const schemeChange = () =>
   new Promise<void>((done) => {
@@ -77,7 +81,19 @@ export function SettingsDialog(p: { repo?: string; section?: string; onClose(): 
             ))}
           </TabList>
           <TabPanel id="General" className={s.panel}>
-            <Choice label="Theme" value={st.theme} options={[['system', 'System'], ['light', 'Light'], ['dark', 'Dark']]} onChange={(theme) => withTransition(() => Promise.all([schemeChange(), set({ theme })]))} />
+            <Choice
+              label="Theme"
+              value={st.theme}
+              options={[['system', 'System'], ['light', 'Light'], ['dark', 'Dark'], ['soft-dark', 'Soft dark'], ['soft-light', 'Soft light']]}
+              onChange={(theme) =>
+                withTransition(() => {
+                  applyTheme(theme)
+                  // Dark <-> Soft dark (or Light <-> Soft light) keeps the OS scheme: nothing to wait for.
+                  const same = theme !== 'system' && theme.endsWith('dark') === matchMedia('(prefers-color-scheme: dark)').matches
+                  return Promise.all([same || schemeChange(), set({ theme })])
+                })
+              }
+            />
             <Row label="Accent">
               <Segmented
                 label="Accent"

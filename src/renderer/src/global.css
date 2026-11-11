@@ -103,6 +103,37 @@
   }
 }
 
+/* Soft themes (data-theme, App.tsx): main forces the base scheme, so only the tokens that differ are overridden.
+   window.ts mirrors --bg-side and --fg for the native window controls. */
+:root[data-theme='soft-dark'] {
+  --border: rgb(255 255 255 / 0.1);
+  --bg: #1d232a;
+  --bg-side: rgb(33 40 48 / 0.9);
+  --bg-raised: #252c34;
+  --fg: #dfe5ea;
+  --muted: #97a3ad;
+  --diff-add-bg: #1a3127;
+  --diff-add-gutter: #203f2f;
+  --diff-del-bg: #371f23;
+  --diff-del-gutter: #48272c;
+  --well: color-mix(in srgb, #212830, #000 35%);
+}
+
+:root[data-theme='soft-light'] {
+  --border: rgb(30 26 18 / 0.13);
+  --bg: #f4f3f0;
+  --bg-side: rgb(233 232 228 / 0.85);
+  --bg-raised: #f8f7f4;
+  --fg: #1c2329;
+  --muted: #565f67;
+  --diff-add-bg: #e0f0e5;
+  --diff-add-gutter: #c7e5d1;
+  --diff-del-bg: #f6e3e1;
+  --diff-del-gutter: #eecbc8;
+  --face-top: color-mix(in srgb, var(--bg-raised), #fff 35%);
+  --well: color-mix(in srgb, #e9e8e4, var(--fg) 5%);
+}
+
 :root[data-accent='cyan'] { --accent: light-dark(#0e7490, #67e8f9); --on-accent: light-dark(#ffffff, #062a33); }
 :root[data-accent='cobalt'] { --accent: light-dark(#2457d6, #7aa7ff); --on-accent: light-dark(#ffffff, #071a3d); }
 :root[data-accent='violet'] { --accent: light-dark(#6d28d9, #c4b5fd); --on-accent: light-dark(#ffffff, #1e1037); }
