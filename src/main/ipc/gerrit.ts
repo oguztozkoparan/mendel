@@ -2,7 +2,8 @@ import { net, shell } from 'electron'
 import { GERRIT_AUTH_ERROR, GERRIT_REBASE_CONFLICT, type GerritChange, type GerritDraft } from '../../shared/gerrit'
 import log from '../log'
 import { gerritClient, GerritHttpError, normalizeBaseUrl, type Fetch } from '../providers/gerrit/client'
-import { getCredential, removeCredential, saveCredential } from '../providers/gerrit/credentials'
+import { getCredential, removeCredential, saveCredential } from '../providers/credentials'
+import { hostOf } from '../providers/http'
 import { validateBranchName } from '../git/branch'
 import { addChangeId, amendWithChangeId, checkoutChange, hasCommitMsgHook, sendForReview, unpushedCommits, upstreamBranch } from '../providers/gerrit/git'
 import { setCommitMessageTransform } from '../git/commit'
@@ -14,8 +15,6 @@ import type { Handlers } from '.'
 
 // net.fetch: Chromium network stack (OS cert store, system proxy); TLS errors are never overridden (TECH.md §6.6).
 const fetchFn: Fetch = (url, init) => net.fetch(url, init)
-/** Credential key of a Gerrit base URL. */
-export const hostOf = (baseUrl: string) => new URL(baseUrl).host
 
 /** Active Gerrit base URL of a repo (from main's detection; the renderer never supplies it). */
 export async function baseOf(repo: string): Promise<string> {

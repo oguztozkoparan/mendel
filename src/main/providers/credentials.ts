@@ -1,11 +1,16 @@
-// Gerrit HTTP password / token per host (TECH.md §6.5): encrypted with safeStorage's async API into
+// Provider HTTP password / token per host (TECH.md §6.5): encrypted with safeStorage's async API into
 // providers.json; never sent to the renderer, logged, or put in argv/env.
 import { safeStorage } from 'electron'
-import { providerStore, saveProviderStore } from '../store'
-import type { GerritAuth } from './client'
+import { providerStore, saveProviderStore } from './store'
+
+export interface Credential {
+  username: string
+  /** HTTP password or access token: sent as Basic auth. */
+  password: string
+}
 
 /** Decrypted (or session-only) secrets for this run. */
-const session = new Map<string, GerritAuth>()
+const session = new Map<string, Credential>()
 
 async function canPersist(): Promise<boolean> {
   if (process.platform === 'linux' && safeStorage.getSelectedStorageBackend() === 'basic_text') return false
@@ -13,7 +18,7 @@ async function canPersist(): Promise<boolean> {
 }
 
 /** Store for `host`; returns false when only kept for this session (no usable OS keychain). */
-export async function saveCredential(host: string, auth: GerritAuth): Promise<boolean> {
+export async function saveCredential(host: string, auth: Credential): Promise<boolean> {
   session.set(host, auth)
   const s = providerStore()
   delete s.credentials[host]
@@ -23,7 +28,7 @@ export async function saveCredential(host: string, auth: GerritAuth): Promise<bo
   return persist
 }
 
-export async function getCredential(host: string): Promise<GerritAuth | null> {
+export async function getCredential(host: string): Promise<Credential | null> {
   const cached = session.get(host)
   if (cached) return cached
   const c = providerStore().credentials[host]

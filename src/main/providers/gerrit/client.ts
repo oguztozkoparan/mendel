@@ -4,38 +4,17 @@ import { z } from 'zod'
 import { accountSchema, changeSchema, commentSchema, diffSchema, fileSchema, GERRIT_AUTH_ERROR, relatedSchema, type GerritChangeLists, type GerritComment, type GerritDraft, type GerritSearchPage } from '../../../shared/gerrit'
 import { termError, type GerritSearch } from '../../../shared/gerritQuery'
 import { urlAllowed } from '../../update/feed'
+import type { Credential } from '../credentials'
+import { readCapped } from '../http'
 import { XSSI } from './detect'
 
 export type Fetch = (url: string, init: RequestInit) => Promise<Response>
 
-const MAX_BODY = 20 * 1024 * 1024
 /** Change-Id lookups only decorate UI (badges, hints): give up fast instead of holding the commit list back. */
 export const HINT_TIMEOUT_MS = 3000
 
-/** Read a response body as text, failing once it exceeds `max` bytes. */
-export async function readCapped(res: Response, max = MAX_BODY): Promise<string> {
-  if (!res.body) return ''
-  const reader = res.body.getReader()
-  const chunks: Uint8Array[] = []
-  let size = 0
-  for (;;) {
-    const { done, value } = await reader.read()
-    if (done) break
-    size += value.byteLength
-    if (size > max) {
-      await reader.cancel()
-      throw new Error('Gerrit response too large')
-    }
-    chunks.push(value)
-  }
-  return Buffer.concat(chunks).toString('utf8')
-}
-
-export interface GerritAuth {
-  username: string
-  /** HTTP password or (3.13+) access token: both are sent as Basic auth. */
-  password: string
-}
+/** HTTP password or (3.13+) access token: both are sent as Basic auth. */
+export type GerritAuth = Credential
 
 export class GerritHttpError extends Error {
   constructor(
