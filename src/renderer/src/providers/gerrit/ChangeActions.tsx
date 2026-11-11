@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Ellipsis } from 'lucide-react'
 import { AnimatePresence } from 'motion/react'
-import { useState, type FormEvent } from 'react'
+import { useId, useState, type FormEvent } from 'react'
 import { Button, Dialog, Heading, Menu, MenuItem, MenuTrigger } from 'react-aria-components'
 import { fetchCommand, GERRIT_REBASE_CONFLICT, type GerritChange } from '../../../../shared/gerrit'
 import a from '../../App.module.css'
@@ -36,6 +36,7 @@ export function ChangeActions({ repo, change, current, ps }: { repo: string; cha
   const [confirm, setConfirm] = useState<'submit' | 'abandon' | null>(null)
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
+  const id = useId()
   const [more, setMore] = useState(false)
   const [notice, setNotice] = useState<{ error: boolean; text: string } | null>(null)
   const remote = useQuery({ queryKey: ['provider', repo], queryFn: () => window.mendel['provider:get']({ repo }) }).data?.detection?.remote
@@ -72,14 +73,25 @@ export function ChangeActions({ repo, change, current, ps }: { repo: string; cha
   return (
     <>
       {ra.submit && (
-        <Button isDisabled={busy || !ra.submit.enabled} aria-description={ra.submit.title} onPress={() => setConfirm('submit')}>
+        <Button isDisabled={busy || !ra.submit.enabled} aria-describedby={ra.submit.title ? `${id}-submit` : undefined} onPress={() => setConfirm('submit')}>
           Submit…
         </Button>
       )}
       {ra.rebase && (
-        <Button isDisabled={busy || !ra.rebase.enabled} aria-description={ra.rebase.title} onPress={() => run('rebase')}>
+        <Button isDisabled={busy || !ra.rebase.enabled} aria-describedby={ra.rebase.title ? `${id}-rebase` : undefined} onPress={() => run('rebase')}>
           Rebase
         </Button>
+      )}
+      {/* react-aria's Button drops aria-description: the server's reason reaches assistive tech through a hidden element */}
+      {ra.submit?.title && (
+        <span id={`${id}-submit`} hidden>
+          {ra.submit.title}
+        </span>
+      )}
+      {ra.rebase?.title && (
+        <span id={`${id}-rebase`} hidden>
+          {ra.rebase.title}
+        </span>
       )}
       <Button isDisabled={busy} onPress={checkout}>
         Checkout locally
