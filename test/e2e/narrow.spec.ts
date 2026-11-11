@@ -183,3 +183,36 @@ test('GitHub Pull requests list and detail fit the minimum window with very long
     fx.cleanup()
   }
 })
+
+test('GitHub signed-in card fits the minimum window with a 39-character login and a much longer one', async () => {
+  const fx = createRepoFixture()
+  const url = 'https://github.com/o/r.git'
+  fx.git(['remote', 'set-url', 'origin', url])
+  fx.git(['config', '--global', `url.${fx.remote}.insteadOf`, url])
+  const mock = await startGithubMock({ pending: 0 })
+  const app = await launchApp({ ...fx.env, MENDEL_E2E_GITHUB: mock.url })
+  const { win } = app
+  try {
+    const min = await app.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.getMinimumSize())
+    await app.app.evaluate(({ BrowserWindow }, [w, h]) => BrowserWindow.getAllWindows()[0]!.setSize(w, h), min as [number, number])
+    await expect.poll(() => win.evaluate(() => window.innerWidth)).toBeLessThanOrEqual(min[0]!)
+    await openRepo(app, fx.work)
+    await win.getByRole('tab', { name: 'Pull requests' }).click()
+    for (const login of ['a'.repeat(19) + '-' + 'b'.repeat(19), 'a-github-login-that-is-far-longer-than-github-allows-and-goes-on-and-on-past-the-window']) {
+      mock.login = login
+      await win.getByRole('button', { name: 'Sign in…' }).click()
+      const card = win.getByRole('region', { name: 'GitHub account' })
+      const line = card.getByTitle(`Signed in as ${login}`)
+      await expect(line).toHaveText(`Signed in as ${login}`)
+      expect(await overflow(win), login).toEqual([])
+      // 39 characters fit at the minimum width; the longer one must end in an ellipsis
+      if (login.length > 39) expect(await line.evaluate((el) => getComputedStyle(el).textOverflow === 'ellipsis' && el.scrollWidth > el.clientWidth), 'login ends in an ellipsis').toBe(true)
+      await expect(card.getByRole('button', { name: 'Sign out' })).toBeInViewport({ ratio: 1 })
+      await card.getByRole('button', { name: 'Sign out' }).click()
+    }
+  } finally {
+    await app.close()
+    await mock.close()
+    fx.cleanup()
+  }
+})

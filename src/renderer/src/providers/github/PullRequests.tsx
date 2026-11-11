@@ -75,8 +75,8 @@ export function PullRequests({ repo, state }: { repo: string; state: ProviderSta
   else
     main = (
       <div className={`${a.card} ${s.signin}`} role="region" aria-label="GitHub account">
-        <p className={s.login} title={`Signed in as ${login}`}>
-          <strong>Signed in as {login}</strong>
+        <p className={`${s.login} ${s.strong}`} title={`Signed in as ${login}`}>
+          Signed in as {login}
         </p>
         {!persisted && <p>No OS keychain available: you stay signed in for this session only.</p>}
         <Button onPress={() => void window.mendel['github:signOut']().then(refresh)}>Sign out</Button>
