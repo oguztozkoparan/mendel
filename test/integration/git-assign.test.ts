@@ -1,8 +1,9 @@
 import { execFileSync } from 'node:child_process'
-import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, renameSync, rmSync, symlinkSync } from 'node:fs'
+import { appendFileSync, chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, renameSync, rmSync, symlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { writeConfig } from '../../src/main/git/config'
 import { assignmentsFile, assignProfile, createProfile, deleteProfile, listProfiles, parseIndex, profileFile, profileUsage, repoGitConfig } from '../../src/main/gitProfiles'
 import { isolatedGitEnv } from '../fixtures/git-env'
 
@@ -257,5 +258,108 @@ describe('git profile assignment', () => {
     await Promise.all(rs.map((r, i) => assignProfile(dir, `r${i}`, r, null, env)))
     expect(existsSync(assignmentsFile(dir))).toBe(false)
     expect(includes()).toEqual([])
+  }, 30_000)
+
+  // settings:setRepoGitConfig = writeConfig('local', <repo root>, values).
+  it('project values: set, change, remove; project > profile > global; a worktree shares them; .git/config gains only those keys', async () => {
+    const a = repo('a')
+    sh(['commit', '-q', '--allow-empty', '-m', 'x'], a)
+    sh(['remote', 'add', 'origin', 'https://example.com/a.git'], a)
+    sh(['config', 'branch.main.remote', 'origin'], a)
+    const wt = path.join(tmp, 'a-wt')
+    sh(['worktree', 'add', '-q', wt], a)
+    const local = path.join(a, '.git', 'config')
+    const before = readFileSync(local, 'utf8')
+    const work = await createProfile(dir, 'Work', { name: 'Work Person', email: 'w@example.com' }, env)
+    await assignProfile(dir, 'ra', a, work.id, env)
+    const field = async (cwd: string, id: string) => (await repoGitConfig(dir, id, cwd, env)).fields
+
+    // Set from the worktree: --local writes the shared config, so both work trees see it.
+    await writeConfig('local', wt, { email: 'p@example.com', signingKey: 'KEY1', gpgSign: 'true' }, env)
+    expect([email(a), email(wt)]).toEqual(['p@example.com', 'p@example.com'])
+    for (const [cwd, id] of [[a, 'ra'], [wt, 'rwt']]) {
+      const f = await field(cwd, id)
+      expect(f.email).toEqual({ value: 'p@example.com', source: 'project', project: 'p@example.com', inProfile: true }) // beats profile
+      expect(f.gpgSign).toEqual({ value: 'true', source: 'project', project: 'true', inProfile: false }) // beats global
+      expect(f.signingKey).toEqual({ value: 'KEY1', source: 'project', project: 'KEY1', inProfile: false }) // beats nothing set
+      expect(f.name).toEqual({ value: 'Work Person', source: 'profile', project: null, inProfile: true })
+    }
+    // Change; an absent field is untouched.
+    await writeConfig('local', a, { email: 'q@example.com' }, env)
+    expect([email(wt), sh(['config', 'user.signingkey'], a)]).toEqual(['q@example.com', 'KEY1'])
+
+    // Removing restores the profile's value, or the global one.
+    await writeConfig('local', a, { email: '', gpgSign: '', signingKey: '' }, env)
+    const f = await field(a, 'ra')
+    expect(f.email).toEqual({ value: 'w@example.com', source: 'profile', project: null, inProfile: true })
+    expect(f.gpgSign).toEqual({ value: 'false', source: 'global', project: null, inProfile: false })
+    expect(f.signingKey).toEqual({ value: null, source: 'none', project: null, inProfile: false })
+    // Removed cleanly: the rest of .git/config (core, remote, branch) is byte for byte as before; git keeps empty section headers.
+    const strip = (t: string) => t.replace(/^\[(user|commit)\]\n/gm, '')
+    expect(strip(readFileSync(local, 'utf8'))).toBe(before)
+
+    // Unassigned: a project value beats global and removing it restores global.
+    await assignProfile(dir, 'ra', a, null, env)
+    const list = () => sh(['config', '--local', '--list'], a).split('\n')
+    const keys = list()
+    await writeConfig('local', a, { name: 'Proj' }, env)
+    expect((await field(a, 'ra')).name).toEqual({ value: 'Proj', source: 'project', project: 'Proj', inProfile: false })
+    expect(list()).toEqual([...keys, 'user.name=Proj'])
+    await writeConfig('local', a, { name: '' }, env)
+    expect((await field(a, 'ra')).name).toEqual({ value: 'Test User', source: 'global', project: null, inProfile: false })
+    // Only allow-listed keys can be written.
+    await expect(writeConfig('local', a, { core: 'x' } as never, env)).rejects.toThrow()
+    expect(readFileSync(globalFile, 'utf8')).not.toContain('Proj')
+  }, 30_000)
+
+  it('project values hiding every profile field are not reported as "profile not applied"', async () => {
+    const a = repo('a')
+    const work = await createProfile(dir, 'Work', { name: 'Work Person', email: 'w@example.com' }, env)
+    await assignProfile(dir, 'ra', a, work.id, env)
+    await writeConfig('local', a, { name: 'P', email: 'p@example.com' }, env)
+    let st = await repoGitConfig(dir, 'ra', a, env)
+    expect([st.fields.name.source, st.fields.email.source, st.notApplied, st.trap]).toEqual(['project', 'project', false, []])
+    // Still caught when the include line really is gone, project values or not.
+    sh(['config', '--global', '--unset', 'include.path'])
+    st = await repoGitConfig(dir, 'ra', a, env)
+    expect(st.notApplied).toBe(true)
+  }, 30_000)
+
+  it('project values: a config.worktree value shows as worktree, not project; duplicates are replaced and removed together; a failed write rejects', async () => {
+    const a = repo('a')
+    sh(['commit', '-q', '--allow-empty', '-m', 'x'], a)
+    const wt = path.join(tmp, 'a-wt')
+    sh(['worktree', 'add', '-q', wt], a)
+    sh(['config', 'extensions.worktreeConfig', 'true'], a)
+    sh(['config', '--worktree', 'user.email', 'wt@example.com'], wt)
+    const field = async (cwd: string, id: string) => (await repoGitConfig(dir, id, cwd, env)).fields.email
+    // Only --local values are project values (what the dialog edits and Remove unsets).
+    expect(await field(wt, 'rwt')).toEqual({ value: 'wt@example.com', source: 'worktree', project: null, inProfile: false })
+    await writeConfig('local', wt, { email: 'p@example.com' }, env)
+    expect(await field(wt, 'rwt')).toEqual({ value: 'wt@example.com', source: 'worktree', project: 'p@example.com', inProfile: false })
+    expect(await field(a, 'ra')).toEqual({ value: 'p@example.com', source: 'project', project: 'p@example.com', inProfile: false })
+    await writeConfig('local', wt, { email: '' }, env)
+    expect(await field(wt, 'rwt')).toEqual({ value: 'wt@example.com', source: 'worktree', project: null, inProfile: false })
+    expect(sh(['config', '--worktree', 'user.email'], wt)).toBe('wt@example.com') // never touched
+
+    // user.email twice in .git/config: the last one shows; a write replaces both, a removal removes both.
+    sh(['config', '--add', 'user.email', 'one@example.com'], a)
+    sh(['config', '--add', 'user.email', 'two@example.com'], a)
+    expect((await field(a, 'ra')).project).toBe('two@example.com')
+    await writeConfig('local', a, { email: 'three@example.com' }, env)
+    expect(sh(['config', '--local', '--get-all', 'user.email'], a)).toBe('three@example.com')
+    sh(['config', '--add', 'user.email', 'four@example.com'], a)
+    await writeConfig('local', a, { email: '' }, env)
+    expect(await field(a, 'ra')).toEqual({ value: 'test@example.com', source: 'global', project: null, inProfile: false })
+
+    // git cannot write .git/config (no lock file in a read-only .git): the write rejects, nothing changes.
+    const gd = path.join(a, '.git')
+    chmodSync(gd, 0o555)
+    try {
+      if (process.platform !== 'win32') await expect(writeConfig('local', a, { email: 'x@example.com' }, env)).rejects.toThrow(/lock/)
+    } finally {
+      chmodSync(gd, 0o755)
+    }
+    expect((await field(a, 'ra')).project).toBe(null)
   }, 30_000)
 })

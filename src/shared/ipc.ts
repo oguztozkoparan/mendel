@@ -505,6 +505,8 @@ export const invoke = {
   'settings:repoGitConfig': res<RepoGitConfig>()(inRepo),
   /** Assign a profile to the repository (null: unassign); main resolves the path from the repo id. */
   'settings:assignGitProfile': res<void>()(z.object({ repo: repoId, profileId: z.uuid().nullable() }).strict()),
+  /** Set the repository's own values (`git config --local`; '' unsets, absent = untouched); main resolves the path. */
+  'settings:setRepoGitConfig': res<void>()(z.object({ repo: repoId, values: gitConfigWriteSchema }).strict()),
   'settings:openLogs': res<void>()(z.undefined()),
   /** Detect the repo's provider (cached per host; probes unknown hosts, 3 s timeout). */
   'provider:get': res<ProviderState>()(inRepo),

@@ -11,7 +11,7 @@ import { getSettings, setSettings } from '../settings'
 import { confirm } from './branch'
 import type { Handlers } from '.'
 
-export const settingsHandlers: Handlers<'settings:get' | 'settings:set' | 'settings:tools' | 'settings:pickTool' | 'settings:gitIdentity' | 'settings:setGitIdentity' | 'settings:openGitConfig' | 'settings:gitProfiles' | 'settings:createGitProfile' | 'settings:updateGitProfile' | 'settings:deleteGitProfile' | 'settings:repoGitConfig' | 'settings:assignGitProfile' | 'settings:openLogs'> = {
+export const settingsHandlers: Handlers<'settings:get' | 'settings:set' | 'settings:tools' | 'settings:pickTool' | 'settings:gitIdentity' | 'settings:setGitIdentity' | 'settings:openGitConfig' | 'settings:gitProfiles' | 'settings:createGitProfile' | 'settings:updateGitProfile' | 'settings:deleteGitProfile' | 'settings:repoGitConfig' | 'settings:assignGitProfile' | 'settings:setRepoGitConfig' | 'settings:openLogs'> = {
   'settings:get': () => getSettings(),
   'settings:set': (patch) => setSettings(patch),
   'settings:tools': () => {
@@ -53,6 +53,8 @@ export const settingsHandlers: Handlers<'settings:get' | 'settings:set' | 'setti
   },
   'settings:repoGitConfig': ({ repo }) => repoGitConfig(profilesDir(), repo, repoRoot(repo)),
   'settings:assignGitProfile': ({ repo, profileId }) => assignProfile(profilesDir(), repo, repoRoot(repo), profileId),
+  // In a linked worktree --local writes the shared repository config, so the main work tree and its worktrees agree.
+  'settings:setRepoGitConfig': ({ repo, values }) => writeConfig('local', repoRoot(repo), values),
   'settings:openLogs': async () => {
     const err = await shell.openPath(path.dirname(log.transports.file.getFile().path))
     if (err) throw new Error(err)

@@ -39,13 +39,16 @@ export type GitConfigWrite = z.input<typeof gitConfigWriteSchema>
 /** Values as git stores them; null = not set. `gpgSign` is normalized to 'true'/'false' when git would parse it as a bool. */
 export type GitConfigValues = Record<GitConfigField, string | null>
 
-/** Where an effective value comes from: `project` = the repo's .git/config (or worktree config); `command` = `-c`/env. */
-export type GitConfigSource = 'project' | 'profile' | 'global' | 'system' | 'command' | 'none'
+/**
+ * Where an effective value comes from: `project` = the repo's own (common) .git/config, what `--local` writes;
+ * `worktree` = config.worktree (extensions.worktreeConfig), shown but not edited; `command` = `-c`/env.
+ */
+export type GitConfigSource = 'project' | 'worktree' | 'profile' | 'global' | 'system' | 'command' | 'none'
 
 export interface GitConfigEffective {
   value: string | null
   source: GitConfigSource
-  /** The repo's own value, even when something else wins (null when none). */
+  /** The repo's own value (`--local`), even when something else wins (null when none). */
   project: string | null
   /** The last value a known profile file contributes to this repo's config, even when something else wins. */
   profile: { file: string; value: string } | null

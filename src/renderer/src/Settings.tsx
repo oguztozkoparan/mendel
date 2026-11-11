@@ -227,7 +227,7 @@ function gitConfigChanges(v: Record<GitConfigField, string>, loaded: Record<GitC
   return r.success ? r.data : `${GIT_LABEL[r.error.issues[0]!.path[0] as GitConfigField]}: ${r.error.issues[0]!.message}`
 }
 
-/** The five allow-listed fields: the Global card and the profile dialog. */
+/** The five allow-listed fields: the Global card, the profile dialog and the project values dialog. */
 function GitConfigFields({ field }: { field(f: GitConfigField): { value: string; onChange(x: string): void } }) {
   return (
     <>
@@ -346,6 +346,7 @@ function ProfilesSection() {
 
 const SOURCE: Record<Exclude<RepoGitConfig['fields'][GitConfigField]['source'], 'profile'>, string> = {
   project: 'Project',
+  worktree: 'Worktree config',
   global: 'Global',
   system: 'System',
   command: 'Command line',
@@ -354,14 +355,26 @@ const SOURCE: Record<Exclude<RepoGitConfig['fields'][GitConfigField]['source'], 
 
 /**
  * This repository card: the assigned profile (applied through the global includeIf file, so the terminal agrees) and
- * each field's effective value with its source. Project values are shown, not edited, here.
+ * each field's effective value with its source; project values (the repository's own config) are set in a dialog and
+ * removed per row.
  */
 function RepoGitSection(p: { repo: string; onOpenGlobal(): void }) {
   const qc = useQueryClient()
   const q = useQuery({ queryKey: ['repoGitConfig', p.repo], queryFn: () => window.mendel['settings:repoGitConfig']({ repo: p.repo }) })
   const profiles = useQuery({ queryKey: ['gitProfiles'], queryFn: () => window.mendel['settings:gitProfiles']() }).data
   const [msg, setMsg] = useState<string | null>(null)
+  const [edit, setEdit] = useState(false)
+  const [busy, setBusy] = useState(false) // a double click would race git's config lock
   const st = q.data
+  const unset = (f: GitConfigField) => {
+    setBusy(true)
+    void window.mendel['settings:setRepoGitConfig']({ repo: p.repo, values: { [f]: '' } })
+      .then(
+        () => setMsg(null),
+        (e: Error) => setMsg(e.message)
+      )
+      .finally(() => (setBusy(false), refreshIdentity(qc)))
+  }
   const assign = (profileId: string) =>
     void window.mendel['settings:assignGitProfile']({ repo: p.repo, profileId: profileId || null }).then(
       () => (setMsg(null), refreshIdentity(qc)),
@@ -394,16 +407,26 @@ function RepoGitSection(p: { repo: string; onOpenGlobal(): void }) {
             return (
               <div key={f} role="group" aria-label={GIT_CONFIG_KEYS[f]} className={a.field}>
                 <span>{GIT_LABEL[f]}</span>
-                <div className={s.fieldValue}>
-                  <span>{v.value ?? '—'}</span>
-                  <span className={a.muted}>
-                    {from}
-                    {over}
-                  </span>
+                <div className={a.row}>
+                  <div className={s.fieldValue}>
+                    <span>{v.value ?? '—'}</span>
+                    <span className={a.muted}>
+                      {from}
+                      {over}
+                    </span>
+                  </div>
+                  {v.project !== null && (
+                    <Button className={s.fieldAction} isDisabled={busy} aria-label={`${over ? 'Use profile' : 'Remove project value'} for ${GIT_CONFIG_KEYS[f]}`} onPress={() => unset(f)}>
+                      {over ? 'Use profile' : 'Remove'}
+                    </Button>
+                  )}
                 </div>
               </div>
             )
           })}
+          <div className={a.row}>
+            <Button onPress={() => setEdit(true)}>Project values…</Button>
+          </div>
           {st.profile && st.notApplied && (
             <div role="status" className={`${a.banner} ${a.notice} ${s.trap}`}>
               <p>
@@ -433,7 +456,67 @@ function RepoGitSection(p: { repo: string; onOpenGlobal(): void }) {
           {msg ?? q.error?.message}
         </p>
       )}
+      <AnimatePresence>
+        {edit && st && (
+          <ProjectDialog
+            key="project"
+            repo={p.repo}
+            values={Object.fromEntries(GIT_CONFIG_FIELDS.map((f) => [f, st.fields[f].project])) as GitConfigValues}
+            onSaved={() => (setMsg(null), refreshIdentity(qc))}
+            onClose={() => setEdit(false)}
+          />
+        )}
+      </AnimatePresence>
     </section>
+  )
+}
+
+/**
+ * The repository's own values only (never an inherited one): an empty field removes it. Seeded once from the snapshot it
+ * opened with; a failed write stays open and refreshes the card (git may have written some fields before failing).
+ */
+function ProjectDialog(p: { repo: string; values: GitConfigValues; onSaved(): void; onClose(): void }) {
+  const qc = useQueryClient()
+  const [loaded] = useState(() => formValues(p.values))
+  const [v, setV] = useState(loaded)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const field = (f: GitConfigField) => ({ value: v[f], onChange: (x: string) => (setError(null), setV((o) => ({ ...o, [f]: x }))) })
+  const submit = (e: FormEvent) => {
+    e.preventDefault()
+    const values = gitConfigChanges(v, loaded)
+    if (typeof values === 'string') return setError(values)
+    setBusy(true)
+    window.mendel['settings:setRepoGitConfig']({ repo: p.repo, values }).then(
+      () => (p.onSaved(), p.onClose()),
+      (err: Error) => (setBusy(false), setError(err.message), refreshIdentity(qc))
+    )
+  }
+  return (
+    <DialogShell isDismissable className={a.backdrop} onOpenChange={(o) => !o && p.onClose()}>
+      <Dialog aria-labelledby="project-title" className={`${a.dialog} ${s.profileDialog}`}>
+        <form className={a.form} onSubmit={submit}>
+          <Heading slot="title" id="project-title">
+            Project values
+          </Heading>
+          <p className={a.muted}>Written to this repository's own git config; they win over the profile and the global config. An empty field uses the inherited value.</p>
+          <GitConfigFields field={field} />
+          {error && (
+            <p role="alert" className={a.error}>
+              {error}
+            </p>
+          )}
+          <div className={a.actions}>
+            <button type="button" onClick={p.onClose}>
+              Cancel
+            </button>
+            <button type="submit" className="primary" disabled={busy}>
+              Save
+            </button>
+          </div>
+        </form>
+      </Dialog>
+    </DialogShell>
   )
 }
 

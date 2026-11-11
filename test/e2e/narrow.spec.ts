@@ -405,6 +405,35 @@ test('Settings → Git → This repository fits the minimum window with a long p
     // long values and the source end in an ellipsis; the tooltip shows the full text
     await tooltip(win, row.getByText(email, { exact: true }), email)
     await tooltip(win, card.getByRole('group', { name: 'user.name' }).getByText(`Profile ${name}`, { exact: true }), `Profile ${name}`)
+
+    // A long project value overriding the profile: the row keeps its "Use profile" button inside the card.
+    const project = `p-${email}`
+    await card.getByRole('button', { name: 'Project values…' }).click()
+    const dlg = win.getByRole('dialog', { name: 'Project values' })
+    await dlg.getByLabel('Email (user.email)').fill(project)
+    await dlg.getByRole('button', { name: 'Save' }).click()
+    await expect(dlg).toHaveCount(0)
+    await expect(row).toContainText(`Project · overrides profile ${name}`)
+    await row.scrollIntoViewIfNeeded()
+    expect(await overflow(win), 'This repository with a project value').toEqual([])
+    await expect(row.getByRole('button', { name: 'Use profile for user.email' })).toBeInViewport({ ratio: 1 })
+    await tooltip(win, row.getByText(project, { exact: true }), project)
+
+    // The dialog with an error fits the minimum window, and scrolls inside a window shorter than it.
+    await card.getByRole('button', { name: 'Project values…' }).click()
+    await dlg.getByLabel('Name (user.name)').fill('a <b>')
+    await dlg.getByRole('button', { name: 'Save' }).click()
+    await expect(dlg.getByRole('alert')).toContainText('Name (user.name):')
+    expect(await overflow(win), 'Project values').toEqual([])
+    const box = (await dlg.boundingBox())!
+    const size = await win.evaluate(() => [window.innerWidth, window.innerHeight])
+    expect(box.x >= 0 && box.y >= 0 && box.x + box.width <= size[0]! && box.y + box.height <= size[1]!, 'Project values inside the window').toBe(true)
+    await app.app.evaluate(({ BrowserWindow }) => (BrowserWindow.getAllWindows()[0]!.setMinimumSize(400, 300), BrowserWindow.getAllWindows()[0]!.setSize(720, 360)))
+    await expect.poll(() => dlg.evaluate((el) => el.scrollHeight > el.clientHeight + 50)).toBe(true)
+    const short = (await dlg.boundingBox())!
+    expect(short.y >= 0 && short.y + short.height <= (await win.evaluate(() => window.innerHeight)), 'Project values inside a short window').toBe(true)
+    await dlg.getByRole('button', { name: 'Save' }).scrollIntoViewIfNeeded()
+    await expect(dlg.getByRole('button', { name: 'Save' })).toBeInViewport({ ratio: 1 })
   } finally {
     await app.close()
     fx.cleanup()

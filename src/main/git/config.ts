@@ -87,7 +87,8 @@ const samePath = (a: string, b: string) =>
   process.platform === 'win32' ? path.resolve(a).toLowerCase() === path.resolve(b).toLowerCase() : path.resolve(a) === path.resolve(b)
 
 function sourceOf(scope: string, file: string | null, profileFiles: string[]): GitConfigSource {
-  if (scope === 'local' || scope === 'worktree') return 'project'
+  if (scope === 'local') return 'project'
+  if (scope === 'worktree') return 'worktree'
   if (scope === 'global') return file && profileFiles.some((p) => samePath(p, file)) ? 'profile' : 'global'
   return scope === 'system' ? 'system' : 'command'
 }
