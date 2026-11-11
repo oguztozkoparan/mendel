@@ -140,9 +140,15 @@ export function githubAuth(fetchFn: Fetch, origins: GithubOrigins = GITHUB_ORIGI
       }
     },
 
-    /** Trades the single-use refresh token for a new pair (no client secret for device-flow tokens). */
+    /** Trades the single-use refresh token for a new pair (no client secret for device-flow tokens). Only an OAuth `{ error }` throws other than "Cannot reach GitHub". */
     async refresh(refreshToken: string): Promise<GithubToken> {
-      const r = tokenOrError(await post('/login/oauth/access_token', { client_id: CLIENT_ID, grant_type: 'refresh_token', refresh_token: refreshToken }))
+      let r: ReturnType<typeof tokenOrError>
+      try {
+        r = tokenOrError(await post('/login/oauth/access_token', { client_id: CLIENT_ID, grant_type: 'refresh_token', refresh_token: refreshToken }))
+      } catch (err) {
+        // 5xx, non-JSON, unexpected JSON: GitHub did not refuse the token, so report it like a network failure
+        throw err instanceof Error && err.message.startsWith('Cannot reach GitHub') ? err : reachError(err)
+      }
       if ('access' in r) return r
       throw new Error(oauthMessage(r.error))
     },
@@ -222,7 +228,7 @@ export function githubSession(fetchFn: Fetch, store: CredentialStore, origins: G
       try {
         next = await auth.refresh(token.refresh)
       } catch (err) {
-        // Unreachable: the token may still be unused, keep it. GitHub said no: it is gone for good.
+        // Unreachable or no OAuth answer: the token may still be unused, keep it. GitHub said no: it is gone for good.
         if (err instanceof Error && err.message.startsWith('Cannot reach GitHub')) throw err
         store.remove(host)
         throw new Error(GITHUB_AUTH_ERROR)

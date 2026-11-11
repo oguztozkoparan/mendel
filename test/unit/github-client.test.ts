@@ -145,6 +145,25 @@ describe('github session', () => {
     const f = fakeFetch({ '/login/oauth/access_token': () => json({ error: 'bad_refresh_token' }) })
     await expect(githubSession(f.fn, store, origins).api(user, '/user')).rejects.toThrow(GITHUB_AUTH_ERROR)
     expect(store.data.size).toBe(0)
+    expect(store.removed).toBe(1)
+  })
+
+  it.each([
+    ['500', () => json({ message: 'boom' }, 500), 'Cannot reach GitHub: GitHub error 500'],
+    ['502 with an HTML body', () => new Response('<html>Bad Gateway</html>', { status: 502 }), 'Cannot reach GitHub: GitHub error 502'],
+    ['200 with garbage', () => new Response('not json', { status: 200 }), 'Cannot reach GitHub: GitHub error 200']
+  ])('a refresh answered with %s keeps the credential, and a later refresh works', async (_, answer, message) => {
+    const store = memStore(stored(expiring()))
+    let down = true
+    const f = fakeFetch({ '/login/oauth/access_token': () => (down ? answer() : json(refreshed)), '/user': (c) => (bearer(c) === 'Bearer ghu_new' ? json({ login: 'octo' }) : json({}, 401)) })
+    const s = githubSession(f.fn, store, origins)
+    const err = await s.api(user, '/user').then(() => new Error('resolved'), (e: Error) => e)
+    expect(err.message).toBe(message)
+    expect(store.removed).toBe(0)
+    expect(tokenOf(store)).toMatchObject({ access: 'ghu_old', refresh: 'ghr_old' })
+    down = false
+    expect(await s.api(user, '/user')).toEqual({ login: 'octo' })
+    expect(tokenOf(store)).toMatchObject({ access: 'ghu_new', refresh: 'ghr_new' })
   })
 
   it('no refresh token: a 401 clears the credential', async () => {
