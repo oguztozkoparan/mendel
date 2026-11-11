@@ -1,6 +1,7 @@
 // Identity/signing config per scope (global, a repo's own config, a config file) and the effective value of a repo
 // with its source. Only the allow-listed keys of shared/gitConfig.ts can be read or written here.
-import { existsSync } from 'node:fs'
+import { existsSync, renameSync, rmSync, writeFileSync } from 'node:fs'
+import { realpath } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import {
@@ -116,4 +117,44 @@ export async function effectiveConfig(cwd: string, profileFiles: string[], env?:
     if (source === 'profile' && file && value !== null) o.profile = { file, value }
   }
   return out
+}
+
+/**
+ * Absolute real path of the repository's common git dir (shared by all its worktrees). Resolved here instead of
+ * `--path-format=absolute`, which needs git 2.31 (MIN_GIT_VERSION is 2.30).
+ */
+export async function commonGitDir(cwd: string, env?: NodeJS.ProcessEnv): Promise<string> {
+  const r = await git(['rev-parse', '--git-common-dir'], { cwd, env, background: true })
+  return realpath(path.resolve(cwd, r.stdout.trim()))
+}
+
+/** A `gitdir:` wildmatch pattern matching exactly `dir`: forward slashes, glob characters escaped. */
+const gitdirPattern = (dir: string) => (process.platform === 'win32' ? dir.replace(/\\/g, '/') : dir).replace(/[*?[\\]/g, '\\$&')
+
+/**
+ * Write the git profile assignments file: per entry `includeIf "gitdir[/i]:<gitDir>".path` (the main work tree) and
+ * `includeIf "gitdir[/i]:<gitDir>/worktrees/".path` (its linked worktrees; not `<gitDir>/`, which also matches its
+ * submodules in `<gitDir>/modules/`), both = `include`. Built in `<file>.tmp` with `git config --file` (git quotes) and
+ * renamed over `file`; no entries removes `file`.
+ */
+export async function writeGitdirIncludes(file: string, entries: { gitDir: string; include: string }[], env?: NodeJS.ProcessEnv): Promise<void> {
+  if (!entries.length) return rmSync(file, { force: true })
+  const tmp = `${file}.tmp`
+  writeFileSync(tmp, '', { mode: 0o600 })
+  const cond = process.platform === 'win32' || process.platform === 'darwin' ? 'gitdir/i:' : 'gitdir:' // case-insensitive file systems
+  for (const e of entries)
+    for (const suffix of ['', '/worktrees/'])
+      await git(['config', '--file', tmp, '--add', ...endOfOptions(`includeIf.${cond}${gitdirPattern(e.gitDir)}${suffix}.path`, e.include)], { cwd: path.dirname(file), env })
+  renameSync(tmp, file)
+}
+
+/**
+ * Add (`on`) the global `include.path = <file>` line unless that exact value is there, or remove (`!on`) exactly that
+ * value; any other include.path stays. Besides the allow-listed keys, the only thing mendel writes to the global config.
+ */
+export async function setGlobalInclude(file: string, on: boolean, env?: NodeJS.ProcessEnv): Promise<void> {
+  const opts = { cwd: path.dirname(file), env }
+  const has = await git(['config', '--global', '--fixed-value', '--get-all', ...endOfOptions('include.path', file)], { ...opts, background: true, okExitCodes: [1] })
+  if (on === (has.stdout !== '')) return
+  await git(['config', '--global', ...(on ? ['--add'] : ['--fixed-value', '--unset-all']), ...endOfOptions('include.path', file)], opts)
 }

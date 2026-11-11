@@ -8,7 +8,7 @@ import { z } from 'zod'
 import { SHA_PREFIX, TRAILER_KEY } from './historyQuery'
 import { GERRIT_OPS, MAX_TERM, MAX_TERMS, MAX_TEXT } from './gerritQuery'
 import { draftSchema, HASHTAG, PUSH_OPTION_VALUE, type GerritChange, type GerritCommit, type GerritSent, type GerritChangeLists, type GerritComment, type GerritConnected, type GerritDiff, type GerritFiles, type GerritRelated, type GerritSearchPage } from './gerrit'
-import { gitConfigWriteSchema, gitProfileNameSchema, type GitConfigValues, type GitProfile } from './gitConfig'
+import { gitConfigWriteSchema, gitProfileNameSchema, type GitConfigValues, type GitProfile, type RepoGitConfig } from './gitConfig'
 import type { GithubDeviceCode, GithubPulls, GithubSignedIn } from './github'
 
 const res = <Res>() => <Req extends z.ZodType>(req: Req) => ({ req, res: null as unknown as Res })
@@ -501,6 +501,10 @@ export const invoke = {
   'settings:updateGitProfile': res<void>()(z.object({ id: z.uuid(), name: gitProfileNameSchema, values: gitConfigWriteSchema }).strict()),
   /** Delete after a native confirm; false = cancelled. */
   'settings:deleteGitProfile': res<boolean>()(z.object({ id: z.uuid() }).strict()),
+  /** The open repository's assigned profile and effective identity/signing values with their sources. */
+  'settings:repoGitConfig': res<RepoGitConfig>()(inRepo),
+  /** Assign a profile to the repository (null: unassign); main resolves the path from the repo id. */
+  'settings:assignGitProfile': res<void>()(z.object({ repo: repoId, profileId: z.uuid().nullable() }).strict()),
   'settings:openLogs': res<void>()(z.undefined()),
   /** Detect the repo's provider (cached per host; probes unknown hosts, 3 s timeout). */
   'provider:get': res<ProviderState>()(inRepo),

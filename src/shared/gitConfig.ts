@@ -60,4 +60,16 @@ export interface GitProfile {
   id: string
   name: string
   values: GitConfigValues
+  /** How many repositories it is assigned to. */
+  repos: number
+}
+
+/** Settings > Git > This repository: the assigned profile and each field's effective value. */
+export interface RepoGitConfig {
+  profile: { id: string; name: string } | null
+  fields: Record<GitConfigField, { value: string | null; source: GitConfigSource; project: string | null; inProfile: boolean }>
+  /** Fields the profile defines but a later definition in the user's global file overrides (the include line comes first). */
+  trap: GitConfigField[]
+  /** The assigned profile sets values, yet git reads none of them in this repository (assign again to repair). */
+  notApplied: boolean
 }

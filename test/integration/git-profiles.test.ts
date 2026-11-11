@@ -12,8 +12,8 @@ const B = '1c8d4d2f-7b5a-4a4f-8a64-2c3b4d5e6f70'
 
 describe('git profile index parsing', () => {
   it('missing or garbage -> empty; bad entries, non-UUID ids and duplicates are dropped one by one', () => {
-    expect(parseIndex(undefined)).toEqual([])
-    expect(parseIndex({ profiles: 'x' })).toEqual([])
+    expect(parseIndex(undefined).profiles).toEqual([])
+    expect(parseIndex({ profiles: 'x' }).profiles).toEqual([])
     expect(
       parseIndex({
         profiles: [
@@ -24,7 +24,7 @@ describe('git profile index parsing', () => {
           { id: B, name: 'Personal' },
           { id: B, name: '' }
         ]
-      })
+      }).profiles
     ).toEqual([
       { id: A, name: 'Work' },
       { id: B, name: 'Personal' }
@@ -55,8 +55,8 @@ describe('git profile store', () => {
     expect(list(profileFile(dir, work.id)).sort()).toEqual(['commit.gpgsign=true', 'gpg.format=ssh', 'user.email=w@example.com', 'user.name=W "q" \\ x', 'user.signingkey=ABC'])
     expect(readFileSync(profileFile(dir, empty.id), 'utf8')).toBe('')
     expect(await listProfiles(dir, env)).toEqual([
-      { id: work.id, name: 'Work', values: { name: 'W "q" \\ x', email: 'w@example.com', signingKey: 'ABC', gpgSign: 'true', gpgFormat: 'ssh' } },
-      { id: empty.id, name: 'Empty', values: NONE }
+      { id: work.id, name: 'Work', values: { name: 'W "q" \\ x', email: 'w@example.com', signingKey: 'ABC', gpgSign: 'true', gpgFormat: 'ssh' }, repos: 0 },
+      { id: empty.id, name: 'Empty', values: NONE, repos: 0 }
     ])
 
     await expect(createProfile(dir, 'WORK', {}, env)).rejects.toThrow('A profile named "Work" already exists')
@@ -67,12 +67,12 @@ describe('git profile store', () => {
     expect(readdirSync(dir).sort()).toEqual([`${empty.id}.gitconfig`, `${work.id}.gitconfig`, 'index.json'].sort())
 
     await updateProfile(dir, work.id, 'work', { signingKey: '' }, env) // own name, other case: allowed
-    expect((await listProfiles(dir, env))[0]).toEqual({ id: work.id, name: 'work', values: { name: 'W "q" \\ x', email: 'w@example.com', signingKey: null, gpgSign: 'true', gpgFormat: 'ssh' } })
+    expect((await listProfiles(dir, env))[0]).toEqual({ id: work.id, name: 'work', values: { name: 'W "q" \\ x', email: 'w@example.com', signingKey: null, gpgSign: 'true', gpgFormat: 'ssh' }, repos: 0 })
     await expect(updateProfile(dir, B, 'Nope', {}, env)).rejects.toThrow('Profile not found')
 
-    await deleteProfile(dir, work.id)
+    await deleteProfile(dir, work.id, env)
     expect(existsSync(profileFile(dir, work.id))).toBe(false)
-    expect(JSON.parse(readFileSync(path.join(dir, 'index.json'), 'utf8'))).toEqual({ profiles: [{ id: empty.id, name: 'Empty' }] })
+    expect(JSON.parse(readFileSync(path.join(dir, 'index.json'), 'utf8'))).toEqual({ profiles: [{ id: empty.id, name: 'Empty' }], assignments: [] })
   })
 
   it('a corrupt or missing index never deletes profile files; the corrupt one is kept aside', async () => {
@@ -95,7 +95,7 @@ describe('git profile store', () => {
     ])
     await expect(Promise.all([createProfile(dir, 'Same', {}, env), createProfile(dir, 'same', {}, env)])).rejects.toThrow('already exists')
     expect((await listProfiles(dir, env)).map((p) => p.name)).toEqual(['Renamed', a!.name, b!.name, 'Same'])
-    await Promise.all([deleteProfile(dir, a!.id), updateProfile(dir, b!.id, 'B2', {}, env)])
+    await Promise.all([deleteProfile(dir, a!.id, env), updateProfile(dir, b!.id, 'B2', {}, env)])
     expect((await listProfiles(dir, env)).map((p) => p.name)).toEqual(['Renamed', 'B2', 'Same'])
   })
 })

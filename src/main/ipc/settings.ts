@@ -4,13 +4,14 @@ import path from 'node:path'
 import { BrowserWindow, dialog, shell } from 'electron'
 import { detectTools, openInEditor, validCustomTool } from '../external'
 import { globalConfigFile, readConfig, writeConfig } from '../git/config'
-import { createProfile, deleteProfile, listProfiles, profileName, profilesDir, updateProfile } from '../gitProfiles'
+import { assignProfile, createProfile, deleteProfile, listProfiles, profilesDir, profileUsage, repoGitConfig, updateProfile } from '../gitProfiles'
 import log from '../log'
+import { repoRoot } from '../repos'
 import { getSettings, setSettings } from '../settings'
 import { confirm } from './branch'
 import type { Handlers } from '.'
 
-export const settingsHandlers: Handlers<'settings:get' | 'settings:set' | 'settings:tools' | 'settings:pickTool' | 'settings:gitIdentity' | 'settings:setGitIdentity' | 'settings:openGitConfig' | 'settings:gitProfiles' | 'settings:createGitProfile' | 'settings:updateGitProfile' | 'settings:deleteGitProfile' | 'settings:openLogs'> = {
+export const settingsHandlers: Handlers<'settings:get' | 'settings:set' | 'settings:tools' | 'settings:pickTool' | 'settings:gitIdentity' | 'settings:setGitIdentity' | 'settings:openGitConfig' | 'settings:gitProfiles' | 'settings:createGitProfile' | 'settings:updateGitProfile' | 'settings:deleteGitProfile' | 'settings:repoGitConfig' | 'settings:assignGitProfile' | 'settings:openLogs'> = {
   'settings:get': () => getSettings(),
   'settings:set': (patch) => setSettings(patch),
   'settings:tools': () => {
@@ -44,10 +45,14 @@ export const settingsHandlers: Handlers<'settings:get' | 'settings:set' | 'setti
   'settings:createGitProfile': async ({ name, values }) => void (await createProfile(profilesDir(), name, values)),
   'settings:updateGitProfile': ({ id, name, values }) => updateProfile(profilesDir(), id, name, values),
   'settings:deleteGitProfile': async ({ id }, e) => {
-    if (!(await confirm(e, 'Delete', `Delete profile ${profileName(profilesDir(), id)}?`, 'Its git config file is removed.'))) return false
+    const { name, repos } = profileUsage(profilesDir(), id)
+    const used = repos ? ` ${repos === 1 ? 'One repository uses' : `${repos} repositories use`} it and will use the global config again.` : ''
+    if (!(await confirm(e, 'Delete', `Delete profile ${name}?`, `Its git config file is removed.${used}`))) return false
     await deleteProfile(profilesDir(), id)
     return true
   },
+  'settings:repoGitConfig': ({ repo }) => repoGitConfig(profilesDir(), repo, repoRoot(repo)),
+  'settings:assignGitProfile': ({ repo, profileId }) => assignProfile(profilesDir(), repo, repoRoot(repo), profileId),
   'settings:openLogs': async () => {
     const err = await shell.openPath(path.dirname(log.transports.file.getFile().path))
     if (err) throw new Error(err)

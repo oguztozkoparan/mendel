@@ -1,16 +1,21 @@
-// Git config profiles in userData/git-profiles/: index.json lists { id, name }; each profile is a real git config file
-// `<id>.gitconfig`, read and written only through git/config.ts (allow-listed keys, git does the quoting). File names
-// are built from mendel-generated UUIDs only, never from the profile name.
+// Git config profiles in userData/git-profiles/: index.json lists profiles { id, name } and assignments
+// { gitDir, repoId, profileId }; each profile is a real git config file `<id>.gitconfig`, read and written only through
+// git/config.ts (allow-listed keys, git does the quoting). File names are built from mendel-generated UUIDs only, never
+// from the profile name. Assignments are applied on the global side: assignments.gitconfig (generated) holds the
+// includeIf sections, and the global config gets one include.path line pointing at it while any assignment exists.
 import { randomUUID } from 'node:crypto'
 import { mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { app } from 'electron'
 import { z } from 'zod'
-import { gitProfileNameSchema, type GitConfigWrite, type GitProfile } from '../shared/gitConfig'
-import { readConfig, writeConfig } from './git/config'
+import { GIT_CONFIG_FIELDS, gitProfileNameSchema, type GitConfigWrite, type GitProfile, type RepoGitConfig } from '../shared/gitConfig'
+import { commonGitDir, effectiveConfig, readConfig, setGlobalInclude, writeConfig, writeGitdirIncludes } from './git/config'
 import log from './log'
 
-type Entry = Omit<GitProfile, 'values'>
+type Entry = Omit<GitProfile, 'values' | 'repos'>
+/** `gitDir`: the repository's real common git dir; `repoId`: the repo list entry it was made from (moved-repo fix). */
+type Assignment = { gitDir: string; repoId: string; profileId: string }
+type Index = { profiles: Entry[]; assignments: Assignment[] }
 
 const MAX_PROFILES = 100
 
@@ -23,41 +28,57 @@ function serial<T>(fn: () => Promise<T>): Promise<T> {
 }
 
 const entry = z.object({ id: z.uuid(), name: gitProfileNameSchema })
+const assignment = z.object({
+  gitDir: z.string().max(4096).regex(/^\P{Cc}+$/u).refine((p) => path.isAbsolute(p)),
+  repoId: z.string().min(1).max(64),
+  profileId: z.uuid()
+})
 
 export const profilesDir = () => path.join(app.getPath('userData'), 'git-profiles')
 const indexFile = (dir: string) => path.join(dir, 'index.json')
+export const assignmentsFile = (dir: string) => path.join(dir, 'assignments.gitconfig')
 export const profileFile = (dir: string, id: string) => path.join(dir, `${z.uuid().parse(id)}.gitconfig`)
 
-/** Keep each valid entry (first of a duplicate id or name wins); a bad entry never drops the rest. */
-export function parseIndex(raw: unknown): Entry[] {
-  const list = (raw as { profiles?: unknown } | null)?.profiles
-  const out: Entry[] = []
-  for (const e of Array.isArray(list) ? list : []) {
-    const r = entry.safeParse(e)
-    if (r.success && !out.some((p) => p.id === r.data.id || same(p.name, r.data.name))) out.push({ id: r.data.id, name: r.data.name })
+/**
+ * Keep each valid entry (first of a duplicate profile id or name, or of an assignment's gitDir, wins); a bad entry never
+ * drops the rest. An assignment of a profile that is not listed is dropped.
+ */
+export function parseIndex(raw: unknown): Index {
+  const r = raw as { profiles?: unknown; assignments?: unknown } | null
+  const list = (v: unknown) => (Array.isArray(v) ? v : [])
+  const profiles: Entry[] = []
+  for (const e of list(r?.profiles)) {
+    const p = entry.safeParse(e)
+    if (p.success && !profiles.some((x) => x.id === p.data.id || same(x.name, p.data.name))) profiles.push({ id: p.data.id, name: p.data.name })
   }
-  return out
+  const assignments: Assignment[] = []
+  for (const e of list(r?.assignments)) {
+    const a = assignment.safeParse(e)
+    if (a.success && profiles.some((p) => p.id === a.data.profileId) && !assignments.some((x) => x.gitDir === a.data.gitDir))
+      assignments.push({ gitDir: a.data.gitDir, repoId: a.data.repoId, profileId: a.data.profileId })
+  }
+  return { profiles, assignments }
 }
 
 const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase()
 
-function load(dir: string): Entry[] {
+function load(dir: string): Index {
   const file = indexFile(dir)
   try {
     return parseIndex(JSON.parse(readFileSync(file, 'utf8')))
   } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return []
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return { profiles: [], assignments: [] }
     // Moved aside (never over an earlier one); profile files are never removed for this.
     const kept = `${file}.corrupt-${Date.now()}`
     log.warn(`[git-profiles] index unreadable, starting empty (kept as ${path.basename(kept)})`, err)
     renameSync(file, kept)
-    return []
+    return { profiles: [], assignments: [] }
   }
 }
 
-function save(dir: string, profiles: Entry[]): void {
+function save(dir: string, index: Index): void {
   const tmp = indexFile(dir) + '.tmp'
-  writeFileSync(tmp, JSON.stringify({ profiles }, null, 2), { mode: 0o600 }) // owner-only (S9)
+  writeFileSync(tmp, JSON.stringify(index, null, 2), { mode: 0o600 }) // owner-only (S9)
   renameSync(tmp, indexFile(dir))
 }
 
@@ -74,14 +95,33 @@ function find(profiles: Entry[], id: string): Entry {
   return p
 }
 
+/**
+ * Rebuild assignments.gitconfig, then the global include line, from the index (never patched). Every change saves the
+ * index first and calls this after, so a crash in between leaves a stale file or line that the next change rebuilds;
+ * meanwhile a missing file behind the line is ignored by git, and the line goes last when it is removed.
+ */
+async function sync(dir: string, assignments: Assignment[], env?: NodeJS.ProcessEnv): Promise<void> {
+  const file = assignmentsFile(dir)
+  await writeGitdirIncludes(file, assignments.map((a) => ({ gitDir: a.gitDir, include: profileFile(dir, a.profileId) })), env)
+  await setGlobalInclude(file, assignments.length > 0, env)
+}
+
 export async function listProfiles(dir: string, env?: NodeJS.ProcessEnv): Promise<GitProfile[]> {
-  return Promise.all(load(dir).map(async (p) => ({ ...p, values: await readConfig({ file: profileFile(dir, p.id) }, dir, env) })))
+  const { profiles, assignments } = load(dir)
+  return Promise.all(
+    profiles.map(async (p) => ({
+      ...p,
+      values: await readConfig({ file: profileFile(dir, p.id) }, dir, env),
+      repos: assignments.filter((a) => a.profileId === p.id).length
+    }))
+  )
 }
 
 export const createProfile = (dir: string, name: string, values: GitConfigWrite, env?: NodeJS.ProcessEnv): Promise<Entry> =>
   serial(async () => {
     mkdirSync(dir, { recursive: true, mode: 0o700 })
-    const profiles = load(dir)
+    const index = load(dir)
+    const { profiles } = index
     if (profiles.length >= MAX_PROFILES) throw new Error(`At most ${MAX_PROFILES} profiles`)
     const p = { id: randomUUID(), name: checkName(profiles, name) }
     const file = profileFile(dir, p.id)
@@ -92,28 +132,84 @@ export const createProfile = (dir: string, name: string, values: GitConfigWrite,
       rmSync(file, { force: true })
       throw err
     }
-    save(dir, [...profiles, p])
+    save(dir, { ...index, profiles: [...profiles, p] })
     return p
   })
 
 /** Rename and set (or, for '', unset) the given fields; absent fields stay as they are. */
 export const updateProfile = (dir: string, id: string, name: string, values: GitConfigWrite, env?: NodeJS.ProcessEnv): Promise<void> =>
   serial(async () => {
-    const profiles = load(dir)
-    const p = find(profiles, id)
-    const n = checkName(profiles, name, id)
+    const index = load(dir)
+    const p = find(index.profiles, id)
+    const n = checkName(index.profiles, name, id)
     await writeConfig({ file: profileFile(dir, id) }, dir, values, env)
     p.name = n
-    save(dir, profiles)
+    save(dir, index)
   })
 
-export const profileName = (dir: string, id: string) => find(load(dir), id).name
+/** A profile's name and how many repositories it is assigned to (the delete confirm). */
+export function profileUsage(dir: string, id: string): { name: string; repos: number } {
+  const { profiles, assignments } = load(dir)
+  return { name: find(profiles, id).name, repos: assignments.filter((a) => a.profileId === id).length }
+}
 
-/** Index entry first, then the file: a crash in between leaves an unlisted file, never a listed profile without one. */
-export const deleteProfile = (dir: string, id: string): Promise<void> =>
+/**
+ * Index entry (and its assignments) first, then the assignments file and global line, then the profile file: a crash
+ * in between leaves an unlisted file, never a listed profile without one.
+ */
+export const deleteProfile = (dir: string, id: string, env?: NodeJS.ProcessEnv): Promise<void> =>
   serial(async () => {
-    const profiles = load(dir)
-    find(profiles, id)
-    save(dir, profiles.filter((p) => p.id !== id))
+    const index = load(dir)
+    find(index.profiles, id)
+    const next = { profiles: index.profiles.filter((p) => p.id !== id), assignments: index.assignments.filter((a) => a.profileId !== id) }
+    save(dir, next)
+    await sync(dir, next.assignments, env)
     rmSync(profileFile(dir, id), { force: true })
+  })
+
+/** Assign a profile (null: unassign) to the repository at `cwd` (repo id `repoId`); its worktrees share it. */
+export const assignProfile = (dir: string, repoId: string, cwd: string, profileId: string | null, env?: NodeJS.ProcessEnv): Promise<void> =>
+  serial(async () => {
+    const gitDir = await commonGitDir(cwd, env)
+    // The index refuses it on load (and git a newline in a key): refuse it before anything is written.
+    if (profileId && !assignment.shape.gitDir.safeParse(gitDir).success) throw new Error('A profile cannot be assigned to a repository whose path contains control characters')
+    const index = load(dir)
+    if (profileId) find(index.profiles, profileId)
+    index.assignments = index.assignments.filter((a) => a.gitDir !== gitDir && a.repoId !== repoId)
+    if (profileId) index.assignments.push({ gitDir, repoId, profileId })
+    mkdirSync(dir, { recursive: true, mode: 0o700 })
+    save(dir, index)
+    await sync(dir, index.assignments, env)
+  })
+
+/**
+ * The assigned profile and each field's effective value in the repository at `cwd`. A repository that moved (an
+ * assignment of `repoId` under another git dir, none under this one) takes its assignment along; a git dir that no
+ * longer exists is never a reason to drop one (unmounted drives).
+ */
+export const repoGitConfig = (dir: string, repoId: string, cwd: string, env?: NodeJS.ProcessEnv): Promise<RepoGitConfig> =>
+  serial(async () => {
+    const gitDir = await commonGitDir(cwd, env)
+    const index = load(dir)
+    let a = index.assignments.find((x) => x.gitDir === gitDir)
+    if (!a && (a = index.assignments.find((x) => x.repoId === repoId))) {
+      a.gitDir = gitDir
+      save(dir, index)
+      await sync(dir, index.assignments, env)
+    }
+    const p = a && find(index.profiles, a.profileId)
+    const file = p && profileFile(dir, p.id)
+    // Only the assigned profile's file counts as `profile`; any other include of a profile file reads as global.
+    const [eff, own] = await Promise.all([effectiveConfig(cwd, file ? [file] : [], env), file ? readConfig({ file }, dir, env) : null])
+    const fields = Object.fromEntries(
+      GIT_CONFIG_FIELDS.map((f) => [f, { value: eff[f].value, source: eff[f].source, project: eff[f].project, inProfile: own?.[f] != null }])
+    ) as RepoGitConfig['fields']
+    return {
+      profile: p ? { id: p.id, name: p.name } : null,
+      fields,
+      // git read the profile's value, yet a global definition after it wins.
+      trap: GIT_CONFIG_FIELDS.filter((f) => own?.[f] != null && eff[f].profile && eff[f].source === 'global'),
+      // The profile sets values, yet git read none of them here (e.g. the global include line was removed by hand).
+      notApplied: GIT_CONFIG_FIELDS.some((f) => own?.[f] != null) && !GIT_CONFIG_FIELDS.some((f) => eff[f].profile)
+    }
   })

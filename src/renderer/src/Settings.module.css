@@ -152,3 +152,28 @@
   max-height: calc(100vh - 32px);
   overflow: auto;
 }
+
+/* a This repository row: value and source, each ellipsized within the card */
+.fieldValue {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.fieldValue > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profileSelect {
+  width: min(320px, 100%);
+}
+
+/* the ordering-trap notice inside the This repository card */
+.trap {
+  margin: 0;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 10px 14px;
+}

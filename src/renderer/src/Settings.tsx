@@ -1,8 +1,8 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { AnimatePresence } from 'motion/react'
-import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
+import { createElement, useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { Button, Checkbox, Dialog, Heading, Input, Label, Radio, RadioGroup, Tab, TabList, TabPanel, Tabs, TextField } from 'react-aria-components'
-import { GIT_CONFIG_FIELDS, gitConfigWriteSchema, gitProfileNameSchema, type GitConfigField, type GitConfigValues, type GitConfigWrite, type GitProfile } from '../../shared/gitConfig'
+import { GIT_CONFIG_FIELDS, GIT_CONFIG_KEYS, gitConfigWriteSchema, gitProfileNameSchema, type GitConfigField, type GitConfigValues, type GitConfigWrite, type GitProfile, type RepoGitConfig } from '../../shared/gitConfig'
 import type { Settings, UpdateState } from '../../shared/ipc'
 import a from './App.module.css'
 import c from './Changes.module.css'
@@ -110,7 +110,7 @@ export function SettingsDialog(p: { repo?: string; section?: string; onClose(): 
             <Toggle label="Confirm before discarding changes" value={st.confirmDiscard} onChange={(confirmDiscard) => set({ confirmDiscard })} />
           </TabPanel>
           <TabPanel id="Git" className={s.panel}>
-            <GitSection />
+            <GitSection repo={p.repo} />
             <Choice
               label="Auto-fetch"
               value={st.autoFetchMinutes}
@@ -243,8 +243,14 @@ function GitConfigFields({ field }: { field(f: GitConfigField): { value: string;
   )
 }
 
+/** After any identity change: the Git cards, the Welcome identity form and "Committing as …" (not provider hints). */
+const refreshIdentity = (qc: QueryClient) => {
+  for (const key of ['gitIdentity', 'gitProfiles', 'repoGitConfig']) void qc.invalidateQueries({ queryKey: [key] })
+  void qc.invalidateQueries({ predicate: (q) => q.queryKey[0] === 'commitInfo' && q.queryKey.length === 2 })
+}
+
 /** Global card: the allow-listed identity/signing keys of `git config --global`; an empty field unsets its key. */
-function GitSection() {
+function GitSection({ repo }: { repo?: string }) {
   const qc = useQueryClient()
   const info = useQuery({ queryKey: ['gitInfo'], queryFn: () => window.mendel['git:info']() }).data
   const id = useQuery({ queryKey: ['gitIdentity'], queryFn: () => window.mendel['settings:gitIdentity']() })
@@ -260,8 +266,7 @@ function GitSection() {
     void window.mendel['settings:setGitIdentity'](values).then(
       () => {
         setMsg('Saved')
-        void id.refetch()
-        void qc.invalidateQueries({ predicate: (q) => q.queryKey[0] === 'commitInfo' && q.queryKey.length === 2 }) // "Committing as …", not provider hints
+        refreshIdentity(qc)
       },
       (e: Error) => setMsg(e.message)
     )
@@ -284,6 +289,7 @@ function GitSection() {
         {msg && <span role="status">{msg}</span>}
       </section>
       <ProfilesSection />
+      {repo && <RepoGitSection repo={repo} onOpenGlobal={open} />}
     </>
   )
 }
@@ -297,10 +303,11 @@ function profileSummary(v: GitConfigValues): string {
 
 /** Profiles card: named sets of the five fields (userData/git-profiles/), added and edited in a dialog. */
 function ProfilesSection() {
+  const qc = useQueryClient()
   const q = useQuery({ queryKey: ['gitProfiles'], queryFn: () => window.mendel['settings:gitProfiles']() })
   const [edit, setEdit] = useState<GitProfile | 'new' | null>(null)
   const [msg, setMsg] = useState<string | null>(null)
-  const del = (id: string) => void window.mendel['settings:deleteGitProfile']({ id }).then(() => (setMsg(null), q.refetch()), (e: Error) => setMsg(e.message))
+  const del = (id: string) => void window.mendel['settings:deleteGitProfile']({ id }).then(() => (setMsg(null), refreshIdentity(qc)), (e: Error) => setMsg(e.message))
   return (
     <section className={s.provider} aria-labelledby="git-profiles">
       <div className={s.providerHead}>
@@ -312,6 +319,7 @@ function ProfilesSection() {
           <div className={s.profile}>
             <span>{p.name}</span>
             <span className={a.muted}>{profileSummary(p.values)}</span>
+            <span className={a.muted}>{p.repos === 1 ? 'Used by 1 repository' : `Used by ${p.repos || 'no'} repositories`}</span>
           </div>
           <Button aria-label={`Edit ${p.name}`} onPress={() => setEdit(p)}>
             Edit…
@@ -330,8 +338,101 @@ function ProfilesSection() {
         </p>
       )}
       <AnimatePresence>
-        {edit && <ProfileDialog key="profile" profile={edit === 'new' ? undefined : edit} onSaved={() => (setMsg(null), void q.refetch())} onClose={() => setEdit(null)} />}
+        {edit && <ProfileDialog key="profile" profile={edit === 'new' ? undefined : edit} onSaved={() => (setMsg(null), refreshIdentity(qc))} onClose={() => setEdit(null)} />}
       </AnimatePresence>
+    </section>
+  )
+}
+
+const SOURCE: Record<Exclude<RepoGitConfig['fields'][GitConfigField]['source'], 'profile'>, string> = {
+  project: 'Project',
+  global: 'Global',
+  system: 'System',
+  command: 'Command line',
+  none: 'Not set'
+}
+
+/**
+ * This repository card: the assigned profile (applied through the global includeIf file, so the terminal agrees) and
+ * each field's effective value with its source. Project values are shown, not edited, here.
+ */
+function RepoGitSection(p: { repo: string; onOpenGlobal(): void }) {
+  const qc = useQueryClient()
+  const q = useQuery({ queryKey: ['repoGitConfig', p.repo], queryFn: () => window.mendel['settings:repoGitConfig']({ repo: p.repo }) })
+  const profiles = useQuery({ queryKey: ['gitProfiles'], queryFn: () => window.mendel['settings:gitProfiles']() }).data
+  const [msg, setMsg] = useState<string | null>(null)
+  const st = q.data
+  const assign = (profileId: string) =>
+    void window.mendel['settings:assignGitProfile']({ repo: p.repo, profileId: profileId || null }).then(
+      () => (setMsg(null), refreshIdentity(qc)),
+      (e: Error) => (setMsg(e.message), refreshIdentity(qc)) // a failed global write can leave it assigned, not applied
+    )
+  return (
+    <section className={s.provider} aria-labelledby="git-repo">
+      <div className={s.providerHead}>
+        <strong id="git-repo">This repository</strong>
+      </div>
+      {st && (
+        <>
+          <div className={a.field}>
+            <span>Profile</span>
+            <select aria-label="Profile" className={s.profileSelect} value={st.profile?.id ?? ''} onChange={(e) => assign(e.target.value)}>
+              {/* explicit button + <selectedcontent> (no JSX typing yet): only that label can end in an ellipsis */}
+              <button>{createElement('selectedcontent')}</button>
+              <option value="">None</option>
+              {profiles?.map((x) => (
+                <option key={x.id} value={x.id}>
+                  {x.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          {GIT_CONFIG_FIELDS.map((f) => {
+            const v = st.fields[f]
+            const from = v.source === 'profile' ? `Profile ${st.profile?.name}` : SOURCE[v.source]
+            const over = v.source === 'project' && v.inProfile && st.profile ? ` · overrides profile ${st.profile.name}` : ''
+            return (
+              <div key={f} role="group" aria-label={GIT_CONFIG_KEYS[f]} className={a.field}>
+                <span>{GIT_LABEL[f]}</span>
+                <div className={s.fieldValue}>
+                  <span>{v.value ?? '—'}</span>
+                  <span className={a.muted}>
+                    {from}
+                    {over}
+                  </span>
+                </div>
+              </div>
+            )
+          })}
+          {st.profile && st.notApplied && (
+            <div role="status" className={`${a.banner} ${a.notice} ${s.trap}`}>
+              <p>
+                Profile {st.profile.name} is not applied: git does not read it for this repository, e.g. because the include.path line
+                mendel added to your global git config was removed.
+              </p>
+              <div className={a.row}>
+                <Button onPress={() => assign(st.profile!.id)}>Apply again</Button>
+              </div>
+            </div>
+          )}
+          {st.trap.length > 0 && (
+            <div role="status" className={`${a.banner} ${a.notice} ${s.trap}`}>
+              <p>
+                Your global git config sets {st.trap.map((f) => GIT_CONFIG_KEYS[f]).join(', ')} after the line that includes mendel's profiles, so
+                the global value wins here. Move the include.path line that points to mendel's assignments.gitconfig to the end of the file.
+              </p>
+              <div className={a.row}>
+                <Button onPress={p.onOpenGlobal}>Open global git config…</Button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+      {(msg ?? q.error) && (
+        <p role="alert" className={a.error}>
+          {msg ?? q.error?.message}
+        </p>
+      )}
     </section>
   )
 }

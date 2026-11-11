@@ -374,3 +374,39 @@ test('Settings → Git → Profiles fits the minimum window with a 64-character 
     fx.cleanup()
   }
 })
+
+test('Settings → Git → This repository fits the minimum window with a long profile name and long values', async () => {
+  const fx = createRepoFixture()
+  const name = `Profile ${'P'.repeat(56)}`
+  const email = 'a-very-long-local-part-of-an-address.that-goes-on@a-long-subdomain.example.test'
+  const id = '0b7c3c1e-6a4f-4f3e-9f53-1b2a3c4d5e6f'
+  const userData = path.join(fx.dir, 'userData')
+  mkdirSync(path.join(userData, 'git-profiles'), { recursive: true })
+  writeFileSync(path.join(userData, 'git-profiles', 'index.json'), JSON.stringify({ profiles: [{ id, name }] }))
+  const file = path.join(userData, 'git-profiles', `${id}.gitconfig`)
+  for (const [k, v] of [['user.name', 'N'.repeat(200)], ['user.email', email], ['user.signingkey', `key::ssh-rsa ${'A'.repeat(700)} me@host`]])
+    execFileSync('git', ['config', '--file', file, k!, v!], { env: fx.env })
+  const app = await launchApp({ ...fx.env, MENDEL_E2E_USERDATA: userData })
+  const { win } = app
+  try {
+    const min = await app.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.getMinimumSize())
+    await app.app.evaluate(({ BrowserWindow }, [w, h]) => BrowserWindow.getAllWindows()[0]!.setSize(w, h), min as [number, number])
+    await expect.poll(() => win.evaluate(() => window.innerWidth)).toBeLessThanOrEqual(min[0]!)
+    await openRepo(app, fx.work)
+    await win.getByRole('button', { name: 'Settings' }).click()
+    const settings = win.getByRole('dialog', { name: 'Settings' })
+    await settings.getByRole('tab', { name: 'Git', exact: true }).click()
+    const card = settings.getByRole('region', { name: 'This repository' })
+    await card.getByLabel('Profile').selectOption({ label: name })
+    const row = card.getByRole('group', { name: 'user.email' })
+    await expect(row).toContainText(`Profile ${name}`)
+    await row.scrollIntoViewIfNeeded()
+    expect(await overflow(win), 'Settings → Git → This repository').toEqual([])
+    // long values and the source end in an ellipsis; the tooltip shows the full text
+    await tooltip(win, row.getByText(email, { exact: true }), email)
+    await tooltip(win, card.getByRole('group', { name: 'user.name' }).getByText(`Profile ${name}`, { exact: true }), `Profile ${name}`)
+  } finally {
+    await app.close()
+    fx.cleanup()
+  }
+})
