@@ -47,7 +47,7 @@
 
 /* Full-width sidebar buttons: "Create pull request" under the header, "More on GitHub" as the list's last row. */
 .more {
-  margin: 0 8px 8px;
+  margin: 8px;
 }
 
 /* Selected pull request fills the main pane so the body scrolls on its own. */
