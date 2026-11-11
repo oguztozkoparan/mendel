@@ -9,15 +9,18 @@ import { DialogShell } from '../../motion'
 export function RepoProviderDialog(p: { repo: string; state: ProviderState; onClose(): void }) {
   const qc = useQueryClient()
   const [provider, setProvider] = useState(p.state.override.provider)
-  const [url, setUrl] = useState(p.state.override.baseUrl ?? p.state.detection?.baseUrl ?? '')
+  const gerrit = p.state.detection?.provider === 'gerrit'
+  const [url, setUrl] = useState(p.state.override.baseUrl ?? (gerrit ? p.state.detection?.baseUrl : null) ?? '')
   const [busy, setBusy] = useState(false)
+  // A GitHub repo on Auto has no Gerrit URL to set.
+  const showUrl = provider === 'gerrit' || (provider === 'auto' && p.state.detection?.provider !== 'github')
   const [error, setError] = useState<string | null>(null)
 
   const submit = (e: FormEvent) => {
     e.preventDefault()
     setBusy(true)
     setError(null)
-    const baseUrl = provider === 'none' ? null : url.trim() || null
+    const baseUrl = showUrl ? url.trim() || null : null
     window.mendel['provider:setOverride']({ repo: p.repo, provider, baseUrl }).then(
       (state) => (qc.setQueryData(['provider', p.repo], state), p.onClose()),
       (err: Error) => (setBusy(false), setError(err.message))
@@ -39,7 +42,7 @@ export function RepoProviderDialog(p: { repo: string; state: ProviderState; onCl
               <option value="none">None</option>
             </select>
           </label>
-          {provider !== 'none' && (
+          {showUrl && (
             <label className={a.field}>
               Gerrit URL
               <input

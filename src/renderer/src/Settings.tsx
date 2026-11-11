@@ -284,6 +284,12 @@ function GerritSection({ repo }: { repo?: string }) {
       </>
     )
   if (!st) return header
+  const name = gerrit
+    ? `Gerrit${d.baseUrl ? ` at ${d.baseUrl}` : ' (URL not set)'}`
+    : d?.provider === 'github' && d.baseUrl
+      ? `GitHub · ${new URL(d.baseUrl).host}`
+      : 'No provider'
+  const current = `${name} · provider setting: ${st.override.provider}`
   const signOut = () =>
     void window.mendel['gerrit:disconnect']({ repo }).then(() => {
       void qc.invalidateQueries({ queryKey: ['provider', repo] })
@@ -293,8 +299,8 @@ function GerritSection({ repo }: { repo?: string }) {
     <>
       {header}
       <Row label="This repository">
-        <span>
-          {gerrit ? `Gerrit${d.baseUrl ? ` at ${d.baseUrl}` : ' (URL not set)'}` : 'No provider'} · provider setting: {st.override.provider}
+        <span className={a.path} title={current}>
+          {current}
         </span>
       </Row>
       {gerrit && (

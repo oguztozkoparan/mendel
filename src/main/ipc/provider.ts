@@ -5,6 +5,7 @@ import { credentialUser } from '../providers/credentials'
 import { normalizeBaseUrl } from '../providers/gerrit/client'
 import { readCapped } from '../providers/http'
 import { gerritDetection, gerritProvider, probeGerrit } from '../providers/gerrit/detect'
+import { githubProvider } from '../providers/github/detect'
 import { usedRemotes } from '../providers/remotes'
 import { providerStore, saveProviderStore } from '../providers/store'
 import { repoRoot } from '../repos'
@@ -12,6 +13,7 @@ import { testSeams } from '../security'
 import type { Handlers } from '.'
 
 registerProvider(gerritProvider)
+registerProvider(githubProvider)
 
 /** Loopback http base URLs only in dev/e2e builds (S13); TECH.md §6.6. */
 export const allowLoopbackHttp = testSeams
@@ -40,8 +42,9 @@ export async function providerState(repo: string): Promise<ProviderState> {
     else if (cached) detection = gerritDetection(cached, s.hosts[cached.host].baseUrl, s.hosts[cached.host].version)
     else {
       detection = await detectProvider(remotes, probe)
-      if (!detection && override.provider === 'gerrit') detection = gerritDetection(remotes[0], null)
-      if (detection?.baseUrl) {
+      if (override.provider === 'gerrit' && detection?.provider !== 'gerrit') detection = gerritDetection(remotes[0], null)
+      // The host cache is Gerrit-only: a cached host is rebuilt as a Gerrit detection above.
+      if (detection?.provider === 'gerrit' && detection.baseUrl) {
         s.hosts[detection.host] = { baseUrl: detection.baseUrl, version: detection.serverVersion }
         saveProviderStore()
       }
