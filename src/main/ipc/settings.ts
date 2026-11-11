@@ -1,15 +1,14 @@
+import { realpath } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { BrowserWindow, dialog, shell } from 'electron'
-import { detectTools, validCustomTool } from '../external'
-import { endOfOptions, git } from '../git/runner'
+import { detectTools, openInEditor, validCustomTool } from '../external'
+import { globalConfigFile, readConfig, writeConfig } from '../git/config'
 import log from '../log'
 import { getSettings, setSettings } from '../settings'
 import type { Handlers } from '.'
 
-const config = (key: string) => git(['config', '--global', '--get', key], { cwd: os.homedir() }).then((r) => r.stdout.trim(), () => '')
-
-export const settingsHandlers: Handlers<'settings:get' | 'settings:set' | 'settings:tools' | 'settings:pickTool' | 'settings:gitIdentity' | 'settings:setGitIdentity' | 'settings:openLogs'> = {
+export const settingsHandlers: Handlers<'settings:get' | 'settings:set' | 'settings:tools' | 'settings:pickTool' | 'settings:gitIdentity' | 'settings:setGitIdentity' | 'settings:openGitConfig' | 'settings:openLogs'> = {
   'settings:get': () => getSettings(),
   'settings:set': (patch) => setSettings(patch),
   'settings:tools': () => {
@@ -29,11 +28,15 @@ export const settingsHandlers: Handlers<'settings:get' | 'settings:set' | 'setti
     if (!validCustomTool(p)) throw new Error(`Not an application or executable: ${p}`)
     return setSettings(kind === 'editor' ? { editor: 'custom', editorPath: p } : { terminal: 'custom', terminalPath: p })
   },
-  'settings:gitIdentity': async () => ({ name: await config('user.name'), email: await config('user.email') }),
-  'settings:setGitIdentity': async ({ name, email }) => {
-    const cwd = os.homedir()
-    await git(['config', '--global', ...endOfOptions('user.name', name)], { cwd })
-    await git(['config', '--global', ...endOfOptions('user.email', email)], { cwd })
+  'settings:gitIdentity': () => readConfig('global', os.homedir()),
+  'settings:setGitIdentity': (values) => writeConfig('global', os.homedir(), values),
+  'settings:openGitConfig': async () => {
+    const file = globalConfigFile()
+    if (!file) throw new Error('No global git config file yet: save the form first')
+    // Root = its own folder, so the root check is moot: the path is git's own choice (no renderer input); openInEditor's
+    // System default still never runs it (non-text extension on the resolved target = reveal only).
+    const real = await realpath(file)
+    await openInEditor(path.dirname(real), real)
   },
   'settings:openLogs': async () => {
     const err = await shell.openPath(path.dirname(log.transports.file.getFile().path))

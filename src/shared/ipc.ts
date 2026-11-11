@@ -8,6 +8,7 @@ import { z } from 'zod'
 import { SHA_PREFIX, TRAILER_KEY } from './historyQuery'
 import { GERRIT_OPS, MAX_TERM, MAX_TERMS, MAX_TEXT } from './gerritQuery'
 import { draftSchema, HASHTAG, PUSH_OPTION_VALUE, type GerritChange, type GerritCommit, type GerritSent, type GerritChangeLists, type GerritComment, type GerritConnected, type GerritDiff, type GerritFiles, type GerritRelated, type GerritSearchPage } from './gerrit'
+import { gitConfigWriteSchema, type GitConfigValues } from './gitConfig'
 import type { GithubDeviceCode, GithubPulls, GithubSignedIn } from './github'
 
 const res = <Res>() => <Req extends z.ZodType>(req: Req) => ({ req, res: null as unknown as Res })
@@ -486,11 +487,12 @@ export const invoke = {
   'settings:tools': res<{ editors: ExternalTool[]; terminals: ExternalTool[] }>()(z.undefined()),
   /** Native file picker for a custom editor/terminal executable; resolves with all settings (unchanged if cancelled). */
   'settings:pickTool': res<Settings>()(z.object({ kind: z.enum(['editor', 'terminal']) }).strict()),
-  /** Global git identity used for commits (`git config --global user.name/email`). */
-  'settings:gitIdentity': res<{ name: string; email: string }>()(z.undefined()),
-  'settings:setGitIdentity': res<void>()(
-    z.object({ name: z.string().trim().min(1).max(200).regex(/^[^\0-\x1f]*$/), email: z.string().trim().min(1).max(200).regex(/^[^\0-\x1f\s<>]*$/) }).strict()
-  ),
+  /** Global git identity and signing config (`git config --global`, allow-listed keys of shared/gitConfig.ts). */
+  'settings:gitIdentity': res<GitConfigValues>()(z.undefined()),
+  /** '' unsets a key, an absent field is left untouched (the Welcome form sends only name and email). */
+  'settings:setGitIdentity': res<void>()(gitConfigWriteSchema),
+  /** Open the global git config file in the external editor; rejects while no global file exists. */
+  'settings:openGitConfig': res<void>()(z.undefined()),
   'settings:openLogs': res<void>()(z.undefined()),
   /** Detect the repo's provider (cached per host; probes unknown hosts, 3 s timeout). */
   'provider:get': res<ProviderState>()(inRepo),

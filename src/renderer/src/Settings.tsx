@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { AnimatePresence } from 'motion/react'
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { Button, Checkbox, Dialog, Heading, Input, Label, Radio, RadioGroup, Tab, TabList, TabPanel, Tabs, TextField } from 'react-aria-components'
+import { GIT_CONFIG_FIELDS, gitConfigWriteSchema, type GitConfigField, type GitConfigValues } from '../../shared/gitConfig'
 import type { Settings, UpdateState } from '../../shared/ipc'
 import a from './App.module.css'
 import c from './Changes.module.css'
@@ -208,36 +209,64 @@ function CloneFolder() {
   )
 }
 
+const GIT_LABEL: Record<GitConfigField, string> = {
+  name: 'Name (user.name)',
+  email: 'Email (user.email)',
+  signingKey: 'Signing key (user.signingkey)',
+  gpgSign: 'Sign commits (commit.gpgsign)',
+  gpgFormat: 'Signature format (gpg.format)'
+}
+const formValues = (v?: GitConfigValues) => Object.fromEntries(GIT_CONFIG_FIELDS.map((f) => [f, v?.[f] ?? ''])) as Record<GitConfigField, string>
+
+/** Global card: the allow-listed identity/signing keys of `git config --global`; an empty field unsets its key. */
 function GitSection() {
+  const qc = useQueryClient()
   const info = useQuery({ queryKey: ['gitInfo'], queryFn: () => window.mendel['git:info']() }).data
   const id = useQuery({ queryKey: ['gitIdentity'], queryFn: () => window.mendel['settings:gitIdentity']() })
-  const [name, setName] = useState('')
-  const [email, setEmail] = useState('')
+  const [v, setV] = useState(formValues)
   const [msg, setMsg] = useState<string | null>(null)
   useEffect(() => {
-    if (id.data) (setName(id.data.name), setEmail(id.data.email))
+    if (id.data) setV(formValues(id.data))
   }, [id.data])
-  const save = () =>
-    void window.mendel['settings:setGitIdentity']({ name, email }).then(() => (setMsg('Saved'), id.refetch()), (e: Error) => setMsg(e.message))
+  const field = (f: GitConfigField) => ({ value: v[f], onChange: (x: string) => (setMsg(null), setV((o) => ({ ...o, [f]: x }))) })
+  const save = () => {
+    // Only changed fields: a value git stores in a form the form cannot show (e.g. gpgsign = maybe) is left alone.
+    const loaded = formValues(id.data)
+    const r = gitConfigWriteSchema.safeParse(Object.fromEntries(GIT_CONFIG_FIELDS.filter((f) => v[f] !== loaded[f]).map((f) => [f, v[f]])))
+    if (!r.success) return setMsg(`${GIT_LABEL[r.error.issues[0]!.path[0] as GitConfigField]}: ${r.error.issues[0]!.message}`)
+    void window.mendel['settings:setGitIdentity'](r.data).then(
+      () => {
+        setMsg('Saved')
+        void id.refetch()
+        void qc.invalidateQueries({ predicate: (q) => q.queryKey[0] === 'commitInfo' && q.queryKey.length === 2 }) // "Committing as …", not provider hints
+      },
+      (e: Error) => setMsg(e.message)
+    )
+  }
+  const open = () => void window.mendel['settings:openGitConfig']().then(() => setMsg(null), (e: Error) => setMsg(e.message))
   return (
     <>
       <Row label="Git">
         <span className={a.muted}>{info?.found ? `git ${info.version} at ${info.path}` : 'Git not found'}</span>
       </Row>
-      <TextField value={name} onChange={setName} className={a.field}>
-        <Label>Name (user.name)</Label>
-        <Input spellCheck={false} />
-      </TextField>
-      <TextField value={email} onChange={setEmail} className={a.field}>
-        <Label>Email (user.email)</Label>
-        <Input spellCheck={false} />
-      </TextField>
-      <div className={a.row}>
-        <Button onPress={save} isDisabled={!name.trim() || !email.trim()}>
-          Save identity
-        </Button>
+      <section className={s.provider} aria-labelledby="git-global">
+        <div className={s.providerHead}>
+          <strong id="git-global">Global</strong>
+        </div>
+        {(['name', 'email', 'signingKey'] as const).map((f) => (
+          <TextField key={f} {...field(f)} className={a.field}>
+            <Label>{GIT_LABEL[f]}</Label>
+            <Input spellCheck={false} />
+          </TextField>
+        ))}
+        <Choice label={GIT_LABEL.gpgSign} {...field('gpgSign')} options={[['', 'Not set'], ['true', 'Yes'], ['false', 'No']]} />
+        <Choice label={GIT_LABEL.gpgFormat} {...field('gpgFormat')} options={[['', 'Not set'], ['openpgp', 'OpenPGP'], ['ssh', 'SSH'], ['x509', 'X.509']]} />
+        <div className={a.row}>
+          <Button onPress={save}>Save identity</Button>
+          <Button onPress={open}>Open global git config…</Button>
+        </div>
         {msg && <span role="status">{msg}</span>}
-      </div>
+      </section>
     </>
   )
 }
@@ -249,7 +278,7 @@ export function IdentityForm() {
   const [email, setEmail] = useState('')
   const [error, setError] = useState<string | null>(null)
   useEffect(() => {
-    if (id.data) (setName(id.data.name), setEmail(id.data.email))
+    if (id.data) (setName(id.data.name ?? ''), setEmail(id.data.email ?? ''))
   }, [id.data])
   if (!id.data || (id.data.name && id.data.email)) return null
   const save = (e: FormEvent) => {

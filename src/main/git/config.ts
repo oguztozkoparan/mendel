@@ -1,5 +1,7 @@
 // Identity/signing config per scope (global, a repo's own config, a config file) and the effective value of a repo
 // with its source. Only the allow-listed keys of shared/gitConfig.ts can be read or written here.
+import { existsSync } from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import {
   GIT_CONFIG_FIELDS,
@@ -67,6 +69,17 @@ export async function writeConfig(scope: ConfigScope, cwd: string, values: GitCo
       : { args: ['config', ...scopeArgs(scope), '--replace-all', ...endOfOptions(key, v)], okExitCodes: [] }
   })
   for (const r of runs) await git(r.args, { cwd, env, okExitCodes: r.okExitCodes })
+}
+
+/**
+ * The file `git config --global` uses, or null while none exists (git's config.c): $GIT_CONFIG_GLOBAL; else
+ * ~/.gitconfig, unless only $XDG_CONFIG_HOME/git/config (default ~/.config/git/config) exists.
+ */
+export function globalConfigFile(env: NodeJS.ProcessEnv = process.env): string | null {
+  const home = env.HOME || os.homedir()
+  const user = env.GIT_CONFIG_GLOBAL || path.join(home, '.gitconfig')
+  const xdg = path.join(env.XDG_CONFIG_HOME || path.join(home, '.config'), 'git', 'config')
+  return existsSync(user) ? user : !env.GIT_CONFIG_GLOBAL && existsSync(xdg) ? xdg : null
 }
 
 const samePath = (a: string, b: string) =>

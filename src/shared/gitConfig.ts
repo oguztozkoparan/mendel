@@ -27,8 +27,9 @@ const text = (max: number) =>
 
 /** A write: '' unsets the key (inherit), an absent field is left untouched. Unknown fields are rejected. */
 export const gitConfigWriteSchema = z.strictObject({
-  name: text(MAX_CONFIG_NAME).optional(),
-  email: text(MAX_CONFIG_NAME).optional(),
+  // git silently drops < and > from an identity (and keeps spaces in an email), so the commit would differ from the config.
+  name: text(MAX_CONFIG_NAME).regex(/^[^<>]*$/, '< and > are not allowed').optional(),
+  email: text(MAX_CONFIG_NAME).regex(/^[^\s<>]*$/, 'Spaces, < and > are not allowed').optional(),
   signingKey: text(MAX_CONFIG_SIGNING_KEY).optional(),
   gpgSign: z.enum(['', 'true', 'false']).optional(),
   gpgFormat: z.enum(['', ...GPG_FORMATS]).optional()

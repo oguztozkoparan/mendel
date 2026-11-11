@@ -1,9 +1,9 @@
 import { execFileSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, realpathSync, rmSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { effectiveConfig, readConfig, writeConfig, type ConfigScope } from '../../src/main/git/config'
+import { effectiveConfig, globalConfigFile, readConfig, writeConfig, type ConfigScope } from '../../src/main/git/config'
 import { gitConfigWriteSchema, MAX_CONFIG_NAME, MAX_CONFIG_SIGNING_KEY } from '../../src/shared/gitConfig'
 import { isolatedGitEnv } from '../fixtures/git-env'
 
@@ -168,7 +168,67 @@ describe('git config write schema', () => {
     expect(gitConfigWriteSchema.parse({ signingKey: 'k'.repeat(MAX_CONFIG_SIGNING_KEY) }).signingKey).toHaveLength(MAX_CONFIG_SIGNING_KEY)
     for (const bad of ['a\n', '\nb', 'a\r', 'a\0', '\x7f', '\u0085', 'x'.repeat(MAX_CONFIG_NAME + 1)]) expect(gitConfigWriteSchema.safeParse({ name: bad }).success).toBe(false)
     expect(gitConfigWriteSchema.safeParse({ signingKey: 'k'.repeat(MAX_CONFIG_SIGNING_KEY + 1) }).success).toBe(false)
+    for (const bad of [{ name: 'a <b>' }, { email: 'a b@c' }, { email: '<a@b>' }]) expect(gitConfigWriteSchema.safeParse(bad).success).toBe(false)
+    expect(gitConfigWriteSchema.parse({ name: '', email: ' a@b ' })).toEqual({ name: '', email: 'a@b' })
     expect(gitConfigWriteSchema.parse({ gpgSign: '', gpgFormat: 'x509' })).toEqual({ gpgSign: '', gpgFormat: 'x509' })
     expect(gitConfigWriteSchema.safeParse({ gpgSign: true }).success).toBe(false)
+  })
+})
+
+describe('globalConfigFile: the file git itself uses for --global', () => {
+  let dir: string
+  afterEach(() => rmSync(dir, { recursive: true, force: true, maxRetries: 5 }))
+
+  // Temp HOME and XDG dir only; GIT_CONFIG_GLOBAL dropped so git applies its own ~/.gitconfig vs XDG rule.
+  const setup = (files: ('home' | 'xdg')[], xdgHome?: string) => {
+    dir = realpathSync.native(mkdtempSync(path.join(tmpdir(), 'mendel-gcf-')))
+    const { GIT_CONFIG_GLOBAL: _, ...env } = isolatedGitEnv(dir)
+    rmSync(path.join(dir, 'home', '.gitconfig'))
+    if (xdgHome) env.XDG_CONFIG_HOME = xdgHome
+    else delete env.XDG_CONFIG_HOME
+    const home = path.join(dir, 'home')
+    const xdg = path.join(xdgHome ?? path.join(home, '.config'), 'git', 'config')
+    if (files.includes('home')) writeFileSync(path.join(home, '.gitconfig'), '')
+    if (files.includes('xdg')) (mkdirSync(path.dirname(xdg), { recursive: true }), writeFileSync(xdg, ''))
+    return { env, home: path.join(home, '.gitconfig'), xdg }
+  }
+  /** Where `git config --global` writes, and that globalConfigFile names the same file. */
+  const gitWrites = (env: NodeJS.ProcessEnv) => {
+    execFileSync('git', ['config', '--global', 'mendel.probe', 'x'], { cwd: dir, env })
+    const origin = execFileSync('git', ['config', '--global', '--show-origin', '--get', 'mendel.probe'], { cwd: dir, env, encoding: 'utf8' })
+    return origin.slice('file:'.length, origin.indexOf('\t'))
+  }
+
+  it('none: null (git would create ~/.gitconfig)', () => {
+    const { env, home } = setup([])
+    expect(globalConfigFile(env)).toBeNull()
+    expect(gitWrites(env)).toBe(home)
+  })
+  it.each([
+    ['only ~/.gitconfig', ['home'] as const, 'home' as const],
+    ['only ~/.config/git/config', ['xdg'] as const, 'xdg' as const],
+    ['both: ~/.gitconfig wins', ['home', 'xdg'] as const, 'home' as const]
+  ])('%s', (_, files, want) => {
+    const f = setup([...files])
+    expect(globalConfigFile(f.env)).toBe(f[want])
+    expect(gitWrites(f.env)).toBe(f[want])
+  })
+  it('$XDG_CONFIG_HOME', () => {
+    const f = setup(['xdg'], path.join(realpathSync.native(tmpdir()), `mendel-gcf-xdg-${process.pid}`))
+    try {
+      expect(globalConfigFile(f.env)).toBe(f.xdg)
+      expect(gitWrites(f.env)).toBe(f.xdg)
+    } finally {
+      rmSync(path.dirname(path.dirname(f.xdg)), { recursive: true, force: true })
+    }
+  })
+  it('$GIT_CONFIG_GLOBAL wins, null while that file is missing', () => {
+    const f = setup(['home', 'xdg'])
+    const own = path.join(dir, 'own.gitconfig')
+    expect(globalConfigFile({ ...f.env, GIT_CONFIG_GLOBAL: own })).toBeNull()
+    writeFileSync(own, '')
+    expect(globalConfigFile({ ...f.env, GIT_CONFIG_GLOBAL: own })).toBe(own)
+    expect(gitWrites({ ...f.env, GIT_CONFIG_GLOBAL: own })).toBe(own)
+    expect(existsSync(f.home)).toBe(true)
   })
 })

@@ -1,9 +1,9 @@
 import { expect, test } from '@playwright/test'
 import { execFileSync } from 'node:child_process'
-import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { createRepoFixture } from '../fixtures/repo'
-import { launchApp, openRepo } from './launch'
+import { launchApp, openRepo, stubOpenDialog } from './launch'
 
 /** What the page sees; Playwright emulates a light color scheme unless told not to. */
 const dark = async (win: import('@playwright/test').Page) => {
@@ -62,6 +62,81 @@ test('preferences persist across restart and drive the app', async () => {
     app = await launchApp({ ...fx.env, MENDEL_E2E_USERDATA: userData })
     await expect.poll(() => dark(app.win)).toBe(true)
     await expect(app.win.locator('html')).toHaveAttribute('data-accent', 'violet')
+  } finally {
+    await app.close()
+    fx.cleanup()
+  }
+})
+
+test('Settings → Git → Global: five identity/signing fields load, save, unset, validate; open the global file', async () => {
+  const fx = createRepoFixture()
+  // Everything here runs in the fixture's isolated HOME / GIT_CONFIG_GLOBAL, never the machine's global config.
+  const globalFile = fx.env.GIT_CONFIG_GLOBAL!
+  expect(globalFile.startsWith(fx.dir + path.sep)).toBe(true)
+  fx.git(['config', '--global', 'user.signingkey', 'ABCD1234'])
+  fx.git(['config', '--global', 'gpg.format', 'ssh'])
+  fx.git(['config', '--global', 'alias.st', 'status'])
+  writeFileSync(path.join(fx.work, 'x.txt'), 'x\n') // a change, so the commit box shows
+  const allowed = () =>
+    execFileSync('git', ['config', '--global', '--get-regexp', '^(user\\.|commit\\.gpgsign|gpg\\.format)'], { env: fx.env, encoding: 'utf8' }).trim().split('\n')
+  const app = await launchApp(fx.env)
+  const { win } = app
+  try {
+    await openRepo(app, fx.work)
+    const commit = win.getByRole('form', { name: 'Commit' })
+    await expect(commit).toContainText('Committing as Test User <test@example.com>')
+    await win.getByRole('button', { name: 'Settings' }).click()
+    const dialog = win.getByRole('dialog', { name: 'Settings' })
+    await dialog.getByRole('tab', { name: 'Git', exact: true }).click()
+    const card = dialog.getByRole('region', { name: 'Global' })
+    const sign = card.getByRole('radiogroup', { name: 'Sign commits (commit.gpgsign)' })
+    const format = card.getByRole('radiogroup', { name: 'Signature format (gpg.format)' })
+    await expect(card.getByLabel('Name (user.name)')).toHaveValue('Test User')
+    await expect(card.getByLabel('Email (user.email)')).toHaveValue('test@example.com')
+    await expect(card.getByLabel('Signing key (user.signingkey)')).toHaveValue('ABCD1234')
+    await expect(sign.getByRole('radio', { name: 'No', exact: true })).toBeChecked()
+    await expect(format.getByRole('radio', { name: 'SSH' })).toBeChecked()
+    const before = allowed()
+
+    // Invalid (over the length cap): an error, nothing written.
+    await card.getByLabel('Name (user.name)').fill('x'.repeat(257))
+    await card.getByRole('button', { name: 'Save identity' }).click()
+    await expect(card.getByRole('status')).toContainText('Name (user.name):')
+    expect(allowed()).toEqual(before)
+
+    const key = 'key::ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIK0wmN/Cr3JXqmLW7u+g9pTh+wyqDHpSQEIQczXkVx9q me@example.com'
+    await card.getByLabel('Name (user.name)').fill('New Name')
+    await card.getByLabel('Email (user.email)').fill('new@example.com')
+    await card.getByLabel('Signing key (user.signingkey)').fill(key)
+    await sign.getByText('Yes', { exact: true }).click()
+    await format.getByText('OpenPGP', { exact: true }).click()
+    await card.getByRole('button', { name: 'Save identity' }).click()
+    await expect(card.getByRole('status')).toHaveText('Saved')
+    expect(allowed().sort()).toEqual(['commit.gpgsign true', 'gpg.format openpgp', `user.email new@example.com`, 'user.name New Name', `user.signingkey ${key}`])
+    expect(fx.git(['config', '--global', 'alias.st'])).toBe('status')
+
+    // Empty / Not set unsets the key.
+    await card.getByLabel('Signing key (user.signingkey)').fill('')
+    await sign.getByText('Not set', { exact: true }).click()
+    await format.getByText('Not set', { exact: true }).click()
+    await card.getByRole('button', { name: 'Save identity' }).click()
+    await expect.poll(allowed).toEqual(['user.name New Name', 'user.email new@example.com'])
+    await expect(card.getByRole('status')).toHaveText('Saved')
+
+    if (process.platform !== 'win32') {
+      // shortcut: the fake editor is a shell script (macOS/Linux); Windows launch is covered by external.spec's skip too.
+      const editor = path.join(fx.dir, 'editor.sh')
+      writeFileSync(editor, `#!/bin/sh\nprintf '%s|%s\\n' "$PWD" "$*" >> "${editor}.log"\n`)
+      chmodSync(editor, 0o755)
+      await dialog.getByRole('tab', { name: 'General' }).click()
+      await stubOpenDialog(app.app, editor)
+      await dialog.getByRole('button', { name: 'Choose custom editor…' }).click()
+      await dialog.getByRole('tab', { name: 'Git', exact: true }).click()
+      await card.getByRole('button', { name: 'Open global git config…' }).click()
+      await expect.poll(() => (existsSync(`${editor}.log`) ? readFileSync(`${editor}.log`, 'utf8') : '')).toBe(`${path.dirname(globalFile)}|${globalFile}\n`)
+    }
+    await dialog.getByRole('button', { name: 'Done' }).click()
+    await expect(commit).toContainText('Committing as New Name <new@example.com>')
   } finally {
     await app.close()
     fx.cleanup()

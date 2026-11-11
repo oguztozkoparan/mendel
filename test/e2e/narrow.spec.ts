@@ -192,6 +192,43 @@ test('Settings → Git providers fits the minimum window with a long Gerrit host
   }
 })
 
+test('Settings → Git fits the minimum window with a 200-character name and a long inline SSH signing key', async () => {
+  const fx = createRepoFixture()
+  const name = 'N'.repeat(200)
+  const key = `key::ssh-rsa ${'A'.repeat(700)} someone@a-rather-long-host-name.example.test`
+  fx.git(['config', '--global', 'user.name', name])
+  fx.git(['config', '--global', 'user.signingkey', key])
+  const app = await launchApp(fx.env)
+  const { win } = app
+  try {
+    const min = await app.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.getMinimumSize())
+    await app.app.evaluate(({ BrowserWindow }, [w, h]) => BrowserWindow.getAllWindows()[0]!.setSize(w, h), min as [number, number])
+    await expect.poll(() => win.evaluate(() => window.innerWidth)).toBeLessThanOrEqual(min[0]!)
+    await openRepo(app, fx.work)
+    await win.getByRole('button', { name: 'Settings' }).click()
+    const settings = win.getByRole('dialog', { name: 'Settings' })
+    await settings.getByRole('tab', { name: 'Git', exact: true }).click()
+    await expect(settings.getByLabel('Name (user.name)')).toHaveValue(name)
+    await expect(settings.getByLabel('Signing key (user.signingkey)')).toHaveValue(key)
+    // a long error message too
+    await settings.getByLabel('Name (user.name)').fill('x'.repeat(257))
+    await settings.getByRole('button', { name: 'Save identity' }).click()
+    await expect(settings.getByRole('status')).toContainText('Name (user.name):')
+    expect(await overflow(win), 'Settings → Git').toEqual([])
+    // the panel scrolls inside the dialog, which stays inside the window
+    const panel = settings.getByRole('tabpanel')
+    expect(await panel.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true)
+    await settings.getByRole('button', { name: 'Open global git config…' }).scrollIntoViewIfNeeded()
+    await expect(settings.getByRole('button', { name: 'Open global git config…' })).toBeInViewport({ ratio: 1 })
+    const box = (await settings.boundingBox())!
+    const size = await win.evaluate(() => [window.innerWidth, window.innerHeight])
+    expect(box.x >= 0 && box.y >= 0 && box.x + box.width <= size[0]! && box.y + box.height <= size[1]!, 'Settings inside the window').toBe(true)
+  } finally {
+    await app.close()
+    fx.cleanup()
+  }
+})
+
 test('GitHub Pull requests list and detail fit the minimum window with very long title, branches, login and body', async () => {
   const fx = createRepoFixture()
   const url = 'https://github.com/an-organization-with-a-long-name/a-repository-name-that-goes-on-and-on-and-on.git'
