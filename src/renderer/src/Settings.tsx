@@ -304,7 +304,7 @@ function RepoSection({ repo }: { repo?: string }) {
       {repo && st && (
         <>
           <Row label="Provider">
-            <span className={a.path} title={current}>
+            <span className={a.path}>
               {current}
             </span>
           </Row>
@@ -330,7 +330,7 @@ function GerritSection({ repo }: { repo?: string }) {
     <div className={s.providerHead}>
       <strong id="provider-gerrit">Gerrit</strong>
       {gerrit && <span className={s.live} aria-hidden />}
-      <span className={s.providerHost} title={host}>
+      <span className={s.providerHost}>
         {host}
       </span>
     </div>
@@ -380,13 +380,13 @@ function GithubSection({ repo }: { repo?: string }) {
       <div className={s.providerHead}>
         <strong id="provider-github">GitHub</strong>
         {github && <span className={s.live} aria-hidden />}
-        <span className={s.providerHost} title={host}>
+        <span className={s.providerHost}>
           {host}
         </span>
       </div>
       {account.isSuccess && (
         <Row label="Account">
-          <span className={a.path} title={status}>
+          <span className={a.path}>
             {status}
           </span>
           {login ? (

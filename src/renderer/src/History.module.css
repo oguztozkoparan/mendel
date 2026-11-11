@@ -323,10 +323,6 @@
   margin: 6px 10px 4px;
 }
 
-.editUnpushed {
-  display: contents;
-}
-
 .branch {
   flex: 1;
   min-width: 0;

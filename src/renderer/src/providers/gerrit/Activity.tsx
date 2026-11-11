@@ -80,7 +80,7 @@ function LogRow({ m }: { m: Message }) {
         ))}
         <span className={pc.grow} />
         {m._revision_number && <span className={s.psChip}>PS {m._revision_number}</span>}
-        <span className={pc.meta} title={shortDate(m.date)}>
+        <span className={pc.meta} data-tip={shortDate(m.date)}>
           {relTime(m.date)}
         </span>
       </div>
