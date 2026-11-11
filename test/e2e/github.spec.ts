@@ -1,10 +1,11 @@
 import { expect, test } from '@playwright/test'
 import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
+import { startGithubMock, type GithubMock } from '../fixtures/github-mock'
 import { createRepoFixture } from '../fixtures/repo'
 import { launchApp, openRepo, type LaunchedApp } from './launch'
 
-test('github.com remote → GitHub provider row, no Reviews tab; still GitHub after a relaunch', async () => {
+test('github.com remote → GitHub provider row, Pull requests tab and no Reviews tab; still GitHub after a relaunch', async () => {
   const fx = createRepoFixture()
   const url = 'https://github.com/o/r.git'
   fx.git(['remote', 'set-url', 'origin', url])
@@ -20,6 +21,7 @@ test('github.com remote → GitHub provider row, no Reviews tab; still GitHub af
     await expect(settings).toContainText('GitHub · api.github.com · provider setting: auto')
     await settings.getByRole('button', { name: 'Done' }).click()
     await expect(win.getByRole('tab', { name: 'Reviews' })).toHaveCount(0)
+    await expect(win.getByRole('tab', { name: 'Pull requests' })).toBeVisible()
   }
   try {
     app = await launchApp({ ...fx.env, MENDEL_E2E_USERDATA: userData })
@@ -35,5 +37,62 @@ test('github.com remote → GitHub provider row, no Reviews tab; still GitHub af
   } finally {
     await app?.close()
     fx.cleanup()
+  }
+})
+
+/** github.com repo opened with both GitHub origins pointed at `mock` (e2e seam), on its Pull requests tab. */
+async function launchGithub(mock: GithubMock) {
+  const fx = createRepoFixture()
+  fx.git(['remote', 'set-url', 'origin', 'https://github.com/o/r.git'])
+  fx.git(['config', '--global', `url.${fx.remote}.insteadOf`, 'https://github.com/o/r.git'])
+  const app = await launchApp({ ...fx.env, MENDEL_E2E_GITHUB: mock.url })
+  await openRepo(app, fx.work)
+  await app.win.getByRole('tab', { name: 'Pull requests' }).click()
+  return { ...app, close: async () => (await app.close(), fx.cleanup()) }
+}
+
+test('Pull requests → Sign in → device code → authorized → Signed in as; Sign out returns to the card', async () => {
+  const mock = await startGithubMock({ pending: 1000 })
+  const { app, win, close } = await launchGithub(mock)
+  try {
+    await app.evaluate(({ shell }) => {
+      shell.openExternal = async (u: string) => void ((globalThis as { __opened?: string }).__opened = u)
+    })
+    await win.getByRole('region', { name: 'Sign in to GitHub' }).getByRole('button', { name: 'Sign in…' }).click()
+    const dialog = win.getByRole('dialog', { name: 'Sign in to GitHub' })
+    await expect(dialog.getByLabel('Your code')).toHaveText(mock.userCode)
+    await dialog.getByRole('button', { name: 'Open GitHub' }).click()
+    await expect.poll(() => app.evaluate(() => (globalThis as { __opened?: string }).__opened)).toBe('https://github.com/login/device')
+    mock.pending = 0
+    await expect(dialog).toHaveCount(0)
+    await expect(win.getByRole('region', { name: 'GitHub account' })).toContainText(`Signed in as ${mock.login}`)
+    await win.getByRole('button', { name: 'Sign out' }).click()
+    await expect(win.getByRole('region', { name: 'Sign in to GitHub' })).toBeVisible()
+  } finally {
+    await close()
+    await mock.close()
+  }
+})
+
+test('a sign-in denied on GitHub shows the message; Cancel closes the dialog and stops polling', async () => {
+  const mock = await startGithubMock({ pending: 0, outcome: 'denied' })
+  const { win, close } = await launchGithub(mock)
+  try {
+    await win.getByRole('button', { name: 'Sign in…' }).click()
+    const dialog = win.getByRole('dialog', { name: 'Sign in to GitHub' })
+    await expect(dialog.getByRole('alert')).toHaveText('Sign-in was cancelled on GitHub.')
+    mock.pending = 1000
+    await dialog.getByRole('button', { name: 'Try again' }).click()
+    await expect(dialog.getByLabel('Your code')).toHaveText(mock.userCode)
+    await expect.poll(() => mock.polls()).toBeGreaterThan(1)
+    await dialog.getByRole('button', { name: 'Cancel' }).click()
+    await expect(dialog).toHaveCount(0)
+    const polls = mock.polls()
+    await win.waitForTimeout(2500)
+    expect(mock.polls()).toBe(polls)
+    await expect(win.getByRole('region', { name: 'Sign in to GitHub' })).toBeVisible()
+  } finally {
+    await close()
+    await mock.close()
   }
 })

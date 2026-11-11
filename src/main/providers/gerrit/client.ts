@@ -5,10 +5,8 @@ import { accountSchema, changeSchema, commentSchema, diffSchema, fileSchema, GER
 import { termError, type GerritSearch } from '../../../shared/gerritQuery'
 import { urlAllowed } from '../../update/feed'
 import type { Credential } from '../credentials'
-import { readCapped } from '../http'
+import { readCapped, type Fetch } from '../http'
 import { XSSI } from './detect'
-
-export type Fetch = (url: string, init: RequestInit) => Promise<Response>
 
 /** Change-Id lookups only decorate UI (badges, hints): give up fast instead of holding the commit list back. */
 export const HINT_TIMEOUT_MS = 3000

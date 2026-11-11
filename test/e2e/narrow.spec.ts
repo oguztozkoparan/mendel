@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
 import { writeFileSync } from 'node:fs'
 import path from 'node:path'
+import { startGithubMock } from '../fixtures/github-mock'
 import { createRepoFixture } from '../fixtures/repo'
 import { launchApp, openRepo } from './launch'
 
@@ -46,6 +47,36 @@ test('no horizontal overflow or clipped buttons at the minimum window width', as
     expect(await overflow(win), 'Settings').toEqual([])
   } finally {
     await app.close()
+    fx.cleanup()
+  }
+})
+
+test('GitHub Pull requests sign-in card and dialog fit the minimum window', async () => {
+  const fx = createRepoFixture()
+  const url = 'https://github.com/an-organization-with-a-long-name/a-repository-name-that-goes-on-and-on-and-on.git'
+  fx.git(['remote', 'set-url', 'origin', url])
+  fx.git(['config', '--global', `url.${fx.remote}.insteadOf`, url])
+  const mock = await startGithubMock({ pending: 1000 })
+  const app = await launchApp({ ...fx.env, MENDEL_E2E_GITHUB: mock.url })
+  const { win } = app
+  try {
+    const min = await app.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.getMinimumSize())
+    await app.app.evaluate(({ BrowserWindow }, [w, h]) => BrowserWindow.getAllWindows()[0]!.setSize(w, h), min as [number, number])
+    await expect.poll(() => win.evaluate(() => window.innerWidth)).toBeLessThanOrEqual(min[0]!)
+    await openRepo(app, fx.work)
+    await win.getByRole('tab', { name: 'Pull requests' }).click()
+    await expect(win.getByRole('region', { name: 'Sign in to GitHub' })).toBeVisible()
+    expect(await overflow(win), 'Pull requests').toEqual([])
+    await win.getByRole('button', { name: 'Sign in…' }).click()
+    const dialog = win.getByRole('dialog', { name: 'Sign in to GitHub' })
+    await expect(dialog.getByLabel('Your code')).toHaveText(mock.userCode)
+    expect(await overflow(win), 'Sign-in dialog').toEqual([])
+    const box = (await dialog.boundingBox())!
+    const size = await win.evaluate(() => [window.innerWidth, window.innerHeight])
+    expect(box.x >= 0 && box.y >= 0 && box.x + box.width <= size[0]! && box.y + box.height <= size[1]!, 'dialog inside the window').toBe(true)
+  } finally {
+    await app.close()
+    await mock.close()
     fx.cleanup()
   }
 })

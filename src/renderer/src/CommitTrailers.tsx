@@ -10,7 +10,7 @@ import { trailerLabel, trailerRole, type Trailer } from './trailers'
 type Person = Extract<Trailer, { kind: 'person' }>
 
 /** Copies `text` and shows "Copied" on the chip for a moment. */
-function useCopy() {
+export function useCopy() {
   const [copied, setCopied] = useState(false)
   const copy = (text: string) =>
     void window.mendel['app:copy']({ text }).then(() => {

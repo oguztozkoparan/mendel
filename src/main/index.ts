@@ -4,6 +4,7 @@ import { ASKPASS_SOCKET_ENV, ASKPASS_TOKEN_ENV, requestAnswer, startAskpassServe
 import { git, killAllGit, setGitEnv } from './git/runner'
 import { registerIpc } from './ipc'
 import { askUser } from './ipc/auth'
+import { cancelGithubSignIn } from './ipc/github'
 import { startUpdater } from './ipc/update'
 import { startReviewNotifier } from './review-notify'
 import log from './log'
@@ -85,5 +86,6 @@ function startApp(): void {
   })
 
   app.on('will-quit', killAllGit)
+  app.on('will-quit', cancelGithubSignIn)
   app.on('window-all-closed', () => process.platform !== 'darwin' && app.quit())
 }

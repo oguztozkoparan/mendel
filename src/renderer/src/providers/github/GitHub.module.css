@@ -1,0 +1,32 @@
+/* Sign-in card in the main pane (same box as App.module.css .card). */
+.signin {
+  margin: 48px auto;
+  overflow-wrap: anywhere;
+}
+
+/* Signed-in login: one line, ellipsis, full value in the title tooltip. */
+.login {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Device code: large, monospace, selectable so it can be copied by hand too. */
+.code {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.code output {
+  font: 600 24px/1.2 var(--mono);
+  letter-spacing: 0.08em;
+  user-select: text;
+}
+
+.hint {
+  margin: 0;
+  color: var(--muted);
+}

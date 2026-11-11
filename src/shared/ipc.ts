@@ -8,6 +8,7 @@ import { z } from 'zod'
 import { SHA_PREFIX, TRAILER_KEY } from './historyQuery'
 import { GERRIT_OPS, MAX_TERM, MAX_TERMS, MAX_TEXT } from './gerritQuery'
 import { draftSchema, HASHTAG, PUSH_OPTION_VALUE, type GerritChange, type GerritCommit, type GerritSent, type GerritChangeLists, type GerritComment, type GerritConnected, type GerritDiff, type GerritFiles, type GerritRelated, type GerritSearchPage } from './gerrit'
+import type { GithubDeviceCode, GithubSignedIn } from './github'
 
 const res = <Res>() => <Req extends z.ZodType>(req: Req) => ({ req, res: null as unknown as Res })
 
@@ -502,6 +503,17 @@ export const invoke = {
     z.object({ repo: repoId, baseUrl: z.string().min(1).max(2048), username: z.string().min(1).max(256), password: z.string().min(1).max(4096) }).strict()
   ),
   'gerrit:disconnect': res<void>()(inRepo),
+  /** GitHub sign-in is per host, not per repo. Start the device flow (cancels one in flight): the code to type on github.com. */
+  'github:signIn': res<GithubDeviceCode>()(z.undefined()),
+  /** Poll until the user authorizes; rejects with GITHUB_CODE_EXPIRED, GITHUB_ACCESS_DENIED or another readable message. */
+  'github:wait': res<GithubSignedIn>()(z.undefined()),
+  'github:cancel': res<void>()(z.undefined()),
+  /** Open https://github.com/login/device in the browser. */
+  'github:openDevicePage': res<void>()(z.undefined()),
+  /** Forget the stored token (local only). */
+  'github:signOut': res<void>()(z.undefined()),
+  /** Login of the stored GitHub token, null = signed out. */
+  'github:account': res<string | null>()(z.undefined()),
   'gerrit:commitHint': res<GerritCommitHint>()(inRepo),
   /** Amend only HEAD's message to add a Change-Id (HEAD must be unpushed). */
   'gerrit:addChangeId': res<void>()(inRepo),

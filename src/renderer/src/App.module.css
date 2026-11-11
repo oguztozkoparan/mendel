@@ -217,6 +217,11 @@
   color: var(--fg);
 }
 
+/* A longer label (Pull requests) keeps its full width; the other tabs share the rest. */
+.tabs .tabFit {
+  min-width: max-content;
+}
+
 /* sliding raised thumb (motion.tsx Highlight) */
 .tabs :global(.hl) {
   background: linear-gradient(180deg, var(--face-top), var(--face-bot));

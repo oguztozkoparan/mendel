@@ -1,5 +1,8 @@
 // HTTP helpers shared by all providers. No electron imports: unit tests load this directly.
 
+/** fetch as main injects it (electron net.fetch) and tests replace it. */
+export type Fetch = (url: string, init: RequestInit) => Promise<Response>
+
 const MAX_BODY = 20 * 1024 * 1024
 
 /** Read a response body as text, failing once it exceeds `max` bytes. */
