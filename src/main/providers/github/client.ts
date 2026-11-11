@@ -147,7 +147,9 @@ export function githubAuth(fetchFn: Fetch, origins: GithubOrigins = GITHUB_ORIGI
         r = tokenOrError(await post('/login/oauth/access_token', { client_id: CLIENT_ID, grant_type: 'refresh_token', refresh_token: refreshToken }))
       } catch (err) {
         // 5xx, non-JSON, unexpected JSON: GitHub did not refuse the token, so report it like a network failure
-        throw err instanceof Error && err.message.startsWith('Cannot reach GitHub') ? err : reachError(err)
+        const m = err instanceof Error ? err.message : ''
+        if (m.startsWith('Cannot reach GitHub')) throw err
+        throw m.startsWith('GitHub error ') ? new Error(`Cannot reach GitHub (HTTP ${m.slice(13)})`) : reachError(err)
       }
       if ('access' in r) return r
       throw new Error(oauthMessage(r.error))

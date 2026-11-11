@@ -149,9 +149,9 @@ describe('github session', () => {
   })
 
   it.each([
-    ['500', () => json({ message: 'boom' }, 500), 'Cannot reach GitHub: GitHub error 500'],
-    ['502 with an HTML body', () => new Response('<html>Bad Gateway</html>', { status: 502 }), 'Cannot reach GitHub: GitHub error 502'],
-    ['200 with garbage', () => new Response('not json', { status: 200 }), 'Cannot reach GitHub: GitHub error 200']
+    ['500', () => json({ message: 'boom' }, 500), 'Cannot reach GitHub (HTTP 500)'],
+    ['502 with an HTML body', () => new Response('<html>Bad Gateway</html>', { status: 502 }), 'Cannot reach GitHub (HTTP 502)'],
+    ['200 with garbage', () => new Response('not json', { status: 200 }), 'Cannot reach GitHub (HTTP 200)']
   ])('a refresh answered with %s keeps the credential, and a later refresh works', async (_, answer, message) => {
     const store = memStore(stored(expiring()))
     let down = true
