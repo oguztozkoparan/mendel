@@ -109,6 +109,8 @@
   --border: rgb(255 255 255 / 0.1);
   --bg: #1d232a;
   --bg-side: rgb(33 40 48 / 0.9);
+  /* muted on glass >= 5:1 on every accent's --bg-selected, measured over the macOS sidebar material */
+  --muted-glass: #bcc6cd;
   --bg-raised: #252c34;
   --fg: #dfe5ea;
   --muted: #97a3ad;
@@ -123,6 +125,8 @@
   --border: rgb(30 26 18 / 0.13);
   --bg: #f4f3f0;
   --bg-side: rgb(233 232 228 / 0.85);
+  /* muted on glass >= 4.5:1 on every accent's --bg-selected even over a black material (as Light) */
+  --muted-glass: #3a444d;
   --bg-raised: #f8f7f4;
   --fg: #1c2329;
   --muted: #565f67;
