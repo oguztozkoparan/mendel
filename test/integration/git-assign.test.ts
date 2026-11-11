@@ -2,9 +2,10 @@ import { execFileSync } from 'node:child_process'
 import { appendFileSync, chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, renameSync, rmSync, symlinkSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { writeConfig } from '../../src/main/git/config'
-import { assignmentsFile, assignProfile, createProfile, deleteProfile, listProfiles, parseIndex, profileFile, profileUsage, repoGitConfig } from '../../src/main/gitProfiles'
+import { assignmentsFile, assignProfile, createProfile, deleteProfile, followMovedRepo, listProfiles, parseIndex, profileFile, profileUsage, repoGitConfig } from '../../src/main/gitProfiles'
+import log from '../../src/main/log'
 import { isolatedGitEnv } from '../fixtures/git-env'
 
 const A = '0b7c3c1e-6a4f-4f3e-9f53-1b2a3c4d5e6f'
@@ -182,6 +183,49 @@ describe('git profile assignment', () => {
       { gitDir: goneDir, repoId: 'rg', profileId: work.id }
     ])
     expect(generated()).toEqual([...sections(moved, work.id), `includeif.${COND}${goneDir}.path=${profileFile(dir, work.id)}`, `includeif.${COND}${goneDir}/worktrees/.path=${profileFile(dir, work.id)}`])
+  }, 30_000)
+
+  it('opening a moved repository re-points its assignment without the settings card; no assignment: no git, no write', async () => {
+    const warn = vi.spyOn(log, 'warn').mockImplementation(() => {})
+    try {
+      const notRepo = path.join(tmp, 'not-a-repo')
+      await followMovedRepo(dir, 'ra', notRepo, env) // git here would fail and log
+      expect([existsSync(dir), warn.mock.calls.length]).toEqual([false, 0])
+
+      const a = repo('a')
+      const b = repo('b')
+      const c = repo('c')
+      const work = await createProfile(dir, 'Work', { email: 'w@example.com' }, env)
+      await assignProfile(dir, 'ra', a, work.id, env)
+      await assignProfile(dir, 'rb', b, work.id, env)
+      const before = readFileSync(path.join(dir, 'index.json'), 'utf8')
+      await followMovedRepo(dir, 'rc', c, env) // no assignment under its id: nothing created
+      await followMovedRepo(dir, 'ra', b, env) // b's git dir has its own assignment: never re-pointed
+      await followMovedRepo(dir, 'rb', b, env) // not moved
+      expect(readFileSync(path.join(dir, 'index.json'), 'utf8')).toBe(before)
+      expect(warn).not.toHaveBeenCalled()
+
+      const moved = path.join(tmp, 'moved')
+      renameSync(a, moved)
+      expect(email(moved)).toBe('test@example.com')
+      await followMovedRepo(dir, 'ra', moved, env)
+      expect(email(moved)).toBe('w@example.com')
+      expect(email(b)).toBe('w@example.com')
+      expect(email(c)).toBe('test@example.com')
+      expect(index().assignments).toEqual([
+        { gitDir: gitDir(moved), repoId: 'ra', profileId: work.id },
+        { gitDir: gitDir(b), repoId: 'rb', profileId: work.id }
+      ])
+      expect(generated()).toEqual([...sections(moved, work.id), ...sections(b, work.id)])
+
+      // A failure (git cannot run there) is logged, never thrown, and changes nothing.
+      const after = readFileSync(path.join(dir, 'index.json'), 'utf8')
+      await expect(followMovedRepo(dir, 'ra', path.join(tmp, 'gone'), env)).resolves.toBeUndefined()
+      expect(warn).toHaveBeenCalledTimes(1)
+      expect(readFileSync(path.join(dir, 'index.json'), 'utf8')).toBe(after)
+    } finally {
+      warn.mockRestore()
+    }
   }, 30_000)
 
   it('reports the ordering trap: a global definition after the include line wins over the profile', async () => {

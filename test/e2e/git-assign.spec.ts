@@ -1,9 +1,9 @@
 import { expect, test } from '@playwright/test'
 import { execFileSync } from 'node:child_process'
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { createRepoFixture } from '../fixtures/repo'
-import { launchApp, openRepo } from './launch'
+import { launchApp, openRepo, stubOpenDialog } from './launch'
 
 test('Settings → Git → This repository: assign a profile, the terminal agrees, a project value overrides, unassign', async () => {
   const fx = createRepoFixture()
@@ -197,6 +197,36 @@ test('Settings → Git → This repository: project values override the profile,
     await expect(commit).toContainText('Committing as Test User <work@example.com>')
     // The global file gained only mendel's include line.
     expect(readFileSync(globalFile, 'utf8').replace(/\[include\]\n\tpath = .*\n/, '')).toBe(globalBefore)
+  } finally {
+    await app.close()
+    fx.cleanup()
+  }
+})
+
+test('a moved repository located again commits as its profile at once, without opening Settings', async () => {
+  const fx = createRepoFixture()
+  const userData = path.join(fx.dir, 'userData')
+  const profiles = path.join(userData, 'git-profiles')
+  expect(fx.env.GIT_CONFIG_GLOBAL!.startsWith(fx.dir + path.sep)).toBe(true)
+  // State left by assigning "Work" to the repository at its old path, which then moved to fx.work.
+  const id = '0b7c3c1e-6a4f-4f3e-9f53-1b2a3c4d5e6f'
+  mkdirSync(profiles, { recursive: true })
+  const profile = path.join(profiles, `${id}.gitconfig`)
+  writeFileSync(profile, '')
+  for (const [k, v] of [['user.name', 'Work Person'], ['user.email', 'w@example.com']]) execFileSync('git', ['config', '--file', profile, k, v!], { env: fx.env })
+  const old = path.join(fx.dir, 'old')
+  writeFileSync(path.join(profiles, 'index.json'), JSON.stringify({ profiles: [{ id, name: 'Work' }], assignments: [{ gitDir: path.join(old, '.git'), repoId: 'r1', profileId: id }] }))
+  writeFileSync(path.join(userData, 'repos.json'), JSON.stringify({ repos: [{ id: 'r1', path: old }], current: 'r1' }))
+  writeFileSync(path.join(fx.work, 'x.txt'), 'x\n') // a change, so the commit box shows
+  const app = await launchApp({ ...fx.env, MENDEL_E2E_USERDATA: userData })
+  const { win } = app
+  try {
+    const row = win.getByRole('row', { name: 'old' })
+    await expect(row).toContainText('Missing:')
+    await stubOpenDialog(app.app, fx.work)
+    await row.getByRole('button', { name: 'Locate…' }).click()
+    await expect(win.getByRole('form', { name: 'Commit' })).toContainText('Committing as Work Person <w@example.com>')
+    expect(execFileSync('git', ['config', 'user.email'], { cwd: fx.work, env: fx.env, encoding: 'utf8' }).trim()).toBe('w@example.com')
   } finally {
     await app.close()
     fx.cleanup()

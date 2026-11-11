@@ -182,6 +182,30 @@ export const assignProfile = (dir: string, repoId: string, cwd: string, profileI
     await sync(dir, index.assignments, env)
   })
 
+/** The assignment of git dir `gitDir`; with none, one of `repoId` under another git dir (the repository moved) is re-pointed to it. */
+async function follow(dir: string, index: Index, repoId: string, gitDir: string, env?: NodeJS.ProcessEnv): Promise<Assignment | undefined> {
+  let a = index.assignments.find((x) => x.gitDir === gitDir)
+  if (!a && (a = index.assignments.find((x) => x.repoId === repoId))) {
+    a.gitDir = gitDir
+    save(dir, index)
+    await sync(dir, index.assignments, env)
+  }
+  return a
+}
+
+/**
+ * Opening repository `repoId` at `cwd`: a moved repository takes its assignment along, so commits use its profile
+ * again. Never throws (logged); no git runs unless an assignment of `repoId` exists.
+ */
+export async function followMovedRepo(dir: string, repoId: string, cwd: string, env?: NodeJS.ProcessEnv): Promise<void> {
+  try {
+    if (!load(dir).assignments.some((a) => a.repoId === repoId)) return
+    await serial(async () => void (await follow(dir, load(dir), repoId, await commonGitDir(cwd, env), env)))
+  } catch (err) {
+    log.warn('[git-profiles] moved repository not followed', err)
+  }
+}
+
 /**
  * The assigned profile and each field's effective value in the repository at `cwd`. A repository that moved (an
  * assignment of `repoId` under another git dir, none under this one) takes its assignment along; a git dir that no
@@ -191,12 +215,7 @@ export const repoGitConfig = (dir: string, repoId: string, cwd: string, env?: No
   serial(async () => {
     const gitDir = await commonGitDir(cwd, env)
     const index = load(dir)
-    let a = index.assignments.find((x) => x.gitDir === gitDir)
-    if (!a && (a = index.assignments.find((x) => x.repoId === repoId))) {
-      a.gitDir = gitDir
-      save(dir, index)
-      await sync(dir, index.assignments, env)
-    }
+    const a = await follow(dir, index, repoId, gitDir, env)
     const p = a && find(index.profiles, a.profileId)
     const file = p && profileFile(dir, p.id)
     // Only the assigned profile's file counts as `profile`; any other include of a profile file reads as global.

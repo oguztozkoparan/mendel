@@ -1,6 +1,7 @@
 import { BrowserWindow, dialog, shell } from 'electron'
 import { cloneRepo, validateCloneUrl } from '../git/clone'
 import { openInEditor, openTerminal } from '../external'
+import { followMovedRepo, profilesDir } from '../gitProfiles'
 import { dubiousDir, repoTopLevel, trustDirectory } from '../git/repo'
 import { cloneParent, forgetRepo, listRepos, rememberRepo, repoRoot } from '../repos'
 import { resolveUnder } from '../safe-path'
@@ -46,7 +47,12 @@ export async function topLevelTrusting(dir: string, win: BrowserWindow | null): 
 export const repoHandlers: Handlers<
   'repo:list' | 'repo:add' | 'repo:open' | 'repo:remove' | 'repo:reveal' | 'repo:openEditor' | 'repo:openTerminal' | 'repo:cloneParent' | 'repo:clone' | 'repo:cloneCancel'
 > = {
-  'repo:list': () => listRepos(),
+  // The renderer learns the current repo only from here: follow a moved repo's git profile first, so it commits as that.
+  'repo:list': async () => {
+    const l = listRepos()
+    if (l.current) await followMovedRepo(profilesDir(), l.current, repoRoot(l.current))
+    return l
+  },
   'repo:add': async (req, e) => {
     const win = BrowserWindow.fromWebContents(e.sender)!
     const r = await dialog.showOpenDialog(win, { properties: ['openDirectory'], title: 'Open local repository' })

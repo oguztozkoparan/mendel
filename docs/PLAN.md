@@ -561,7 +561,7 @@ Goal: a different commit identity and signing setup per repository (e.g. Work, P
 - **Ordering trap**: the global file defines a key the profile sets after mendel's include line, so the global value wins. The notice names the keys, says to move the `include.path` line to the end of the file and offers "Open global git config…"; mendel does not rewrite the user's file.
 - **Not applied**: the profile sets values but git reads none of them in this repository (e.g. the include line was removed by hand, or the global write failed). "Apply again" assigns again, which rebuilds the generated file and the line.
 
-**Moved repositories**: when the card loads and no assignment matches this git dir but one matches its repo id, the assignment takes the new path and the file is regenerated. A path that no longer exists never drops an assignment (unmounted drives).
+**Moved repositories**: when mendel opens a repository (open, locate after a move, reopen at startup; before the renderer learns it is the current one, so "Committing as" already shows the profile) and no assignment matches its git dir but one matches its repo id, the assignment takes the new path and the file is regenerated; the card does the same when it loads. A failure there is logged and never stops the repository from opening; with no assignment under its repo id no git runs. A path that no longer exists never drops an assignment (unmounted drives).
 
 **Deleting a profile**: native confirm that names how many repositories use it ("… will use the global config again"); its assignments go, the generated file and the global line are rebuilt (the line removed when none is left), then its file is deleted.
 
