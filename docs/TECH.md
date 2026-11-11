@@ -24,12 +24,12 @@ Layout:
 src/
   main/            # Electron main: windows, menu, IPC handlers, updater
     git/           # execFile wrapper, arg builders, porcelain parsers
-    providers/     # <name>/ provider plugins (gerrit first), matched by remote URL
+    providers/     # <name>/ provider plugins (gerrit, github), matched by remote URL
     ipc/           # one file per channel group; zod schemas live in src/shared
   preload/         # contextBridge: exposes typed `window.mendel` only
   renderer/        # React app (no Node, no Electron imports)
   shared/          # types + zod IPC schemas + channel names (no runtime deps on main/renderer)
-test/              # unit + integration (vitest), e2e/ (playwright), fixtures/ (gerrit mock)
+test/              # unit + integration (vitest), e2e/ (playwright), fixtures/ (gerrit + github mocks)
 scripts/           # commit-msg, changelog.mjs
 electron-builder.yml, electron.vite.config.ts
 ```
@@ -120,10 +120,11 @@ Once certificates exist:
 
 | Layer | Tool | Version | Scope |
 |---|---|---|---|
-| Unit | `vitest` | 5.1.0 | git arg builders, porcelain v2 / `-z` parsers (fixture strings), zod schemas, ref-name validation, URL redaction, Gerrit client (against mock), changelog script. `environment: node`. |
+| Unit | `vitest` | 5.1.0 | git arg builders, porcelain v2 / `-z` parsers (fixture strings), zod schemas, ref-name validation, URL redaction, Gerrit client (against mock), GitHub detection (`github-detect.test.ts`) and client (`github-client.test.ts`: device flow, refresh/retry, pulls, with a fake fetch and credential store), changelog script. `environment: node`. |
 | Git integration | `vitest` + real system git | — | `fs.mkdtemp` → `git init --bare remote.git` + work clone; run our wrapper end to end (commit, branch, fetch, pull --rebase, push, conflicts). Isolate from dev config: `HOME=<tmp>`, `GIT_CONFIG_NOSYSTEM=1`, `GIT_CONFIG_GLOBAL=<tmp>/gitconfig` with `user.name/email`, `init.defaultBranch=main`. |
 | E2E | `@playwright/test` (`_electron`) | 1.64.1 | `_electron.launch({ args: ['out/main/index.js'], env })` against the built app; same temp-repo fixtures; test-only userData dir via `MENDEL_E2E_USERDATA` honored **only when `!app.isPackaged`**. Note `_electron` is marked experimental by Playwright. |
 | Gerrit (default) | mock server, `node:http`, no dep | — | `test/fixtures/gerrit-mock.ts`: `/a/accounts/self`, `/a/changes/?q=…`, `/a/changes/{id}/revisions/current/review`, comments; prefixes `)]}'\n`; checks Basic auth; records requests for assertions. Push to `refs/for/main`: remote URL is `https://gerrit.test/project` (so provider auto-activates), test gitconfig maps it to a local bare repo with `url."<tmp>/remote.git".insteadOf=https://gerrit.test/project`; bare repo has `receive.advertisePushOptions=true`; assert ref `refs/for/main` and push options (`%topic=`, `-o topic=`). |
+| GitHub | mock server, `node:http`, no dep | — | `test/fixtures/github-mock.ts`: login endpoints (`/login/device/code`, `/login/oauth/access_token` with pending / denied / expired outcomes and refresh-token rotation) and API (`/user`, `/repos/<owner>/<repo>/pulls[/<n>]`) on one loopback server, 1 s poll interval. The e2e build points both origins at it via `MENDEL_E2E_GITHUB` (§6.6). Specs: `test/e2e/github.spec.ts` (detection, sign-in/out, denied/cancel, Settings section, list + detail, install card, rate limit, checkout, create pull request) and GitHub cases in `test/e2e/narrow.spec.ts`. Tests never call the real GitHub. |
 | Gerrit (optional) | `docker run -p 8080:8080 -p 29418:29418 gerritcodereview/gerrit:3.1.3` (also 3.14.5) | 3.1.3 = older 3.x servers still common; 3.14.5 = latest stable | Feasible: dev-mode auth (`DEVELOPMENT_BECOME_ANY_ACCOUNT`) is the image default; script creates admin token, project, user via REST. Boot ~1–2 min **[unverified]**, whole job ~5–10 min. Run nightly / manual `workflow_dispatch` on ubuntu, not on PRs. Also covers Gerrit 3.13+ auth tokens (see §6). |
 
 CI (`.github/workflows/ci.yml`, PRs): matrix 3 OS → `npm ci`, `typecheck`, `test`, `build`, `e2e`.
@@ -145,6 +146,7 @@ Sources: [Electron security checklist](https://www.electronjs.org/docs/latest/tu
 - [ ] DevTools disabled in packaged builds (`devTools: !app.isPackaged`).
 - [ ] Fuses via electron-builder `electronFuses` (uses `@electron/fuses` internally, no extra dep): `runAsNode: false`, `enableCookieEncryption: true`, `enableNodeOptionsEnvironmentVariable: false`, `enableNodeCliInspectArguments: false`, `enableEmbeddedAsarIntegrityValidation: true` (mac ≥16, win ≥30), `onlyLoadAppFromAsar: true`, `grantFileProtocolExtraPrivileges: false`, `loadBrowserProcessSpecificV8Snapshot: false`. Verify in CI: `npx @electron/fuses read --app <built app>`.
 - [ ] `shell.openExternal(url)` only after `new URL(url)`: protocol `https:` (or `http:` only for a user-configured provider host), no credentials in URL; anything else is dropped and logged.
+- [ ] GitHub urls opened in the browser are built in main from main's own detection (`owner/repo`, remote) and constants (device page, app install page), each path part encoded, and dropped unless the origin is `https://github.com`; never taken from the renderer or an API response (`verification_uri`, `html_url` are ignored). Values from the GitHub API (branch names) are untrusted: the pull request head is re-read in main and checked with `check-ref-format` before it reaches git.
 - [ ] Stay on a supported Electron major (latest 3); Renovate/Dependabot weekly.
 
 ### 6.2 IPC design
@@ -177,13 +179,16 @@ Sources: [Electron security checklist](https://www.electronjs.org/docs/latest/tu
 - [ ] Stored only in main: `safeStorage.encryptStringAsync` → blob in userData; decrypt on demand; never sent to renderer (renderer gets `hasCredential: boolean`), never logged, never in argv or env of git.
 - [ ] Linux: if `safeStorage.getSelectedStorageBackend() === 'basic_text'`, refuse to persist (session-only) and tell the user to install/enable a keyring.
 - [ ] Git transport auth uses the user's own credential helper/SSH (same as terminal). If push fails with auth and the user has a stored Gerrit token, offer "Save to git credential helper" → `git credential approve` via stdin, with consent. An askpass trampoline (GitHub Desktop style) is deferred.
-- [ ] Logger redaction hook: strip `userinfo` from URLs (`https://user:pass@` → `https://***@`), `Authorization:` headers, `?access_token=`; applied to log lines and to error messages sent to the renderer.
+- [ ] GitHub: no personal access tokens and no client secret. The GitHub App's device-flow token pair (access 8 h, single-use refresh 6 months) is stored as one JSON secret through the same `providers/credentials.ts` store, keyed by the API host (`api.github.com`); the renderer only gets the login. The device code stays in main. Sign out deletes it locally.
+- [ ] Logger redaction hook: strip `userinfo` from URLs (`https://user:pass@` → `https://***@`), `Authorization:` headers (Basic and Bearer), `?access_token=` / `token=`, and bare GitHub tokens (`gh[pousr]_…`, `github_pat_…`); applied to log lines and to error messages sent to the renderer. GitHub errors never include a token or device code.
 
 ### 6.6 Network / TLS
 - [ ] Gerrit REST from main with Electron `net.fetch` (Chromium stack: OS cert store incl. corporate CAs, system proxy, PAC). Not Node `fetch` (bundled CA list, no system proxy).
 - [ ] Never `setCertificateVerifyProc` to accept, never handle `certificate-error` with `callback(true)`, never `NODE_TLS_REJECT_UNAUTHORIZED=0`. Custom CA = install in the OS store.
 - [ ] Gerrit responses: strip the `)]}'` XSSI prefix only if present at offset 0, then `JSON.parse`, then zod-validate the fields we use. Use the `/a/` authenticated prefix. Size cap and timeout on responses.
 - [ ] Provider base URL must be `https:` (allow `http:` only for `localhost` in dev/tests).
+- [ ] GitHub tokens go to exactly two origins: `https://github.com` (device flow, token refresh) and `https://api.github.com` (API, `Authorization: Bearer`). Every GitHub request uses `redirect: 'error'` (a redirect never replays the token elsewhere), a 30 s timeout and a body cap (64 KiB on login endpoints, 20 MiB on the API, `providers/http.ts` `readCapped`); answers are zod-validated.
+- [ ] e2e-only origin seam: `MENDEL_E2E_GITHUB` is read only when the build-time test seams are on (S13, `--mode e2e`) and only if it is a loopback `http:` or an `https:` url without credentials; it then replaces both origins with the loopback mock. Release builds ignore it.
 
 ### 6.7 Untrusted content rendering
 - [ ] Gerrit comments, commit messages, file names, diffs are untrusted: render as React text or via `react-markdown` without `rehype-raw`. `dangerouslySetInnerHTML` is banned (grep in CI); if ever unavoidable, DOMPurify with an explicit allowlist.

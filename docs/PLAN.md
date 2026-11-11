@@ -49,10 +49,18 @@ Cross-platform desktop git client (Electron + React + Vite + TypeScript), GitHub
 - **Review notifications (new incoming review) → later.** MVP refreshes on focus and on an interval.
 
 ### Done after MVP
-Line staging, stash list, tags, blame, history search & file history, cherry-pick/revert UI, `mendel` CLI launcher, Gerrit attention set + hashtags, Gerrit related changes, review notifications (new incoming reviews), interactive rebase of unpushed commits, Gerrit review history with advanced search.
+Line staging, stash list, tags, blame, history search & file history, cherry-pick/revert UI, `mendel` CLI launcher, Gerrit attention set + hashtags, Gerrit related changes, review notifications (new incoming reviews), interactive rebase of unpushed commits, Gerrit review history with advanced search, GitHub provider v1 (github.com: GitHub App sign-in, open pull requests list and detail, check out a same-repo pull request, create pull request on GitHub; §5.6).
 
 ### Later
-GitHub provider (PRs; needs its own design pass first: the provider interface only covers what Gerrit uses).
+GitHub after v1:
+- **GitHub Enterprise**: another API base (`<host>/api/v3`) and an app registered per server; v1 matches github.com only, without a probe.
+- **Checkout of fork pull requests**: needs a fetch from the fork (or `refs/pull/<N>/head`) and a push-back story; v1 refuses them in main.
+- **Diff and file list**: local Check out + History already show the change; an in-app diff needs the files API and the diff view wired to it.
+- **Comments, reviews, merge and any API write**: v1 only GETs; writes need more app permissions, confirms and error UX.
+- **Markdown body and avatars**: the body is plain text; Markdown with remote images and avatars must be fetched in main (TECH.md §6.7, CSP).
+- **History badges and notifications**: extra API calls per refresh against the rate limit; Gerrit's "in review #N" pattern can be reused.
+- **Pull requests of an upstream remote when origin is a fork**: detection takes the first github.com remote (`origin` first); picking `upstream` needs a rule or a setting.
+- **Paging past 50**: the first page only; "More on GitHub" opens the full list in the browser.
 
 Code signing: macOS Developer ID + notarization and a Windows certificate (secrets and open checks in `docs/RELEASE.md` → Signing). Until then releases are unsigned and macOS opens the download page instead of self-installing. With it: split signing and publishing into separate CI jobs (RELEASE.md → CI hardening).
 
@@ -75,7 +83,7 @@ Code signing: macOS Developer ID + notarization and a Windows certificate (secre
 ┌──────────────────────────────────────────────────────────────────────┐
 │ [Repo ▾ my-app]  [Branch ▾ master]  [⟳ Fetch / ↓ Pull 2 / ↑ Push 1]  [Provider action: Send for review] │  ← toolbar
 ├───────────────┬──────────────────────────────────────────────────────┤
-│ Changes | History | Reviews*      │                                  │
+│ Changes | History | Reviews* / Pull requests* │                      │
 │ ───────────── │   main pane: diff / commit detail / change detail     │
 │ file / commit │                                                      │
 │ / change list │                                                      │
@@ -233,6 +241,7 @@ See section 6. Modal window/page with left sections.
 ### 5.1 Principles
 - Built-in modules: main-side logic in `src/main/providers/<id>/` (detection, REST, git commands, secrets), renderer-side views in `src/renderer/providers/<id>/` registered under the same id. Renderer talks to the provider only through typed IPC, like everything else.
 - At most one active provider per repo. Git core never imports a provider; providers call git core.
+- Providers are independent: a provider never imports another provider's code (GitHub never imports from a Gerrit folder or file, and the reverse). What two providers need lives in a neutral module (`src/main/providers/credentials.ts`, `http.ts`, `remotes.ts`, `src/main/git/branch.ts` `checkoutRef`, `src/renderer/src/providers/Provider.module.css`). Settings → Git providers has a section per provider (plus a provider-neutral "This repository" section).
 - A provider adds; it never removes git core features (Gerrit can hide the plain Push from the main button but keeps it in the menu behind a confirm "Push directly to refs/heads/<branch>?").
 
 ### 5.2 Detection
@@ -241,25 +250,29 @@ Input: parsed remotes `{name, url, protocol: ssh|https|file, host, port, user, p
 Order per remote (first hit wins; result cached per host in app data; per-repo user override beats everything):
 1. **Static hints** (no network):
    - Gerrit: SSH port `29418`, or HTTPS path starting with `/r/`, `/a/`, `/gerrit/` → candidate.
-   - GitHub stub: host `github.com`. Bitbucket stub: host `bitbucket.org`.
+   - GitHub: host `github.com` or `ssh.github.com` and a path of exactly `owner/repo` (each part `[A-Za-z0-9_.-]+`, not `.`/`..`) → active without a probe, `baseUrl = https://api.github.com`, project `owner/repo`. Other hosts (GitHub Enterprise) are not matched. Registered after Gerrit; Gerrit's probe skips `github.com`, `bitbucket.org`, `gitlab.com`.
+   - Bitbucket: no detection yet (`'bitbucket'` is only a reserved id).
 2. **Probe** (HTTPS only, 3 s timeout, only for unknown hosts or Gerrit candidates): for candidate bases `https://<host>`, `https://<host>/r`, `https://<host>/gerrit` (or the HTTPS remote's prefix before the project path), `GET <base>/config/server/version` → HTTP 200 and body starts with `)]}'` → Gerrit, record version from the JSON string.
 3. **Project name**: SSH path without leading `/` and trailing `.git` (`team/project`); HTTPS path minus base prefix and `/a/`.
 4. Strong static hint but probe failed → activate with `baseUrl = null` (REST features ask the user to set it).
 
+The per-host cache (`{host, baseUrl, version}`) is Gerrit-only. The repo override is Auto / Gerrit / None: None also turns GitHub off; there is no GitHub override (Auto detects it).
+
 ### 5.3 What a provider contributes (minimal, Gerrit-driven)
-| Contribution | Gerrit | GitHub later |
+| Contribution | Gerrit | GitHub (v1) |
 |---|---|---|
-| Toolbar primary action when ahead | "Send for review" | "Push" + "Create pull request" |
+| Toolbar primary action when ahead | "Send for review" | none: plain "Push"; "Create pull request" sits in the Pull requests tab |
 | Push override (dialog + refspec) | `HEAD:refs/for/<b>%topic,r,wip,ready` | none |
-| Pull default strategy | rebase | merge (user setting) |
+| Pull default strategy | rebase | the Git setting (merge / rebase) |
 | Repo tab / panel | Reviews | Pull requests |
 | Commit-message checks / hints | Change-Id present or hook installed; amend suggestion | none |
 | Commit-message template | none (hook handles it) | none |
-| Status banners | no creds, no hook, no base URL | not signed in |
-| History badges | "in review #N" by Change-Id | "PR #N" |
-| Settings section | hosts: base URL, user, HTTP password | account token |
+| Status banners | no creds, no hook, no base URL | none; sign-in and "install the app" cards inside the Pull requests tab |
+| History badges | "in review #N" by Change-Id | none (later) |
+| Settings section | hosts: base URL, user, HTTP password | account (per host): Sign in / Sign out, "Install the GitHub App…" |
 
 ### 5.4 Interface sketch
+What exists today (`src/main/providers/index.ts`) is only `interface Provider { id: ProviderId; detect(remotes, probe): Promise<Detection | null> }` plus the registry (`registerProvider`, `detectProvider`: first registered provider that detects wins). Everything else a provider does goes through its own typed IPC channels (`gerrit:*`, `github:*`), and `RepoView` / `Settings` render each provider's tab and section directly by `detection.provider`; there is no `ProviderSession`, component registry or generic `invoke`. The sketch below is the target shape, not code:
 ```ts
 type ProviderId = 'gerrit' | 'github' | 'bitbucket';
 
@@ -303,6 +316,17 @@ All via `<baseUrl>/a/...` with HTTP Basic (username + HTTP password); strip the 
 - `POST /a/changes/<id>/submit`, `/abandon`, `/rebase`.
 - Push options use the `%` refspec suffix (works on old servers): `%topic=<t>`, `r=<reviewer>` (repeat), `wip`, `ready`.
 
+### 5.6 GitHub (for implementers)
+github.com only; main in `src/main/providers/github/` (`detect.ts`, `client.ts`) and `src/main/ipc/github.ts`, shared texts/schemas in `src/shared/github.ts`, renderer in `src/renderer/src/providers/github/`.
+- **Detection**: §5.2; `{provider: 'github', remote, host, baseUrl: 'https://api.github.com', project: 'owner/repo'}`.
+- **Sign-in**: GitHub App **"mendel-desktop"** with the OAuth device flow. Public client id in `client.ts`, no client secret anywhere. `POST https://github.com/login/device/code` → the dialog shows the user code (Copy) and "Open GitHub" (opens `https://github.com/login/device`, a constant in main, never the response's `verification_uri`); main polls `POST /login/oauth/access_token` at the given interval (`slow_down` raises it; expired / denied codes show their message; Cancel aborts). The device code never reaches the renderer. Then `GET /user` gives the login; the token is stored with it.
+- **Tokens**: an 8 h access token plus a single-use refresh token (6 months). Stored via `providers/credentials.ts` keyed by the API host (`api.github.com`), so sign-in is per host, not per repo. Each API call refreshes first when the access token expires within 60 s, and on one 401 refreshes and retries once; refreshes are serialized (the refresh token is single-use). GitHub refusing the refresh, an expired refresh token or a second 401 removes the credential ("Not signed in to GitHub, or the sign-in has expired"); an unreachable GitHub or a 5xx keeps it. Sign out is local only (revoking needs the client secret).
+- **App installation**: a user token of a GitHub App only reaches repositories where the app is installed (public repos read fine). A 403/404 on the repo's pull requests shows "The GitHub App cannot see this repository" with "Install the GitHub App…" → `https://github.com/apps/mendel-desktop/installations/new` (also in Settings).
+- **Endpoints**: `GET /user`; `GET /repos/<owner>/<repo>/pulls?state=open&per_page=50` (first page; `Link: rel="next"` → "More on GitHub"); `GET /repos/<owner>/<repo>/pulls/<N>` (checkout). Headers `Accept: application/vnd.github+json`, `X-GitHub-Api-Version: 2022-11-28`. Rate limits (`x-ratelimit-*`, `retry-after`) show "Rate limited until HH:MM" / "retry in N s". No writes.
+- **Pull requests tab** (`PullRequests.tsx`, Mod+3): sign-in card when signed out; else project header with refresh, "Create pull request", list of open pull requests (title, Draft, #N, author, updated), refreshed on the Reviews interval; detail = title, meta, `head → base`, plain-text body (no Markdown, HTML or images), **Open on GitHub**, **Check out**.
+- **Check out**: main reads the pull request again from the API (never the renderer's head), rejects forks ("Fork pull requests cannot be checked out yet"; the button is disabled with that reason), validates the head branch name with `check-ref-format`, then `checkoutRef` fetches `refs/heads/<head>` from the GitHub remote onto local `pr/<N>` tracking `<remote>/<head>`; asks before resetting an existing `pr/<N>` or stashing a dirty tree.
+- **Create pull request**: shown when the current branch's upstream is on the GitHub remote; main re-checks that and opens `https://github.com/<owner>/<repo>/compare/<upstream branch>?expand=1` (GitHub picks the base). Every browser url is built in main from detection and constants, each path part encoded, and dropped unless its origin is `https://github.com`.
+
 ---
 
 ## 6. Settings
@@ -312,7 +336,9 @@ All via `<baseUrl>/a/...` with HTTP Basic (username + HTTP password); strip the 
 | General | Theme: System / Light / Dark · Default clone folder · External editor (auto-detected list + custom command) · Terminal (auto-detected + custom) · Reopen last repo on start · Confirm before discard (on) |
 | Git | Detected git path + version (read-only) · Global `user.name` / `user.email` (edit) · Auto-fetch interval (off / 5 / 15 / 30 min, default 15) · Default pull strategy for repos without provider (merge / rebase) |
 | Commit | Summary soft limit (default 72) · Show 72-col ruler in description · Spellcheck on/off |
+| Providers → This repository | Detected provider of the open repo · "Repository provider…" (override, below) |
 | Providers → Gerrit | Hosts list: host, base URL (editable), username, connection status, "Test", "Remove credentials" · Reviews refresh interval (default 5 min) · "Only this project" default |
+| Providers → GitHub | Account (per host): "Signed in as <login>" / Sign in… (device flow) / Sign out · "Install the GitHub App…" · note that private repos need the app installed |
 | Repository (per repo, opened from repo menu) | Provider override: Auto / Gerrit / None · Gerrit base URL override · Remote used for provider · Gerrit hook status + Install |
 | Updates | Check automatically (on) · Last checked time · "Check for updates" (status and Retry shown beside it) · Current version |
 | Advanced | Open logs folder · Log level · Reset app state |
