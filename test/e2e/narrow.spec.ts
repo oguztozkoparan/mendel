@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { startGerritMock } from '../fixtures/gerrit-mock'
-import { startGithubMock } from '../fixtures/github-mock'
+import { mockPull, startGithubMock } from '../fixtures/github-mock'
 import { createRepoFixture } from '../fixtures/repo'
 import { launchApp, openRepo } from './launch'
 
@@ -117,6 +117,49 @@ test('Settings → Git providers fits the minimum window with a long Gerrit host
     await app.close()
     await github.close()
     await gerrit.close()
+    fx.cleanup()
+  }
+})
+
+test('GitHub Pull requests list and detail fit the minimum window with very long title, branches, login and body', async () => {
+  const fx = createRepoFixture()
+  const url = 'https://github.com/an-organization-with-a-long-name/a-repository-name-that-goes-on-and-on-and-on.git'
+  fx.git(['remote', 'set-url', 'origin', url])
+  fx.git(['config', '--global', `url.${fx.remote}.insteadOf`, url])
+  const mock = await startGithubMock({ pending: 0 })
+  const title = 'A pull request title that keeps going and going well past any reasonable width of the sidebar or the main pane'
+  const head = 'feature/a-very-long-head-branch-name-that-does-not-fit-anywhere-in-a-narrow-window'
+  const base = 'release/a-very-long-base-branch-name-that-also-does-not-fit'
+  mock.pulls = [mockPull(12345, { title, head, base, draft: true, login: 'a-github-login-that-is-very-long-indeed-and-goes-on', body: 'x'.repeat(2000) })]
+  mock.more = true
+  const app = await launchApp({ ...fx.env, MENDEL_E2E_GITHUB: mock.url })
+  const { win } = app
+  try {
+    const min = await app.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.getMinimumSize())
+    await app.app.evaluate(({ BrowserWindow }, [w, h]) => BrowserWindow.getAllWindows()[0]!.setSize(w, h), min as [number, number])
+    await expect.poll(() => win.evaluate(() => window.innerWidth)).toBeLessThanOrEqual(min[0]!)
+    await openRepo(app, fx.work)
+    await win.getByRole('tab', { name: 'Pull requests' }).click()
+    await win.getByRole('button', { name: 'Sign in…' }).click()
+    const row = win.getByRole('option', { name: new RegExp(title) })
+    await row.click()
+    await expect(win.getByRole('region', { name: 'Description' })).toBeVisible()
+    expect(await overflow(win), 'Pull request selected').toEqual([])
+    const ellipsis = (loc: ReturnType<Page['locator']>) => loc.evaluate((el) => getComputedStyle(el).textOverflow === 'ellipsis' && el.scrollWidth > el.clientWidth)
+    const rowTitle = row.getByText(title)
+    expect(await ellipsis(rowTitle), 'row title ends in an ellipsis').toBe(true)
+    await expect(rowTitle).toHaveAttribute('title', title)
+    const branches = win.getByLabel('Branches')
+    expect(await ellipsis(branches), 'branches end in an ellipsis').toBe(true)
+    // mockPull heads are o/r: from this repo that is a fork, shown as owner/repo:branch
+    await expect(branches).toHaveAttribute('title', `o/r:${head} → ${base}`)
+    mock.pullsMode = 'notFound'
+    await win.getByRole('button', { name: 'Refresh pull requests' }).click()
+    await expect(win.getByRole('region', { name: 'GitHub App cannot see the repository' })).toBeVisible()
+    expect(await overflow(win), 'Cannot see card').toEqual([])
+  } finally {
+    await app.close()
+    await mock.close()
     fx.cleanup()
   }
 })

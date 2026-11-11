@@ -71,7 +71,7 @@ export function RepoView({ repo, focus, onNotice }: { repo: RepoEntry; focus?: {
       )}
       {github && (
         <TabPanel id="pulls" className={s.panel}>
-          <PullRequests state={github} />
+          <PullRequests repo={repo.id} state={github} />
         </TabPanel>
       )}
     </Tabs>

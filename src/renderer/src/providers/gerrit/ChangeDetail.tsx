@@ -21,6 +21,7 @@ import { Activity } from './Activity'
 import { AttentionHashtags } from './AttentionHashtags'
 import { ChangeActions } from './ChangeActions'
 import { Composer, DraftView, Thread, usePending, type Pending, type PendingStore } from './Comments'
+import pc from '../Provider.module.css'
 import s from './Gerrit.module.css'
 import { ReplyDialog } from './ReplyDialog'
 import { diffText, fileLabel, fmtVote, shortDate, threadsOf, who } from './util'
@@ -76,10 +77,10 @@ export function ChangeDetail({ repo, number, me, onBack, onOpen }: { repo: strin
   const isCurrent = ps.sha === ch.current_revision
 
   return (
-    <div className={s.detail}>
-      <header className={s.detailHeader}>
+    <div className={pc.detail}>
+      <header className={pc.detailHeader}>
         <h2>{ch.subject}</h2>
-        <div className={s.meta}>
+        <div className={pc.meta}>
           <Button className={s.link} aria-label={`Open #${ch._number} in browser`} onPress={() => void window.mendel['gerrit:open']({ repo, path: `c/${projectPath}/+/${ch._number}` })}>
             #{ch._number}
           </Button>{' '}
@@ -87,7 +88,7 @@ export function ChangeDetail({ repo, number, me, onBack, onOpen }: { repo: strin
           {ch.work_in_progress && ' · WIP'} · {who(ch.owner)} · {ch.branch}
           {ch.topic && ` · topic ${ch.topic}`} · updated {shortDate(ch.updated)}
         </div>
-        <div className={s.toolbarRow}>
+        <div className={pc.toolbarRow}>
           <label>
             Compare{' '}
             <select aria-label="Base" value={base ?? ''} onChange={(e) => setBase(e.target.value ? Number(e.target.value) : undefined)}>
@@ -120,7 +121,7 @@ export function ChangeDetail({ repo, number, me, onBack, onOpen }: { repo: strin
             ))}
           </select>
         </div>
-        <div className={s.toolbarRow}>
+        <div className={pc.toolbarRow}>
           <Button className={op ? undefined : 'primary'} onPress={() => setReplying(true)}>
             Reply…{pending.list.length ? ` (${pending.list.length} pending)` : ''}
           </Button>
@@ -128,13 +129,13 @@ export function ChangeDetail({ repo, number, me, onBack, onOpen }: { repo: strin
         </div>
       </header>
 
-      <section aria-label="Labels" className={s.block}>
+      <section aria-label="Labels" className={pc.block}>
         {Object.entries(ch.labels ?? {}).map(([name, l]) => {
           const votes = (l.all ?? []).filter((v) => v.value)
           return (
             <div key={name} className={s.labelRow}>
               <strong>{name}</strong>
-              {votes.length ? votes.map((v) => <span key={v._account_id ?? v.username} className={s.vote} data-vote={Math.sign(v.value!)}>{`${who(v)} ${fmtVote(v.value!)}`}</span>) : <span className={s.meta}>No votes</span>}
+              {votes.length ? votes.map((v) => <span key={v._account_id ?? v.username} className={s.vote} data-vote={Math.sign(v.value!)}>{`${who(v)} ${fmtVote(v.value!)}`}</span>) : <span className={pc.meta}>No votes</span>}
             </div>
           )
         })}
@@ -146,7 +147,7 @@ export function ChangeDetail({ repo, number, me, onBack, onOpen }: { repo: strin
       </section>
 
       {!!related.data?.length && (
-        <section aria-label="Related changes" className={s.block}>
+        <section aria-label="Related changes" className={pc.block}>
           <strong>Related changes</strong>
           <ul className={s.related}>
             {related.data.map((r) => {
@@ -163,7 +164,7 @@ export function ChangeDetail({ repo, number, me, onBack, onOpen }: { repo: strin
                   ) : (
                     <span>{subject}</span>
                   )}
-                  <span className={s.meta}>
+                  <span className={pc.meta}>
                     {n ? ` #${n}` : ''}
                     {r.status ? ` · ${statusText(r.status)}` : ''}
                     {outdated ? ` · Outdated (PS ${r._revision_number} of ${r._current_revision_number})` : ''}
@@ -206,7 +207,7 @@ export function ChangeDetail({ repo, number, me, onBack, onOpen }: { repo: strin
                   <span className={c.path}>{fileLabel(p)}</span>
                   <span className={s.added}>+{f.lines_inserted ?? 0}</span>
                   <span className={s.deleted}>−{f.lines_deleted ?? 0}</span>
-                  {shown.some((cm) => cm.path === p) && <span className={s.meta}>{`${shown.filter((cm) => cm.path === p).length} comments`}</span>}
+                  {shown.some((cm) => cm.path === p) && <span className={pc.meta}>{`${shown.filter((cm) => cm.path === p).length} comments`}</span>}
                 </>
               )}
             </ListBoxItem>

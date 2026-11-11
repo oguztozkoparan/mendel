@@ -7,7 +7,7 @@ import { fetchCommand, GERRIT_REBASE_CONFLICT, type GerritChange } from '../../.
 import a from '../../App.module.css'
 import { refreshRepo } from '../../Branches'
 import type { Revision } from './ChangeDetail'
-import s from './Gerrit.module.css'
+import pc from '../Provider.module.css'
 import r from '../../Repos.module.css'
 import { DialogShell, Highlight, PopPopover } from '../../motion'
 
@@ -121,7 +121,7 @@ export function ChangeActions({ repo, change, current, ps }: { repo: string; cha
         </MenuTrigger>
       )}
       {notice && (
-        <span role={notice.error ? 'alert' : 'status'} className={notice.error ? a.error : s.meta}>
+        <span role={notice.error ? 'alert' : 'status'} className={notice.error ? a.error : pc.meta}>
           {notice.text}
         </span>
       )}

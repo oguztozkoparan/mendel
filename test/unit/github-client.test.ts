@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 import { CLIENT_ID, githubAuth, githubSession, type CredentialStore, type GithubToken } from '../../src/main/providers/github/client'
 import type { Credential } from '../../src/main/providers/credentials'
-import { GITHUB_ACCESS_DENIED, GITHUB_AUTH_ERROR, GITHUB_CODE_EXPIRED } from '../../src/shared/github'
+import { GITHUB_ACCESS_DENIED, GITHUB_AUTH_ERROR, GITHUB_CODE_EXPIRED, GITHUB_NOT_VISIBLE } from '../../src/shared/github'
 
 const origins = { login: 'https://login.test', api: 'https://api.test' }
 interface Call {
@@ -175,5 +175,91 @@ describe('github session', () => {
     })
     const err3 = await githubSession(unreachable, memStore(stored({ access: 'ghu_secret' })), origins).api(user, '/user').then(() => new Error('resolved'), (e: Error) => e)
     expect(err3.message).toBe('Cannot reach GitHub: fetch failed')
+  })
+})
+
+describe('github pulls', () => {
+  const pull = (n: number, over: Record<string, unknown> = {}) => ({
+    number: n,
+    title: `PR ${n}`,
+    user: { login: 'octo', id: 1 },
+    draft: false,
+    html_url: `https://github.com/o/r/pull/${n}`,
+    updated_at: '2026-11-10T10:00:00Z',
+    body: 'text',
+    head: { ref: 'feat', repo: { full_name: 'fork/r' }, sha: 'abc' },
+    base: { ref: 'main', repo: { full_name: 'o/r' } },
+    labels: [],
+    ...over
+  })
+  const session = (route: (c: Call) => Response, path = '/repos/o/r/pulls') => {
+    const f = fakeFetch({ [path]: route })
+    return { f, s: githubSession(f.fn, memStore(stored({ access: 'ghu_tok' })), origins) }
+  }
+  const failWith = (status: number, headers: Record<string, string> = {}, body: unknown = { message: 'x' }) =>
+    session(() => new Response(JSON.stringify(body), { status, headers })).s.pulls('o/r').then(() => 'resolved', (e: Error) => e.message)
+
+  it('GETs the open pulls (50 per page) with the token and API headers, keeping only the shown fields', async () => {
+    const { f, s } = session(() => json([pull(1), pull(2, { draft: true })]))
+    const r = await s.pulls('o/r')
+    expect(r.more).toBe(false)
+    expect(r.pulls.map((p) => p.number)).toEqual([1, 2])
+    expect(r.pulls[1].draft).toBe(true)
+    expect(r.pulls[0]).toEqual({ number: 1, title: 'PR 1', user: { login: 'octo' }, draft: false, html_url: 'https://github.com/o/r/pull/1', updated_at: '2026-11-10T10:00:00Z', body: 'text', head: { ref: 'feat', repo: { full_name: 'fork/r' } }, base: { ref: 'main' } })
+    const u = new URL(f.calls[0].url)
+    expect(u.origin + u.pathname).toBe(`${origins.api}/repos/o/r/pulls`)
+    expect(Object.fromEntries(u.searchParams)).toEqual({ state: 'open', per_page: '50' })
+    const h = new Headers(f.calls[0].init.headers)
+    expect(h.get('authorization')).toBe('Bearer ghu_tok')
+    expect(h.get('accept')).toBe('application/vnd.github+json')
+    expect(h.get('x-github-api-version')).toBe('2022-11-28')
+    expect(f.calls[0].init.redirect).toBe('error')
+  })
+
+  it('encodes each part of an odd repo name', async () => {
+    const { f, s } = session(() => json([]), '/repos/o%20x/r%23y%3Fz/pulls')
+    expect(await s.pulls('o x/r#y?z')).toEqual({ pulls: [], more: false })
+    expect(f.calls[0].url).toBe(`${origins.api}/repos/o%20x/r%23y%3Fz/pulls?state=open&per_page=50`)
+  })
+
+  it('a null body and a deleted fork (head.repo null) parse', async () => {
+    const r = await session(() => json([pull(3, { body: null, head: { ref: 'gone', repo: null } })])).s.pulls('o/r')
+    expect(r.pulls[0].body).toBeNull()
+    expect(r.pulls[0].head).toEqual({ ref: 'gone', repo: null })
+  })
+
+  it('a response that does not match the schema is an error', async () => {
+    await expect(session(() => json([{ number: 'x' }])).s.pulls('o/r')).rejects.toThrow('Unexpected response from GitHub for /repos/o/r/pulls')
+    await expect(session(() => json({ message: 'hi' })).s.pulls('o/r')).rejects.toThrow('Unexpected response from GitHub')
+  })
+
+  it('Link rel="next" means more pages', async () => {
+    const link = '<https://api.github.com/repositories/1/pulls?state=open&per_page=50&page=2>; rel="next", <https://api.github.com/repositories/1/pulls?page=3>; rel="last"'
+    const { s } = session(() => new Response(JSON.stringify([pull(1)]), { headers: { link } }))
+    expect((await s.pulls('o/r')).more).toBe(true)
+    const prev = '<https://api.github.com/repositories/1/pulls?page=1>; rel="prev"'
+    expect((await session(() => new Response('[]', { headers: { link: prev } })).s.pulls('o/r')).more).toBe(false)
+  })
+
+  it('errors in order: auth, rate limit with reset, retry-after, rate limit message, cannot see, other', async () => {
+    const reset = Math.floor(Date.now() / 1000) + 600
+    const hhmm = new Date(reset * 1000).toTimeString().slice(0, 5)
+    const all = { 'x-ratelimit-remaining': '0', 'x-ratelimit-reset': String(reset), 'retry-after': '30' }
+    expect(await failWith(401, all, { message: 'API rate limit exceeded' })).toBe(GITHUB_AUTH_ERROR)
+    expect(await failWith(403, all, { message: 'API rate limit exceeded' })).toBe(`Rate limited until ${hhmm}`)
+    expect(await failWith(429, all)).toBe(`Rate limited until ${hhmm}`)
+    expect(await failWith(403, { 'x-ratelimit-remaining': '12', 'x-ratelimit-reset': String(reset), 'retry-after': '30' }, { message: 'secondary rate limit' })).toBe('Rate limited, retry in 30 s')
+    expect(await failWith(429, { 'retry-after': '7' })).toBe('Rate limited, retry in 7 s')
+    expect(await failWith(403, {}, { message: 'You have exceeded a secondary rate limit.' })).toBe('Rate limited, try again in a minute')
+    expect(await failWith(429, {}, { message: 'API Rate Limit exceeded' })).toBe('Rate limited, try again in a minute')
+    expect(await failWith(403, {}, { message: 'Resource not accessible by integration' })).toBe(GITHUB_NOT_VISIBLE)
+    expect(await failWith(404, {}, { message: 'Not Found' })).toBe(GITHUB_NOT_VISIBLE)
+    expect(await failWith(429, {}, { message: 'slow' })).toBe('GitHub error 429')
+    expect(await failWith(500, all, { message: 'rate limit' })).toBe('GitHub error 500')
+  })
+
+  it('a 403/404 outside repo calls is a plain error, not the cannot-see text', async () => {
+    const f = fakeFetch({ '/user': () => json({ message: 'Not Found' }, 404) })
+    await expect(githubSession(f.fn, memStore(stored({ access: 'ghu_tok' })), origins).api(user, '/user')).rejects.toThrow('GitHub error 404')
   })
 })

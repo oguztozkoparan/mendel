@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
-import { startGithubMock, type GithubMock } from '../fixtures/github-mock'
+import { mockPull, startGithubMock, type GithubMock } from '../fixtures/github-mock'
 import { createRepoFixture } from '../fixtures/repo'
 import { launchApp, openRepo, type LaunchedApp } from './launch'
 
@@ -129,6 +129,86 @@ test('Settings → Git providers → GitHub: sign in shows on the Pull requests 
     await expect.poll(() => app.evaluate(() => (globalThis as { __opened?: string }).__opened)).toBe('https://github.com/apps/trimbit/installations/new')
     await settings.getByRole('button', { name: 'Done' }).click()
     await expect(win.getByRole('region', { name: 'Sign in to GitHub' })).toBeVisible()
+  } finally {
+    await close()
+    await mock.close()
+  }
+})
+
+/** Signs in through the dialog (mock created with `pending: 0`: the first poll authorizes). */
+async function signIn(win: LaunchedApp['win']) {
+  await win.getByRole('region', { name: 'Sign in to GitHub' }).getByRole('button', { name: 'Sign in…' }).click()
+  await expect(win.getByRole('dialog', { name: 'Sign in to GitHub' })).toHaveCount(0)
+}
+
+test('signed in: open pull requests list, detail as plain text, Open on GitHub and More on GitHub open main-built urls, refresh picks up changes', async () => {
+  const mock = await startGithubMock({ pending: 0 })
+  mock.pulls = [mockPull(7, { title: 'Add the thing', login: 'mona', body: '<b>not html</b>\n**not markdown**', head: 'feat-thing' }), mockPull(8, { title: 'WIP idea', draft: true })]
+  mock.more = true
+  const { app, win, close } = await launchGithub(mock)
+  try {
+    await app.evaluate(({ shell }) => {
+      shell.openExternal = async (u: string) => void ((globalThis as { __opened?: string }).__opened = u)
+    })
+    const opened = () => app.evaluate(() => (globalThis as { __opened?: string }).__opened)
+    await signIn(win)
+    const list = win.getByRole('listbox', { name: 'Pull requests' })
+    await expect(list.getByRole('option')).toHaveCount(2)
+    await expect(list.getByRole('option').first()).toContainText('Add the thing')
+    await expect(list.getByRole('option').first()).toContainText('#7 · mona')
+    await expect(list.getByRole('option').nth(1)).toContainText('Draft')
+    await expect(win.getByRole('region', { name: 'GitHub account' })).toContainText(`Signed in as ${mock.login}`)
+
+    await list.getByRole('option', { name: /Add the thing/ }).click()
+    const main = win.locator('section').filter({ has: win.getByRole('heading', { name: 'Add the thing' }) }).first()
+    await expect(main.getByLabel('Branches')).toHaveText('feat-thing → main')
+    await expect(win.getByRole('region', { name: 'Description' })).toHaveText('<b>not html</b>\n**not markdown**')
+    await expect(win.getByRole('region', { name: 'Description' }).locator('b, strong, img')).toHaveCount(0)
+    await win.getByRole('button', { name: 'Open on GitHub' }).click()
+    await expect.poll(opened).toBe('https://github.com/o/r/pull/7')
+    await win.getByRole('button', { name: 'More on GitHub' }).click()
+    await expect.poll(opened).toBe('https://github.com/o/r/pulls')
+
+    // Refetch: the selection survives while the PR is still open, and deselects once it is gone.
+    mock.pulls = [mockPull(7, { title: 'Add the thing', login: 'mona', head: 'feat-thing' }), mockPull(9, { title: 'Brand new' })]
+    mock.more = false
+    await win.getByRole('button', { name: 'Refresh pull requests' }).click()
+    await expect(list.getByRole('option', { name: /Brand new/ })).toBeVisible()
+    await expect(list.getByRole('option', { name: /WIP idea/ })).toHaveCount(0)
+    await expect(win.getByRole('heading', { name: 'Add the thing' })).toBeVisible()
+    await expect(win.getByRole('button', { name: 'More on GitHub' })).toHaveCount(0)
+    mock.pulls = []
+    await win.getByRole('button', { name: 'Refresh pull requests' }).click()
+    await expect(win.getByText('No open pull requests')).toBeVisible()
+    await expect(win.getByRole('heading', { name: 'Add the thing' })).toHaveCount(0)
+    await win.getByRole('button', { name: 'Sign out' }).click()
+    await expect(win.getByRole('region', { name: 'Sign in to GitHub' })).toBeVisible()
+    await expect(win.getByText('No open pull requests')).toHaveCount(0)
+  } finally {
+    await close()
+    await mock.close()
+  }
+})
+
+test('a repo the GitHub App cannot see shows the install card; rate limiting shows its message', async () => {
+  const mock = await startGithubMock({ pending: 0 })
+  mock.pullsMode = 'notFound'
+  const { app, win, close } = await launchGithub(mock)
+  try {
+    await app.evaluate(({ shell }) => {
+      shell.openExternal = async (u: string) => void ((globalThis as { __opened?: string }).__opened = u)
+    })
+    await signIn(win)
+    const card = win.getByRole('region', { name: 'GitHub App cannot see the repository' })
+    await expect(card).toContainText('GitHub App cannot see o/r')
+    await card.getByRole('button', { name: 'Install the GitHub App…' }).click()
+    await expect.poll(() => app.evaluate(() => (globalThis as { __opened?: string }).__opened)).toBe('https://github.com/apps/trimbit/installations/new')
+    mock.pullsMode = 'rateLimited'
+    await win.getByRole('button', { name: 'Refresh pull requests' }).click()
+    await expect(win.getByRole('alert')).toContainText(/Rate limited until \d\d:\d\d/)
+    mock.pullsMode = 'ok'
+    await win.getByRole('alert').getByRole('button', { name: 'Retry' }).click()
+    await expect(win.getByText('No open pull requests')).toBeVisible()
   } finally {
     await close()
     await mock.close()

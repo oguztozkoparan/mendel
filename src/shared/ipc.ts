@@ -8,7 +8,7 @@ import { z } from 'zod'
 import { SHA_PREFIX, TRAILER_KEY } from './historyQuery'
 import { GERRIT_OPS, MAX_TERM, MAX_TERMS, MAX_TEXT } from './gerritQuery'
 import { draftSchema, HASHTAG, PUSH_OPTION_VALUE, type GerritChange, type GerritCommit, type GerritSent, type GerritChangeLists, type GerritComment, type GerritConnected, type GerritDiff, type GerritFiles, type GerritRelated, type GerritSearchPage } from './gerrit'
-import type { GithubDeviceCode, GithubSignedIn } from './github'
+import type { GithubDeviceCode, GithubPulls, GithubSignedIn } from './github'
 
 const res = <Res>() => <Req extends z.ZodType>(req: Req) => ({ req, res: null as unknown as Res })
 
@@ -516,6 +516,12 @@ export const invoke = {
   'github:signOut': res<void>()(z.undefined()),
   /** Login of the stored GitHub token, null = signed out. */
   'github:account': res<string | null>()(z.undefined()),
+  /** First page of the repo's open pull requests (project from main's detection); 403/404 reject with GITHUB_NOT_VISIBLE. */
+  'github:pulls': res<GithubPulls>()(inRepo),
+  /** Open https://github.com/<owner>/<repo>/pull/<number> in the browser (url built in main). */
+  'github:openPull': res<void>()(z.object({ repo: repoId, number: z.number().int().positive().max(Number.MAX_SAFE_INTEGER) }).strict()),
+  /** Open https://github.com/<owner>/<repo>/pulls in the browser (url built in main). */
+  'github:openPulls': res<void>()(inRepo),
   'gerrit:commitHint': res<GerritCommitHint>()(inRepo),
   /** Amend only HEAD's message to add a Change-Id (HEAD must be unpushed). */
   'gerrit:addChangeId': res<void>()(inRepo),

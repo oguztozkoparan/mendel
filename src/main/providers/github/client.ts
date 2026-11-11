@@ -2,7 +2,7 @@
 // credential store (main passes net.fetch and providers/credentials; tests pass fakes). Tokens are only ever sent
 // to `origins.login` and `origins.api`, and never put in an error message.
 import { z } from 'zod'
-import { GITHUB_ACCESS_DENIED, GITHUB_AUTH_ERROR, GITHUB_CODE_EXPIRED } from '../../../shared/github'
+import { GITHUB_ACCESS_DENIED, GITHUB_AUTH_ERROR, GITHUB_CODE_EXPIRED, GITHUB_NOT_VISIBLE, githubPullSchema, type GithubPulls } from '../../../shared/github'
 import type { Credential } from '../credentials'
 import { hostOf, readCapped, type Fetch } from '../http'
 
@@ -163,11 +163,26 @@ export function githubAuth(fetchFn: Fetch, origins: GithubOrigins = GITHUB_ORIGI
   }
 }
 
-/** Parses a JSON API answer with `schema`; 401 → GITHUB_AUTH_ERROR. */
-async function parseApi<T>(res: Response, schema: z.ZodType<T>, path: string): Promise<T> {
+const hhmm = (ms: number) => new Date(ms).toTimeString().slice(0, 5)
+
+/** Error text of a failed API answer, in order: auth, rate limits (primary, secondary), then `repoScoped` 403/404 → GITHUB_NOT_VISIBLE. */
+function apiError(res: Response, text: string, repoScoped: boolean): string {
+  const st = res.status
+  if (st === 401) return GITHUB_AUTH_ERROR
+  const limited = st === 403 || st === 429
+  const reset = Number(res.headers.get('x-ratelimit-reset'))
+  if (limited && res.headers.get('x-ratelimit-remaining') === '0' && reset > 0) return `Rate limited until ${hhmm(reset * 1000)}`
+  const retry = Number(res.headers.get('retry-after'))
+  if (limited && retry > 0) return `Rate limited, retry in ${Math.ceil(retry)} s`
+  if (limited && /rate limit/i.test(text)) return 'Rate limited, try again in a minute'
+  if (repoScoped && (st === 403 || st === 404)) return GITHUB_NOT_VISIBLE
+  return `GitHub error ${st}`
+}
+
+/** Parses a JSON API answer with `schema`; failures as `apiError`. */
+async function parseApi<T>(res: Response, schema: z.ZodType<T>, path: string, repoScoped = false): Promise<T> {
   const text = await readCapped(res)
-  if (res.status === 401) throw new Error(GITHUB_AUTH_ERROR)
-  if (!res.ok) throw new Error(`GitHub error ${res.status}`)
+  if (!res.ok) throw new Error(apiError(res, text, repoScoped))
   try {
     return schema.parse(JSON.parse(text))
   } catch {
@@ -218,6 +233,25 @@ export function githubSession(fetchFn: Fetch, store: CredentialStore, origins: G
     return refreshing
   }
 
+  /** Authenticated `GET <api><path>`, refreshing the token when it expires soon or on one 401 (GITHUB_AUTH_ERROR when that fails); the raw Response. */
+  async function request(path: string): Promise<Response> {
+    if (refreshing) await refreshing.catch(() => {})
+    let { token } = await load()
+    if (token.expiresAt && token.expiresAt - Date.now() < 60_000) token = await refresh(token)
+    let res = await auth.get(token.access, path)
+    if (res.status === 401) {
+      await res.body?.cancel()
+      token = await refresh(token)
+      res = await auth.get(token.access, path)
+      if (res.status === 401) {
+        await res.body?.cancel()
+        store.remove(host)
+        throw new Error(GITHUB_AUTH_ERROR)
+      }
+    }
+    return res
+  }
+
   return {
     host,
     /** Learns the login with the new token and stores both; returns whether it persisted (false = this session only). */
@@ -228,21 +262,15 @@ export function githubSession(fetchFn: Fetch, store: CredentialStore, origins: G
 
     /** Authenticated `GET <api><path>` parsed with `schema`; throws GITHUB_AUTH_ERROR (credential removed) when sign-in is needed again. */
     async api<T>(schema: z.ZodType<T>, path: string): Promise<T> {
-      if (refreshing) await refreshing.catch(() => {})
-      let { token } = await load()
-      if (token.expiresAt && token.expiresAt - Date.now() < 60_000) token = await refresh(token)
-      let res = await auth.get(token.access, path)
-      if (res.status === 401) {
-        await res.body?.cancel()
-        token = await refresh(token)
-        res = await auth.get(token.access, path)
-        if (res.status === 401) {
-          await res.body?.cancel()
-          store.remove(host)
-          throw new Error(GITHUB_AUTH_ERROR)
-        }
-      }
-      return parseApi(res, schema, path)
+      return parseApi(await request(path), schema, path)
+    },
+
+    /** First page (50) of the open pull requests of `project` ('owner/repo'). */
+    async pulls(project: string): Promise<GithubPulls> {
+      const path = `/repos/${project.split('/').map(encodeURIComponent).join('/')}/pulls?state=open&per_page=50`
+      const res = await request(path)
+      const pulls = await parseApi(res, z.array(githubPullSchema), path, true)
+      return { pulls, more: /rel="next"/.test(res.headers.get('link') ?? '') }
     }
   }
 }

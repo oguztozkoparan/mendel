@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Button } from 'react-aria-components'
 import type { GerritComment, GerritDraft } from '../../../../shared/gerrit'
+import pc from '../Provider.module.css'
 import s from './Gerrit.module.css'
 import { Markdown } from './Markdown'
 import { shortDate, who } from './util'
@@ -59,8 +60,8 @@ export function DraftView({ draft, onRemove }: { draft: Pending; onRemove(): voi
     <div role="group" aria-label="Draft comment" className={s.comment} data-draft>
       <div className={s.commentHead}>
         <strong>Draft</strong>
-        <span className={s.meta}>{draft.unresolved ? 'unresolved' : 'resolves thread'}</span>
-        <span className={s.grow} />
+        <span className={pc.meta}>{draft.unresolved ? 'unresolved' : 'resolves thread'}</span>
+        <span className={pc.grow} />
         <Button onPress={onRemove}>Discard</Button>
       </div>
       <p className={s.plain}>{draft.message}</p>
@@ -86,7 +87,7 @@ export function Thread(p: { repo: string; thread: GerritComment[]; fallbackPs: n
         <div key={c.id} className={s.comment}>
           <div className={s.commentHead}>
             <strong>{who(c.author)}</strong>
-            <span className={s.meta}>{shortDate(c.updated)}</span>
+            <span className={pc.meta}>{shortDate(c.updated)}</span>
           </div>
           <Markdown repo={p.repo} text={c.message ?? ''} />
         </div>
@@ -95,8 +96,8 @@ export function Thread(p: { repo: string; thread: GerritComment[]; fallbackPs: n
         <DraftView key={d.key} draft={d} onRemove={() => p.pending.remove(d.key)} />
       ))}
       <div className={s.threadActions}>
-        <span className={s.meta}>{unresolved ? 'Unresolved' : 'Resolved'}</span>
-        <span className={s.grow} />
+        <span className={pc.meta}>{unresolved ? 'Unresolved' : 'Resolved'}</span>
+        <span className={pc.grow} />
         <Button onPress={() => setReplying(true)}>Reply</Button>
         <Button onPress={() => reply('Done', false)}>Done</Button>
         <Button onPress={() => reply('Ack', false)}>Ack</Button>

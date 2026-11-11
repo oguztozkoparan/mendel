@@ -1,8 +1,10 @@
 import { net, shell } from 'electron'
 import { DEVICE_PAGE, INSTALL_PAGE, githubAuth, githubSession, GITHUB_ORIGINS, type DeviceCode } from '../providers/github/client'
 import { credentialUser, getCredential, removeCredential, saveCredential } from '../providers/credentials'
+import log from '../log'
 import type { Fetch } from '../providers/http'
 import { testSeams } from '../security'
+import { activeState } from './provider'
 import { urlAllowed } from '../update/feed'
 import type { Handlers } from '.'
 
@@ -28,7 +30,23 @@ export const cancelGithubSignIn = () => {
   pending = null
 }
 
-export const githubHandlers: Handlers<'github:signIn' | 'github:wait' | 'github:cancel' | 'github:openDevicePage' | 'github:openInstallPage' | 'github:signOut' | 'github:account'> = {
+/** 'owner/repo' of the repo's own GitHub detection (never taken from the renderer). */
+async function projectOf(repo: string): Promise<string> {
+  const d = (await activeState(repo)).detection
+  if (d?.provider !== 'github') throw new Error('GitHub is not active for this repository')
+  return d.project
+}
+
+/** Opens `https://github.com/<owner>/<repo>/<rest>`; the project comes from detection, each part encoded. */
+async function openRepoPage(repo: string, rest: string) {
+  const u = new URL(`${(await projectOf(repo)).split('/').map(encodeURIComponent).join('/')}/${rest}`, 'https://github.com/')
+  if (u.origin !== 'https://github.com') return log.warn('[github] blocked external url')
+  await shell.openExternal(u.href)
+}
+
+export const githubHandlers: Handlers<
+  'github:signIn' | 'github:wait' | 'github:cancel' | 'github:openDevicePage' | 'github:openInstallPage' | 'github:signOut' | 'github:account' | 'github:pulls' | 'github:openPull' | 'github:openPulls'
+> = {
   'github:signIn': async () => {
     cancelGithubSignIn()
     const g = generation
@@ -51,5 +69,8 @@ export const githubHandlers: Handlers<'github:signIn' | 'github:wait' | 'github:
   'github:openInstallPage': () => shell.openExternal(INSTALL_PAGE),
   // Local only: revoking a user token server-side needs the app's client secret, which this app does not have.
   'github:signOut': () => removeCredential(github.host),
-  'github:account': () => credentialUser(github.host)
+  'github:account': () => credentialUser(github.host),
+  'github:pulls': async ({ repo }) => github.pulls(await projectOf(repo)),
+  'github:openPull': ({ repo, number }) => openRepoPage(repo, `pull/${number}`),
+  'github:openPulls': ({ repo }) => openRepoPage(repo, 'pulls')
 }

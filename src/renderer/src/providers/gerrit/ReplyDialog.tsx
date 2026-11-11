@@ -4,6 +4,7 @@ import { Dialog, Heading } from 'react-aria-components'
 import type { GerritChange } from '../../../../shared/gerrit'
 import a from '../../App.module.css'
 import type { PendingStore } from './Comments'
+import pc from '../Provider.module.css'
 import s from './Gerrit.module.css'
 import { fileLabel, fmtVote } from './util'
 import { DialogShell } from '../../motion'
@@ -71,7 +72,7 @@ export function ReplyDialog(p: { repo: string; change: GerritChange; patchSet: n
             <ul aria-label="Pending comments" className={s.pendingList}>
               {p.pending.list.map((d) => (
                 <li key={d.key}>
-                  <span className={s.grow}>
+                  <span className={pc.grow}>
                     {fileLabel(d.path)}
                     {d.line ? `:${d.line}` : ''} (PS {d.patch_set}) — {d.message}
                   </span>

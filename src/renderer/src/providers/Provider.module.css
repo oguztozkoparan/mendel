@@ -1,0 +1,100 @@
+/* Layout shared by provider tabs (Gerrit Reviews, GitHub Pull requests): list rows in the side pane, detail header in the main pane. */
+
+.sideHeader {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: calc(var(--ctl-h) + 12px);
+  padding: 0 10px;
+  font-size: 12px;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+}
+
+.grow {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.empty {
+  color: var(--muted);
+  padding: 24px;
+  margin: 0;
+  text-align: center;
+}
+
+.changeRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  outline: none;
+}
+
+.changeRow :global(.hl) {
+  inset: 0 6px;
+  border-radius: var(--ctl-radius);
+}
+
+.changeRow[data-focus-visible] {
+  box-shadow: var(--focus);
+}
+
+.changeText {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.subject,
+.meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.meta {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.detail {
+  display: flex;
+  flex-direction: column;
+}
+
+/* concept .detail: 22px 26px header, 17/600 title, actions row */
+.detailHeader {
+  padding: 22px 26px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.detailHeader h2 {
+  margin: 0 0 6px;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+  cursor: text;
+}
+
+.toolbarRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+
+.block {
+  padding: 12px 26px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
