@@ -80,9 +80,13 @@ test('no horizontal overflow or clipped buttons at the minimum window width', as
 
 test('tooltips stay inside the minimum window: icon button at the right edge, truncated text; fitting text shows none', async () => {
   const fx = createRepoFixture()
-  const long = 'some/deeply/nested/folder/with-a-rather-long-file-name-that-cannot-fit-the-changes-list.txt'
+  const name = 'with-a-rather-long-file-name-that-cannot-fit-the-changes-list.txt'
+  const long = `some/deeply/nested/folder/${name}`
+  const deep = 'a-very-long-folder-name-that-goes-on/and-on-and-on-and-on/and-still-further-down/below/short.txt'
   fx.commitFile(long, 'one\n', 'add file')
+  fx.commitFile(deep, 'one\n', 'add deep file')
   writeFileSync(path.join(fx.work, long), 'one\ntwo\n')
+  writeFileSync(path.join(fx.work, deep), 'one\ntwo\n')
   writeFileSync(path.join(fx.work, 'b.txt'), 'b\n')
   const app = await launchApp(fx.env)
   const { win } = app
@@ -96,8 +100,17 @@ test('tooltips stay inside the minimum window: icon button at the right edge, tr
     await tooltip(win, settings, 'Settings')
     await expect(settings).toHaveAccessibleDescription('')
     expect(await overflow(win), 'icon button tooltip').toEqual([])
-    await tooltip(win, win.getByRole('row', { name: /with-a-rather-long-file-name/ }).getByText(long), long)
+    // file rows: name first, then the folder; the full path is the row's name and its tooltip
+    const longRow = win.getByRole('row', { name: long })
+    await tooltip(win, longRow.getByText(name, { exact: true }), long)
     expect(await overflow(win), 'truncated text tooltip').toEqual([])
+    const deepRow = win.getByRole('row', { name: deep })
+    const short = deepRow.getByText('short.txt', { exact: true })
+    await expect(short).toBeInViewport({ ratio: 1 })
+    expect(await short.evaluate((el) => el.scrollWidth <= el.clientWidth), 'name not cut off by a long folder').toBe(true)
+    expect(await longRow.getByText(name, { exact: true }).evaluate((el) => el.scrollWidth > el.clientWidth), 'a too long name is cut off').toBe(true)
+    for (const row of [longRow, deepRow]) expect(await row.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true)
+    await tooltip(win, deepRow.getByText('a-very-long-folder-name', { exact: false }), deep)
     await tooltip(win, win.getByRole('row', { name: /b\.txt/ }).getByText('b.txt', { exact: true }), null)
     // keyboard focus shows it too; Escape hides it
     await win.mouse.move(0, 0)

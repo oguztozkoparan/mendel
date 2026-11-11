@@ -15,6 +15,8 @@ const sha = (c: string) => c.repeat(40)
 /** Per revision: file list (FileInfo map incl. /COMMIT_MSG) and diff content blocks per path. */
 export interface MockFile {
   status?: 'A' | 'D' | 'R' | 'M'
+  /** A rename's source path. */
+  old_path?: string
   lines_inserted?: number
   lines_deleted?: number
   /** DiffInfo.content blocks: `{ab}` / `{a,b}` / `{a}` / `{b}` (/ `{skip}`). */
@@ -301,7 +303,7 @@ export async function startGerritMock(opts: GerritMockOptions = {}): Promise<Ger
       case 'GET rev/related':
         return json({ changes: c.related ?? [] })
       case 'GET rev/files': {
-        const fs = Object.fromEntries(Object.entries(c.files[rev!] ?? {}).map(([p, f]) => [p, { status: f.status, lines_inserted: f.lines_inserted, lines_deleted: f.lines_deleted, size_delta: 0, size: 100 }]))
+        const fs = Object.fromEntries(Object.entries(c.files[rev!] ?? {}).map(([p, f]) => [p, { status: f.status, old_path: f.old_path, lines_inserted: f.lines_inserted, lines_deleted: f.lines_deleted, size_delta: 0, size: 100 }]))
         return json(fs)
       }
       case 'GET rev/files/:path/diff': {

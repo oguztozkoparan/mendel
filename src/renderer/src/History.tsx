@@ -11,7 +11,9 @@ import { refreshRepo, useBranches } from './Branches'
 import { FileFilter, matchFile } from './Changes'
 import c from './Changes.module.css'
 import { useParsedDiff, visible } from './DiffView'
+import { FilePath } from './FilePath'
 import { highlight, highlightLines, renderTokens } from './highlight'
+import { fullPath } from './paths'
 import { bannerError, ErrorBanner, PaneBanners, type BannerError } from './ErrorBanner'
 import s from './History.module.css'
 import { RebaseDialog } from './RebaseDialog'
@@ -354,11 +356,11 @@ function CommitView(p: { repo: string; sha: string; pick?: 'cherry-pick' | 'reve
         >
           {(x) => (
             // Row-fill selection, not the floating plate: rows sit inside a bordered table. Hairline above every row but the first.
-            <ListBoxItem id={x.path} textValue={x.path} className={x === shown[0] ? s.fileRow : `${s.fileRow} ${s.divided}`}>
+            <ListBoxItem id={x.path} textValue={x.path} aria-label={`${x.status} ${fullPath(x.path, x.origPath)}${x.add !== undefined ? ` +${x.add} −${x.del}` : ''}`} className={x === shown[0] ? s.fileRow : `${s.fileRow} ${s.divided}`}>
               <span className={c.letter} data-status={x.status}>
                 {x.status}
               </span>
-              <span className={s.filePath}>{x.origPath ? `${x.origPath} → ${x.path}` : x.path}</span>
+              <FilePath path={x.path} orig={x.origPath} className={s.filePath} />
               {x.add !== undefined && (
                 <span className={s.fileStat}>
                   <span className={c.statAdd}>+{x.add}</span> <span className={c.statDel}>−{x.del}</span>

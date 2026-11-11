@@ -16,6 +16,7 @@ import 'react-diff-view/style/index.css'
 import type { GerritChange, GerritComment } from '../../../../shared/gerrit'
 import c from '../../Changes.module.css'
 import { useParsedDiff, visible } from '../../DiffView'
+import { FilePath } from '../../FilePath'
 import { highlight } from '../../highlight'
 import { Activity } from './Activity'
 import { AttentionHashtags } from './AttentionHashtags'
@@ -26,6 +27,7 @@ import s from './Gerrit.module.css'
 import { ReplyDialog } from './ReplyDialog'
 import { diffText, fileLabel, fmtVote, shortDate, threadsOf, who } from './util'
 import { Highlight } from '../../motion'
+import { fullPath } from '../../paths'
 
 export type Revision = NonNullable<GerritChange['revisions']>[string] & { sha: string }
 export const revisionsOf = (ch: GerritChange): Revision[] =>
@@ -197,17 +199,18 @@ export function ChangeDetail({ repo, number, me, onBack, onOpen }: { repo: strin
       >
         {paths.map((p) => {
           const f = files.data![p]
+          const n = shown.filter((cm) => cm.path === p).length
           return (
-            <ListBoxItem key={p} id={p} textValue={fileLabel(p)} className={s.fileRow}>
+            <ListBoxItem key={p} id={p} textValue={fileLabel(p)} aria-label={`${f.status ?? 'M'} ${fullPath(fileLabel(p), f.old_path)} +${f.lines_inserted ?? 0} −${f.lines_deleted ?? 0}${n ? ` ${n} comments` : ''}`} className={s.fileRow}>
               {({ isSelected }) => (
                 <>
                   {isSelected && <Highlight id="sel-change-files" />}
                   {/* Gerrit omits status for modified files */}
                   <span className={c.letter} data-status={f.status ?? 'M'}>{f.status ?? 'M'}</span>
-                  <span className={c.path}>{fileLabel(p)}</span>
+                  <FilePath path={fileLabel(p)} orig={f.old_path} className={c.path} />
                   <span className={s.added}>+{f.lines_inserted ?? 0}</span>
                   <span className={s.deleted}>−{f.lines_deleted ?? 0}</span>
-                  {shown.some((cm) => cm.path === p) && <span className={pc.meta}>{`${shown.filter((cm) => cm.path === p).length} comments`}</span>}
+                  {n > 0 && <span className={pc.meta}>{`${n} comments`}</span>}
                 </>
               )}
             </ListBoxItem>

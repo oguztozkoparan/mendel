@@ -25,10 +25,10 @@ test('change detail: header, labels, files with Commit Message first, side-by-si
   await expect(labels).toContainText('ReviewersAda Reviewer, Test User')
 
   const files = win.getByRole('listbox', { name: 'Files' }).getByRole('option')
-  await expect(files).toHaveText([/Commit Message/, /docs\/new\.md/, /src\/a\.ts/])
+  await expect(files).toHaveText([/Commit Message/, /new\.md.*docs/, /a\.ts.*src/]) // name first, then its folder
   await expect(win.getByRole('region', { name: 'Diff of Commit Message' })).toContainText('Change-Id: I')
 
-  await files.filter({ hasText: 'src/a.ts' }).click()
+  await win.getByRole('listbox', { name: 'Files' }).getByRole('option', { name: 'src/a.ts' }).click()
   const diff = win.getByRole('region', { name: 'Diff of src/a.ts' })
   await expect(diff.locator('table.diff-split')).toBeVisible()
   const row = diff.locator('tr', { hasText: 'export const b = 2' })
@@ -53,6 +53,17 @@ test('change detail: header, labels, files with Commit Message first, side-by-si
   await win.getByRole('menuitem', { name: 'Copy fetch command' }).click()
   await expect(win.getByText('Fetch command copied')).toBeVisible()
   expect(await g.app.evaluate(({ clipboard }) => clipboard.readText())).toBe('git fetch origin refs/changes/01/101/2 && git checkout FETCH_HEAD')
+})
+
+test('a renamed file row: name, then old → new folder; status, both paths and counts in its name and tooltip', async () => {
+  mock.changes.find((c) => c._number === 101)!.files['b'.repeat(40)]['lib/b.ts'] = { status: 'R', old_path: 'src/b.ts', lines_inserted: 1, diff: [{ ab: ['x'] }] }
+  g = await launchGerrit(mock)
+  const { win } = g
+  await connectGerrit(win, mock)
+  await win.getByRole('option', { name: /Add feature X/ }).click()
+  const row = win.getByRole('listbox', { name: 'Files' }).getByRole('option', { name: 'R src/b.ts → lib/b.ts +1 −0' })
+  await expect(row).toHaveText(/^Rb\.tssrc → lib\+1−0$/)
+  await expect(row.locator('[data-tip]')).toHaveAttribute('data-tip', 'src/b.ts → lib/b.ts')
 })
 
 test('change not found → message and back', async () => {
