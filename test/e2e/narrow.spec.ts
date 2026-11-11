@@ -370,9 +370,10 @@ test('History commit detail at the minimum window: 200 files and a 150-line mess
   }
 })
 
-test('Gerrit change detail at the minimum window: 200 files scroll on their own, the diff stays reachable', async () => {
+test('Gerrit change detail at the minimum window: 200 files and a 150-line description each scroll on their own, the diff stays reachable', async () => {
   const gerrit = await startGerritMock()
   const ch = gerrit.changes.find((c) => c._number === 101)!
+  ch.revisions['b'.repeat(40)].commit.message = ['Add feature X', '', ...Array.from({ length: 150 }, (_, i) => `Body line ${i + 1} explaining the change with a long unbroken token ${'x'.repeat(120)}.`), '', 'Change-Id: I1'].join('\n')
   for (let i = 0; i < 200; i++) ch.files['b'.repeat(40)][`src/f${String(i).padStart(3, '0')}.ts`] = { lines_inserted: 1, diff: [{ ab: ['x'] }, { b: ['y'] }] }
   const g = await launchGerrit(gerrit)
   const { win } = g
@@ -382,8 +383,13 @@ test('Gerrit change detail at the minimum window: 200 files scroll on their own,
     await win.getByRole('option', { name: /Add feature X/ }).click()
     const files = win.getByRole('listbox', { name: 'Files' })
     await expect(files.getByRole('option').first()).toBeVisible()
-    await capped(files, 0.35)
+    const desc = win.getByRole('region', { name: 'Change description' })
+    const vh = await win.evaluate(() => window.innerHeight)
+    expect((await capped(desc, 0.2)) + (await capped(files, 0.35)), 'caps leave room for the diff').toBeLessThanOrEqual(vh / 2)
     expect(await overflow(win), 'Gerrit change detail').toEqual([])
+    await desc.focus()
+    await win.keyboard.press('PageDown')
+    await expect.poll(() => desc.evaluate((el) => el.scrollTop)).toBeGreaterThan(0)
     await lastFileByKeyboard(win, files, /src\/f199\.ts/, win.getByRole('region', { name: 'Diff of src/f199.ts' }))
   } finally {
     await g.close()

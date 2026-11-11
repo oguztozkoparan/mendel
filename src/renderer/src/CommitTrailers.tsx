@@ -2,10 +2,11 @@ import { useQuery } from '@tanstack/react-query'
 import { AnimatePresence } from 'motion/react'
 import { useRef, useState } from 'react'
 import { Button, Dialog, DialogTrigger } from 'react-aria-components'
+import c from './Changes.module.css'
 import s from './History.module.css'
 import { PopPopover } from './motion'
 import r from './Repos.module.css'
-import { trailerLabel, trailerRole, type Trailer } from './trailers'
+import { splitTrailers, trailerLabel, trailerRole, type Trailer } from './trailers'
 
 type Person = Extract<Trailer, { kind: 'person' }>
 
@@ -18,6 +19,21 @@ export function useCopy() {
       setTimeout(() => setCopied(false), 1500)
     })
   return [copied, copy] as const
+}
+
+/** Commit message body (message without its summary line) as plain text in a capped, focusable region, then its trailers; nothing when both are empty. */
+export function CommitBody({ repo, body, label }: { repo: string; body: string; label: string }) {
+  const { text, trailers } = splitTrailers(body)
+  return (
+    <>
+      {text && (
+        <pre className={`${s.message} ${c.capText}`} role="region" aria-label={label} tabIndex={0}>
+          {text}
+        </pre>
+      )}
+      {trailers.length > 0 && <Trailers repo={repo} trailers={trailers} />}
+    </>
+  )
 }
 
 /** Commit trailers below the body, grouped by key; unknown ones stay plain `Key: value` text. */

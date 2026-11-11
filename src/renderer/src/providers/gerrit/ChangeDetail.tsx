@@ -15,6 +15,7 @@ import {
 import 'react-diff-view/style/index.css'
 import type { GerritChange, GerritComment } from '../../../../shared/gerrit'
 import c from '../../Changes.module.css'
+import { CommitBody } from '../../CommitTrailers'
 import { useParsedDiff, visible } from '../../DiffView'
 import { FilePath } from '../../FilePath'
 import { highlight } from '../../highlight'
@@ -77,6 +78,8 @@ export function ChangeDetail({ repo, number, me, onBack, onOpen }: { repo: strin
     (cm) => (cm.patch_set === ps._number && (cm.side !== 'PARENT' || !base)) || (!!base && cm.patch_set === base && cm.side !== 'PARENT')
   )
   const isCurrent = ps.sha === ch.current_revision
+  // Gerrit's change description is the selected patch set's commit message; its first line is the subject heading.
+  const description = ps.commit?.message?.split('\n').slice(1).join('\n').trim() ?? ''
 
   return (
     <div className={pc.detail}>
@@ -130,6 +133,12 @@ export function ChangeDetail({ repo, number, me, onBack, onOpen }: { repo: strin
           <ChangeActions repo={repo} change={ch} current={current} ps={ps._number} />
         </div>
       </header>
+
+      {description && (
+        <div key={ps.sha} className={s.description}>
+          <CommitBody repo={repo} body={description} label="Change description" />
+        </div>
+      )}
 
       <section aria-label="Labels" className={pc.block}>
         {Object.entries(ch.labels ?? {}).map(([name, l]) => {

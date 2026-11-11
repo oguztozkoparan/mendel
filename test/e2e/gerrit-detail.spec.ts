@@ -55,6 +55,51 @@ test('change detail: header, labels, files with Commit Message first, side-by-si
   expect(await g.app.evaluate(({ clipboard }) => clipboard.readText())).toBe('git fetch origin refs/changes/01/101/2 && git checkout FETCH_HEAD')
 })
 
+test('change description: the selected patch set\'s message body as plain text, trailers as in History; nothing without a body', async () => {
+  g = await launchGerrit(mock)
+  const { win } = g
+  await connectGerrit(win, mock)
+  await win.getByRole('option', { name: /Add feature X/ }).click()
+  expect(mock.find('GET', '/detail?').at(-1)!.url).toContain('o=ALL_COMMITS')
+
+  const desc = win.getByRole('region', { name: 'Change description' })
+  // subject only as the heading; body literal (no Markdown, no HTML), trailers split off
+  expect(await desc.textContent()).toBe('Adds feature X behind a flag.\nKeeps **not bold** and <tag> as typed.')
+  await expect(desc.locator('*')).toHaveCount(0)
+  await expect(desc).toHaveAttribute('tabindex', '0')
+  const trailers = win.getByLabel('Trailers')
+  await expect(trailers).toContainText('Change-ID')
+  await expect(trailers).toContainText('Reviewed on')
+  await expect(trailers.getByRole('button', { name: 'Test User, Signed-off' })).toBeVisible()
+  const changeId = `I${'0'.repeat(37)}101`
+  await trailers.getByRole('button', { name: `Copy ${changeId}` }).click()
+  await expect.poll(() => g!.app.evaluate(({ clipboard }) => clipboard.readText())).toBe(changeId)
+  // Reviewed-on on the configured Gerrit opens through gerrit:open, as in History
+  await g.app.evaluate(({ shell }) => {
+    shell.openExternal = async (u: string) => void ((globalThis as { __opened?: string }).__opened = u)
+  })
+  await trailers.getByRole('button', { name: `Open ${mock.url}/c/p/q/+/101 in browser` }).click()
+  await expect.poll(() => g!.app.evaluate(() => (globalThis as { __opened?: string }).__opened)).toBe(`${mock.url}/c/p/q/+/101`)
+
+  // follows the selected patch set
+  await win.getByLabel('Patch set').selectOption('1')
+  await expect(desc).toHaveText('First draft of feature X.')
+  await expect(trailers.getByRole('button', { name: 'Test User, Signed-off' })).toHaveCount(0)
+
+  // subject only: no description block, no trailers
+  await win.getByRole('option', { name: /Draft: refactor/ }).click()
+  await expect(win.getByRole('heading', { name: 'Draft: refactor' })).toBeVisible()
+  await expect(desc).toHaveCount(0)
+  await expect(trailers).toHaveCount(0)
+
+  // trailers only: no empty message block, the trailers still show
+  await win.getByText('This project only').click()
+  await win.getByRole('option', { name: /Fix crash in parser/ }).click()
+  await expect(win.getByRole('heading', { name: 'Fix crash in parser' })).toBeVisible()
+  await expect(trailers.getByRole('button', { name: `Copy I${'0'.repeat(37)}102` })).toBeVisible()
+  await expect(desc).toHaveCount(0)
+})
+
 test('a renamed file row: name, then old → new folder; status, both paths and counts in its name and tooltip', async () => {
   mock.changes.find((c) => c._number === 101)!.files['b'.repeat(40)]['lib/b.ts'] = { status: 'R', old_path: 'src/b.ts', lines_inserted: 1, diff: [{ ab: ['x'] }] }
   g = await launchGerrit(mock)
