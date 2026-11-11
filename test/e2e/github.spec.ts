@@ -126,7 +126,7 @@ test('Settings → Git providers → GitHub: sign in shows on the Pull requests 
     await card.getByRole('button', { name: 'Sign out' }).click()
     await expect(card).toContainText('Not signed in')
     await card.getByRole('button', { name: 'Install the GitHub App…' }).click()
-    await expect.poll(() => app.evaluate(() => (globalThis as { __opened?: string }).__opened)).toBe('https://github.com/apps/trimbit/installations/new')
+    await expect.poll(() => app.evaluate(() => (globalThis as { __opened?: string }).__opened)).toBe('https://github.com/apps/mendel-desktop/installations/new')
     await settings.getByRole('button', { name: 'Done' }).click()
     await expect(win.getByRole('region', { name: 'Sign in to GitHub' })).toBeVisible()
   } finally {
@@ -202,7 +202,7 @@ test('a repo the GitHub App cannot see shows the install card; rate limiting sho
     const card = win.getByRole('region', { name: 'GitHub App cannot see the repository' })
     await expect(card).toContainText('GitHub App cannot see o/r')
     await card.getByRole('button', { name: 'Install the GitHub App…' }).click()
-    await expect.poll(() => app.evaluate(() => (globalThis as { __opened?: string }).__opened)).toBe('https://github.com/apps/trimbit/installations/new')
+    await expect.poll(() => app.evaluate(() => (globalThis as { __opened?: string }).__opened)).toBe('https://github.com/apps/mendel-desktop/installations/new')
     mock.pullsMode = 'rateLimited'
     await win.getByRole('button', { name: 'Refresh pull requests' }).click()
     await expect(win.getByRole('alert')).toContainText(/Rate limited until \d\d:\d\d/)

@@ -6,12 +6,12 @@ import { GITHUB_ACCESS_DENIED, GITHUB_AUTH_ERROR, GITHUB_CODE_EXPIRED, GITHUB_NO
 import type { Credential } from '../credentials'
 import { hostOf, readCapped, type Fetch } from '../http'
 
-/** Public id of the "trimbit" GitHub App; device flow needs no client secret. */
+/** Public id of the "mendel-desktop" GitHub App; device flow needs no client secret. */
 export const CLIENT_ID = 'Iv23liekfapPcvye2Ilc'
 /** Where the user types the code; opened from here, never from the response's verification_uri. */
 export const DEVICE_PAGE = 'https://github.com/login/device'
 /** Install page of the app: a user token only reaches repos where the app is installed. */
-export const INSTALL_PAGE = 'https://github.com/apps/trimbit/installations/new'
+export const INSTALL_PAGE = 'https://github.com/apps/mendel-desktop/installations/new'
 export const GITHUB_ORIGINS = { login: 'https://github.com', api: 'https://api.github.com' }
 export type GithubOrigins = typeof GITHUB_ORIGINS
 
