@@ -5,7 +5,7 @@ import { providerStore, saveProviderStore } from './store'
 
 export interface Credential {
   username: string
-  /** HTTP password or access token: sent as Basic auth. */
+  /** Gerrit: HTTP password or access token, sent as Basic auth. GitHub: the token set as JSON, sent as Bearer. */
   password: string
 }
 

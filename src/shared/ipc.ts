@@ -252,7 +252,7 @@ export type MenuCommand =
   | 'status:refresh'
   | 'settings'
 
-/** Hosting provider of a repo (PLAN.md §5). 'gerrit' is implemented, 'github' is detected only (github.com); 'bitbucket' is reserved. */
+/** Hosting provider of a repo (PLAN.md §5). 'gerrit' and 'github' (github.com) are implemented; 'bitbucket' is reserved. */
 export type ProviderId = 'gerrit' | 'github' | 'bitbucket'
 
 /** Result of provider detection for a repo. `baseUrl` null = REST unknown (UI asks for "Set Gerrit URL"). */
