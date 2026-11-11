@@ -2,7 +2,7 @@
 
 ## Stack
 - Electron + React + Vite + TypeScript. Git ops shell out to the system `git` CLI (hooks, SSH keys, credentials behave like the terminal).
-- Providers in `src/main/providers/<name>/` activate when a repo's remote matches (first: Gerrit; later: GitHub, Bitbucket).
+- Providers in `src/main/providers/<name>/` activate when a repo's remote matches: Gerrit and GitHub (github.com) exist; Bitbucket/GitLab later.
 - Plan: `docs/PLAN.md` · tech/security decisions: `docs/TECH.md`.
 
 ## Commands
@@ -25,6 +25,7 @@
 
 ## Rules
 - Minimal diffs. No unrequested refactors, renames or "while I was here" changes; flag spotted issues in one line.
+- Providers are independent: a provider never imports another provider's code; what two providers need moves to a neutral module (no copy, no re-export shim).
 - Security first: renderer has no Node access (contextIsolation, sandbox, no nodeIntegration); all git/network/secrets go through typed IPC in main; never build shell strings, pass git args as arrays; secrets only via OS keychain (`safeStorage`).
 - Never read or print `.env*` or secrets.
 - Tests per change/commit: `npm run typecheck` + `npm test` (fast, always all) + only the e2e specs the change can affect. Never run the full `npm run e2e` suite (agents included) unless the user explicitly asks for it; CI runs it.

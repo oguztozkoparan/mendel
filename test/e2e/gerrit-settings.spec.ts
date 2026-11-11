@@ -110,7 +110,7 @@ test('Reviews "Account…" and "Gerrit settings…" open Settings on Git provide
   for (const name of ['Account…', 'Gerrit settings…']) {
     await win.getByRole('button', { name }).click()
     await expect(settings.getByRole('tab', { name: 'Git providers' })).toHaveAttribute('aria-selected', 'true')
-    await expect(settings.getByRole('region', { name: 'Gerrit' })).toContainText(`Gerrit at ${mock.url}`)
+    await expect(settings.getByRole('region', { name: 'This repository' })).toContainText(`Gerrit at ${mock.url}`)
     await settings.getByRole('button', { name: 'Done' }).click()
     await expect(settings).toHaveCount(0)
   }

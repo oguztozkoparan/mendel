@@ -217,6 +217,18 @@
   color: var(--fg);
 }
 
+/* A longer label (Pull requests) keeps its full width; the other tabs share the rest. */
+.tabs .tabFit {
+  min-width: max-content;
+}
+
+/* With Pull requests the four labels only fit the 260px sidebar (≤1080px) sized to their text, a notch smaller. */
+.tabs:has(.tabFit) [role='tab'] {
+  flex: 1 1 auto;
+  padding: 0 4px;
+  font-size: 11.5px;
+}
+
 /* sliding raised thumb (motion.tsx Highlight) */
 .tabs :global(.hl) {
   background: linear-gradient(180deg, var(--face-top), var(--face-bot));

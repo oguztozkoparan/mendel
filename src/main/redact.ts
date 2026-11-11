@@ -4,6 +4,7 @@ export function redact(text: string): string {
     .replace(/([a-z][a-z0-9+.-]*:\/\/)[^/\s]*@/gi, '$1***@') // greedy: up to the last `@` before the host (S11)
     .replace(/(authorization:\s*)(?:(basic|bearer)\s+)?\S+/gi, (_m, h: string, scheme?: string) => `${h}${scheme ? scheme + ' ' : ''}***`)
     .replace(/((?:access_)?token=)[^&\s]+/gi, '$1***')
+    .replace(/\b(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,})/g, '***') // bare GitHub tokens
 }
 
 /** `redact` applied to strings, Error stacks and strings nested in arrays/plain objects (log arguments). */

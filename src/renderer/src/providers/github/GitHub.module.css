@@ -1,0 +1,69 @@
+/* Sign-in card in the main pane (same box as App.module.css .card). */
+.signin {
+  margin: 48px auto;
+  overflow-wrap: anywhere;
+}
+
+/* Signed-in login: one line, ellipsis, full value in the title tooltip. */
+.login {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Bold on the ellipsized line itself: an inline <strong> inside it would poke past the window. */
+.strong {
+  font-weight: 600;
+}
+
+/* Device code: large, monospace, selectable so it can be copied by hand too. */
+.code {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.code output {
+  font: 600 24px/1.2 var(--mono);
+  letter-spacing: 0.08em;
+  user-select: text;
+}
+
+.hint {
+  margin: 0;
+  color: var(--muted);
+}
+
+/* Draft tag at the start of a pull request's meta line (stays visible when the line ends in an ellipsis). */
+.draft {
+  margin-right: 6px;
+  padding: 0 6px;
+  border-radius: var(--ctl-radius);
+  background: color-mix(in srgb, var(--fg) 8%, transparent);
+  color: var(--fg);
+}
+
+/* Full-width sidebar buttons: "Create pull request" under the header, "More on GitHub" as the list's last row. */
+.more {
+  margin: 8px;
+}
+
+/* Selected pull request fills the main pane so the body scrolls on its own. */
+.pull {
+  height: 100%;
+  min-height: 0;
+}
+
+/* Body as plain text: never wider than the pane, its own scroll. */
+.body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  margin: 0;
+  padding: 16px 26px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
+}

@@ -16,6 +16,7 @@ import h from '../../History.module.css'
 import { ChangeDetail } from './ChangeDetail'
 import c from '../../Changes.module.css'
 import { GerritConnectDialog } from './GerritConnectDialog'
+import pc from '../Provider.module.css'
 import s from './Gerrit.module.css'
 import { RepoProviderDialog } from './RepoProviderDialog'
 import { initial, labelSummary, needsMe, shortDate, who } from './util'
@@ -100,7 +101,7 @@ export function Reviews({ repo, state, focus }: { repo: RepoEntry; state: Provid
         <Button onPress={() => void (lists.error ? lists.refetch() : history.refetch())}>Retry</Button>
       </div>
     )
-  else main = selected ? <ChangeDetail key={selected} repo={repo.id} number={selected} me={me} onBack={() => setSelected(null)} onOpen={setSelected} /> : <p className={s.empty}>Select a change</p>
+  else main = selected ? <ChangeDetail key={selected} repo={repo.id} number={selected} me={me} onBack={() => setSelected(null)} onOpen={setSelected} /> : <p className={pc.empty}>Select a change</p>
 
   const sections: [string, GerritChange[]][] = lists.data
     ? [
@@ -113,8 +114,8 @@ export function Reviews({ repo, state, focus }: { repo: RepoEntry; state: Provid
   return (
     <>
       <aside className={a.side}>
-        <div className={s.sideHeader}>
-          <span className={s.grow}>{d.project || d.host}</span>
+        <div className={pc.sideHeader}>
+          <span className={pc.grow}>{d.project || d.host}</span>
           {d.baseUrl && (
             <Button className="ghost" onPress={() => openSettings('Git providers')}>
               Account…
@@ -138,21 +139,21 @@ export function Reviews({ repo, state, focus }: { repo: RepoEntry; state: Provid
           </div>
         )}
         {ready && (
-          <div className={s.sideHeader}>
+          <div className={pc.sideHeader}>
             <Checkbox isSelected={projectOnly} onChange={setProjectOnly} className={c.amend}>
               <span className={c.box} aria-hidden>
                 {projectOnly ? '✓' : ''}
               </span>
               This project only
             </Checkbox>
-            <span className={s.grow} />
+            <span className={pc.grow} />
             <Button className="ghost" aria-label="Refresh reviews" onPress={() => void (tab === 'mine' ? lists.refetch() : history.refetch())}>
               <RefreshCw size={14} aria-hidden />
             </Button>
           </div>
         )}
         {tab === 'mine' && lists.data && sections.every(([, l]) => !l.length) && (
-          <p className={s.empty}>
+          <p className={pc.empty}>
             No open changes. Commit, then use Send for review to create one.
           </p>
         )}
@@ -170,7 +171,7 @@ export function Reviews({ repo, state, focus }: { repo: RepoEntry; state: Provid
                   {title} ({list.length})
                 </Header>
                 {list.map((ch) => (
-                  <ListBoxItem key={`${title}-${ch._number}`} id={ch._number} textValue={`${ch.subject} #${ch._number}`} className={s.changeRow}>
+                  <ListBoxItem key={`${title}-${ch._number}`} id={ch._number} textValue={`${ch.subject} #${ch._number}`} className={pc.changeRow}>
                     {({ isSelected }) => <ChangeRow ch={ch} me={me} hl={isSelected ? 'sel-changes' : null} />}
                   </ListBoxItem>
                 ))}
@@ -207,11 +208,11 @@ export function Reviews({ repo, state, focus }: { repo: RepoEntry; state: Provid
                 selectedKeys={selected ? [selected] : []}
                 onSelectionChange={(k) => k !== 'all' && k.size && setSelected(Number([...k][0]))}
                 className={c.list}
-                renderEmptyState={() => (history.data ? <p className={s.empty}>No matching changes</p> : null)}
+                renderEmptyState={() => (history.data ? <p className={pc.empty}>No matching changes</p> : null)}
               >
                 <Collection items={historyChanges} dependencies={[me]}>
                   {(ch) => (
-                    <ListBoxItem id={ch._number} textValue={`${ch.subject} #${ch._number}`} className={s.changeRow}>
+                    <ListBoxItem id={ch._number} textValue={`${ch.subject} #${ch._number}`} className={pc.changeRow}>
                       {({ isSelected }) => <ChangeRow ch={ch} me={me} hl={isSelected ? 'sel-review-history' : null} />}
                     </ListBoxItem>
                   )}
@@ -242,9 +243,9 @@ function ChangeRow({ ch, me, hl }: { ch: GerritChange; me: number | null; hl: st
       <span className={s.avatar} title={who(ch.owner)} aria-hidden>
         {initial(ch.owner)}
       </span>
-      <span className={s.changeText}>
-        <span className={s.subject}>{ch.subject}</span>
-        <span className={s.meta}>
+      <span className={pc.changeText}>
+        <span className={pc.subject}>{ch.subject}</span>
+        <span className={pc.meta}>
           {needsMe(ch, me) && <span className={s.attention}>Your turn · </span>}#{ch._number} · {ch.status === 'NEW' ? 'Open' : ch.status.charAt(0) + ch.status.slice(1).toLowerCase()}
           {ch.work_in_progress && ' · WIP'}
           {!!ch.unresolved_comment_count && ` · ${ch.unresolved_comment_count} unresolved`}

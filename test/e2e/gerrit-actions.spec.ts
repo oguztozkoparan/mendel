@@ -40,6 +40,9 @@ test('Submit → confirm → POST submit, detail shows Merged and a pull hint', 
   const { win } = g
   await connectGerrit(win, mock)
   await open(/Add feature X/)
+  // The server's action titles are the buttons' accessible descriptions.
+  await expect(win.getByRole('button', { name: 'Submit…' })).toHaveAccessibleDescription('Submit patch set 2 into main')
+  await expect(win.getByRole('button', { name: 'Rebase' })).toHaveAccessibleDescription('Rebase onto tip of branch or parent change')
   await win.getByRole('button', { name: 'Submit…' }).click()
   await win.getByRole('dialog', { name: 'Submit #101?' }).getByRole('button', { name: 'Submit' }).click()
   await expect(win.getByRole('status')).toHaveText('Change merged. Pull to update your local branch.')

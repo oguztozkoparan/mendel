@@ -8,6 +8,7 @@ import { z } from 'zod'
 import { SHA_PREFIX, TRAILER_KEY } from './historyQuery'
 import { GERRIT_OPS, MAX_TERM, MAX_TERMS, MAX_TEXT } from './gerritQuery'
 import { draftSchema, HASHTAG, PUSH_OPTION_VALUE, type GerritChange, type GerritCommit, type GerritSent, type GerritChangeLists, type GerritComment, type GerritConnected, type GerritDiff, type GerritFiles, type GerritRelated, type GerritSearchPage } from './gerrit'
+import type { GithubDeviceCode, GithubPulls, GithubSignedIn } from './github'
 
 const res = <Res>() => <Req extends z.ZodType>(req: Req) => ({ req, res: null as unknown as Res })
 
@@ -251,7 +252,7 @@ export type MenuCommand =
   | 'status:refresh'
   | 'settings'
 
-/** Hosting provider of a repo (PLAN.md §5). Only 'gerrit' is implemented; others are reserved ids. */
+/** Hosting provider of a repo (PLAN.md §5). 'gerrit' and 'github' (github.com) are implemented; 'bitbucket' is reserved. */
 export type ProviderId = 'gerrit' | 'github' | 'bitbucket'
 
 /** Result of provider detection for a repo. `baseUrl` null = REST unknown (UI asks for "Set Gerrit URL"). */
@@ -502,6 +503,29 @@ export const invoke = {
     z.object({ repo: repoId, baseUrl: z.string().min(1).max(2048), username: z.string().min(1).max(256), password: z.string().min(1).max(4096) }).strict()
   ),
   'gerrit:disconnect': res<void>()(inRepo),
+  /** GitHub sign-in is per host, not per repo. Start the device flow (cancels one in flight): the code to type on github.com. */
+  'github:signIn': res<GithubDeviceCode>()(z.undefined()),
+  /** Poll until the user authorizes; rejects with GITHUB_CODE_EXPIRED, GITHUB_ACCESS_DENIED or another readable message. */
+  'github:wait': res<GithubSignedIn>()(z.undefined()),
+  'github:cancel': res<void>()(z.undefined()),
+  /** Open https://github.com/login/device in the browser. */
+  'github:openDevicePage': res<void>()(z.undefined()),
+  /** Open https://github.com/apps/mendel-desktop/installations/new in the browser. */
+  'github:openInstallPage': res<void>()(z.undefined()),
+  /** Forget the stored token (local only). */
+  'github:signOut': res<void>()(z.undefined()),
+  /** Login of the stored GitHub token, null = signed out. */
+  'github:account': res<string | null>()(z.undefined()),
+  /** First page of the repo's open pull requests (project from main's detection); 403/404 reject with GITHUB_NOT_VISIBLE. */
+  'github:pulls': res<GithubPulls>()(inRepo),
+  /** Open https://github.com/<owner>/<repo>/pull/<number> in the browser (url built in main). */
+  'github:openPull': res<void>()(z.object({ repo: repoId, number: z.number().int().positive().max(Number.MAX_SAFE_INTEGER) }).strict()),
+  /** Same-repo pull request only: main re-reads its head branch from the API and checks it out on `pr/<number>` tracking `<remote>/<head.ref>`; null = cancelled. */
+  'github:checkout': res<string | null>()(z.object({ repo: repoId, number: z.number().int().positive().max(Number.MAX_SAFE_INTEGER) }).strict()),
+  /** Open https://github.com/<owner>/<repo>/pulls in the browser (url built in main). */
+  'github:openPulls': res<void>()(inRepo),
+  /** Open https://github.com/<owner>/<repo>/compare/<upstream branch>?expand=1 for the current branch (url built in main); rejects unless its upstream is on the GitHub remote. */
+  'github:createPull': res<void>()(inRepo),
   'gerrit:commitHint': res<GerritCommitHint>()(inRepo),
   /** Amend only HEAD's message to add a Change-Id (HEAD must be unpushed). */
   'gerrit:addChangeId': res<void>()(inRepo),

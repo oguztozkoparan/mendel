@@ -10,6 +10,7 @@ import h from './History.module.css'
 import { useMenuCommand } from './menu'
 import { Highlight } from './motion'
 import { Reviews } from './providers/gerrit/Reviews'
+import { PullRequests } from './providers/github/PullRequests'
 import type { Notice } from './SyncButton'
 /** Tab label with the sliding underline under the selected one. */
 const tabLabel = (label: string) => ({ isSelected }: { isSelected: boolean }) => (
@@ -29,6 +30,7 @@ export function RepoView({ repo, focus, onNotice }: { repo: RepoEntry; focus?: {
   useEffect(() => void (focus && setTab('reviews')), [focus])
   const provider = useQuery({ queryKey: ['provider', repo.id], queryFn: () => window.mendel['provider:get']({ repo: repo.id }) })
   const gerrit = provider.data?.detection?.provider === 'gerrit' ? provider.data : null
+  const github = provider.data?.detection?.provider === 'github' ? provider.data : null
   const head = useBranches(repo.id).data?.head
   const badges = useQuery({ queryKey: ['gerritBadges', repo.id, head], queryFn: () => window.mendel['gerrit:badges']({ repo: repo.id }), enabled: !!gerrit })
   // Stable per badge data: History's Collection re-renders every row when `decorate` changes.
@@ -40,16 +42,18 @@ export function RepoView({ repo, focus, onNotice }: { repo: RepoEntry; focus?: {
   useMenuCommand((c) => {
     if (c === 'tab:changes' || c === 'tab:history') setTab(c.slice(4))
     else if (c === 'tab:provider' && gerrit) setTab('reviews')
+    else if (c === 'tab:provider' && github) setTab('pulls')
     else if (c === 'changes:discardAll') (setTab('changes'), setDiscard(true))
   })
   return (
-    // Reviews disappears when the provider is removed: an unknown selectedKey leaves no tab or panel shown.
-    <Tabs className={s.repoView} selectedKey={tab === 'reviews' && !gerrit ? 'changes' : tab} onSelectionChange={setTab}>
+    // A provider tab disappears when the provider is removed: an unknown selectedKey leaves no tab or panel shown.
+    <Tabs className={s.repoView} selectedKey={(tab === 'reviews' && !gerrit) || (tab === 'pulls' && !github) ? 'changes' : tab} onSelectionChange={setTab}>
       <TabList aria-label="Views" className={s.tabs}>
         <Tab id="changes">{tabLabel('Changes')}</Tab>
         <Tab id="history">{tabLabel('History')}</Tab>
         <Tab id="stashes">{tabLabel('Stashes')}</Tab>
         {gerrit && <Tab id="reviews">{tabLabel('Reviews')}</Tab>}
+        {github && <Tab id="pulls" className={s.tabFit}>{tabLabel('Pull requests')}</Tab>}
       </TabList>
       <TabPanel id="changes" className={s.panel}>
         <ChangesView repo={repo} amend={amend} onAmendDone={() => setAmend(false)} discard={discard} onDiscardAsked={() => setDiscard(false)} onNotice={onNotice} />
@@ -63,6 +67,11 @@ export function RepoView({ repo, focus, onNotice }: { repo: RepoEntry; focus?: {
       {gerrit && (
         <TabPanel id="reviews" className={s.panel}>
           <Reviews repo={repo} state={gerrit} focus={focus} />
+        </TabPanel>
+      )}
+      {github && (
+        <TabPanel id="pulls" className={s.panel}>
+          <PullRequests repo={repo.id} state={github} />
         </TabPanel>
       )}
     </Tabs>

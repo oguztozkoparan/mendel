@@ -7,6 +7,7 @@ import a from './App.module.css'
 import c from './Changes.module.css'
 import { GerritConnectDialog } from './providers/gerrit/GerritConnectDialog'
 import { RepoProviderDialog } from './providers/gerrit/RepoProviderDialog'
+import { SignInDialog } from './providers/github/SignInDialog'
 import s from './Settings.module.css'
 import { Segmented } from './controls'
 import { DialogShell, Highlight, withTransition } from './motion'
@@ -114,7 +115,8 @@ export function SettingsDialog(p: { repo?: string; section?: string; onClose(): 
             <Toggle label="Show 72-column ruler in description" value={st.descriptionRuler} onChange={(descriptionRuler) => set({ descriptionRuler })} />
           </TabPanel>
           <TabPanel id="Git providers" className={s.panel}>
-            {/* One card per provider; GitHub / Bitbucket get their own card here when they land. */}
+            {/* One card per provider, always shown in this order; Bitbucket / GitLab get their own card when they land. */}
+            <RepoSection repo={p.repo} />
             <section className={s.provider} aria-labelledby="provider-gerrit">
               <GerritSection repo={p.repo} />
               <Choice
@@ -125,6 +127,7 @@ export function SettingsDialog(p: { repo?: string; section?: string; onClose(): 
               />
               <Toggle label="Review notifications" value={st.reviewNotifications} onChange={(reviewNotifications) => set({ reviewNotifications })} />
             </section>
+            <GithubSection repo={p.repo} />
           </TabPanel>
           <TabPanel id="Updates" className={s.panel}>
             <Toggle label="Check for updates automatically" value={st.autoUpdateCheck} onChange={(autoUpdateCheck) => set({ autoUpdateCheck })} />
@@ -261,29 +264,69 @@ export function IdentityForm() {
   )
 }
 
-/** Gerrit card header, current repo's provider override and Gerrit account (PLAN.md §6), reusing the Reviews tab dialogs. */
+const useProvider = (repo?: string) =>
+  useQuery({ queryKey: ['provider', repo], queryFn: () => window.mendel['provider:get']({ repo: repo! }), enabled: !!repo })
+
+/** "This repository" card: the open repo's detected provider and its override (PLAN.md §4.3 step 5). Provider-neutral. */
+function RepoSection({ repo }: { repo?: string }) {
+  const st = useProvider(repo).data
+  const [dialog, setDialog] = useState(false)
+  const d = st?.detection
+  const name =
+    d?.provider === 'gerrit'
+      ? `Gerrit${d.baseUrl ? ` at ${d.baseUrl}` : ' (URL not set)'}`
+      : d?.provider === 'github' && d.baseUrl
+        ? `GitHub · ${new URL(d.baseUrl).host}`
+        : 'No provider'
+  const current = `${name} · provider setting: ${st?.override.provider}`
+  return (
+    <section className={s.provider} aria-labelledby="provider-repo">
+      <div className={s.providerHead}>
+        <strong id="provider-repo">This repository</strong>
+      </div>
+      {!repo && <p className={a.muted}>Open a repository to set its provider.</p>}
+      {repo && st && (
+        <>
+          <Row label="Provider">
+            <span className={a.path} title={current}>
+              {current}
+            </span>
+          </Row>
+          <div className={a.row}>
+            <Button onPress={() => setDialog(true)}>Repository provider…</Button>
+          </div>
+          <AnimatePresence>{dialog && <RepoProviderDialog key="provider" repo={repo} state={st} onClose={() => setDialog(false)} />}</AnimatePresence>
+        </>
+      )}
+    </section>
+  )
+}
+
+/** Gerrit card header and the current repo's Gerrit account (PLAN.md §6), reusing the Reviews tab dialog. */
 function GerritSection({ repo }: { repo?: string }) {
   const qc = useQueryClient()
-  const q = useQuery({ queryKey: ['provider', repo], queryFn: () => window.mendel['provider:get']({ repo: repo! }), enabled: !!repo })
-  const [dialog, setDialog] = useState<'provider' | 'connect' | null>(null)
-  const st = q.data
+  const [dialog, setDialog] = useState(false)
+  const st = useProvider(repo).data
   const d = st?.detection
   const gerrit = d?.provider === 'gerrit'
+  const host = gerrit ? d.host : 'Not used by this repository'
   const header = (
     <div className={s.providerHead}>
       <strong id="provider-gerrit">Gerrit</strong>
       {gerrit && <span className={s.live} aria-hidden />}
-      <span className={s.providerHost}>{gerrit ? d.host : 'Not used by this repository'}</span>
+      <span className={s.providerHost} title={host}>
+        {host}
+      </span>
     </div>
   )
   if (!repo)
     return (
       <>
         {header}
-        <p className={a.muted}>Open a repository to set its provider and Gerrit account.</p>
+        <p className={a.muted}>Open a repository to set up its Gerrit account.</p>
       </>
     )
-  if (!st) return header
+  if (!st || !gerrit) return header
   const signOut = () =>
     void window.mendel['gerrit:disconnect']({ repo }).then(() => {
       void qc.invalidateQueries({ queryKey: ['provider', repo] })
@@ -292,26 +335,66 @@ function GerritSection({ repo }: { repo?: string }) {
   return (
     <>
       {header}
-      <Row label="This repository">
-        <span>
-          {gerrit ? `Gerrit${d.baseUrl ? ` at ${d.baseUrl}` : ' (URL not set)'}` : 'No provider'} · provider setting: {st.override.provider}
-        </span>
+      <Row label="Account">
+        <span className={s.grow}>{st.credentialUser ? `Connected as ${st.credentialUser}` : 'Not connected'}</span>
+        {d.baseUrl && <Button onPress={() => setDialog(true)}>Connect…</Button>}
+        {st.credentialUser && <Button onPress={signOut}>Sign out</Button>}
       </Row>
-      {gerrit && (
+      <AnimatePresence>{dialog && <GerritConnectDialog key="connect" repo={repo} state={st} onClose={() => setDialog(false)} />}</AnimatePresence>
+    </>
+  )
+}
+
+/** GitHub card: the account (per host, not per repo, so it works with any repo or none) and the app install page. */
+function GithubSection({ repo }: { repo?: string }) {
+  const qc = useQueryClient()
+  const [dialog, setDialog] = useState(false)
+  /** false right after a sign-in without a usable OS keychain. */
+  const [persisted, setPersisted] = useState(true)
+  const d = useProvider(repo).data?.detection
+  const github = d?.provider === 'github'
+  const host = github ? d.host : 'Not used by this repository'
+  // Same query key as the Pull requests tab: signing in or out in one place updates the other.
+  const account = useQuery({ queryKey: ['githubAccount'], queryFn: () => window.mendel['github:account']() })
+  const refresh = () => qc.invalidateQueries({ queryKey: ['githubAccount'] })
+  const login = account.data
+  const status = login ? `Signed in as ${login}` : 'Not signed in'
+  return (
+    <section className={s.provider} aria-labelledby="provider-github">
+      <div className={s.providerHead}>
+        <strong id="provider-github">GitHub</strong>
+        {github && <span className={s.live} aria-hidden />}
+        <span className={s.providerHost} title={host}>
+          {host}
+        </span>
+      </div>
+      {account.isSuccess && (
         <Row label="Account">
-          <span className={s.grow}>{st.credentialUser ? `Connected as ${st.credentialUser}` : 'Not connected'}</span>
-          {d.baseUrl && <Button onPress={() => setDialog('connect')}>Connect…</Button>}
-          {st.credentialUser && <Button onPress={signOut}>Sign out</Button>}
+          <span className={a.path} title={status}>
+            {status}
+          </span>
+          {login ? (
+            <Button onPress={() => void window.mendel['github:signOut']().then(refresh)}>Sign out</Button>
+          ) : (
+            <Button onPress={() => setDialog(true)}>Sign in…</Button>
+          )}
         </Row>
       )}
+      {login && !persisted && <p className={a.muted}>No OS keychain available: you stay signed in for this session only.</p>}
       <div className={a.row}>
-        <Button onPress={() => setDialog('provider')}>Repository provider…</Button>
+        <Button onPress={() => void window.mendel['github:openInstallPage']()}>Install the GitHub App…</Button>
       </div>
+      <p className={a.muted}>Pull requests of private repositories are visible only where the app is installed.</p>
       <AnimatePresence>
-        {dialog === 'provider' && <RepoProviderDialog key="provider" repo={repo} state={st} onClose={() => setDialog(null)} />}
-        {dialog === 'connect' && <GerritConnectDialog key="connect" repo={repo} state={st} onClose={() => setDialog(null)} />}
+        {dialog && (
+          <SignInDialog
+            key="signin"
+            onDone={(r) => (setPersisted(r.persisted), setDialog(false), void refresh())}
+            onClose={() => setDialog(false)}
+          />
+        )}
       </AnimatePresence>
-    </>
+    </section>
   )
 }
 

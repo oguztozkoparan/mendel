@@ -2,7 +2,7 @@
 
 # Mendel
 
-Desktop git client (macOS, Windows, Linux) in the spirit of GitHub Desktop, with host-specific **providers** that switch on automatically from a repo's remote. First provider: **Gerrit** (any server ≥ 2.15; tested against a 3.1-shaped mock).
+Desktop git client (macOS, Windows, Linux) in the spirit of GitHub Desktop, with host-specific **providers** that switch on automatically from a repo's remote. Providers: **Gerrit** (any server ≥ 2.15; tested against a 3.1-shaped mock) and **GitHub** (github.com).
 
 Git work goes through your installed `git`, so SSH keys, `~/.ssh/config`, credential helpers and hooks behave as in the terminal.
 
@@ -13,6 +13,7 @@ Git work goes through your installed `git`, so SSH keys, `~/.ssh/config`, creden
 - Branches, fetch / pull / push, rebase onto upstream, conflict banner (resolve / continue / abort)
 - History with commit detail and diffs
 - Gerrit: detection, HTTP-password login (OS keychain), **Send for review** (topic, reviewers, WIP), Change-Id added when the hook is missing, new-patchset hints, Reviews list, change detail with side-by-side diff, comment threads, votes, submit / abandon / rebase, checkout a change locally
+- GitHub: sign-in with the GitHub App (device flow, OS keychain), open pull requests list and detail, Open on GitHub, check out a same-repo pull request as `pr/<N>`, Create pull request on GitHub
 - Native menus and shortcuts, light/dark theme, in-app update checker
 - `mendel .` opens a repo from the terminal (also into a running app): macOS/Linux install it via the menu (Install `mendel` Command…, writes `~/.local/bin/mendel`, no sudo); on Windows run `Mendel.exe <dir>` instead
 
