@@ -3,7 +3,7 @@ import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 import { applyBranchStash, checkoutRef, createBranch, deleteBranch, listBranches, listStashes, parseTrack, stashAction, stashAndSwitch, switchBranch, validateBranchName } from '../../src/main/git/branch'
 import type { StashEntry } from '../../src/shared/ipc'
-import { rebaseOntoUpstream } from '../../src/main/git/sync'
+import { push, rebaseOntoUpstream } from '../../src/main/git/sync'
 import { createRepoFixture, type RepoFixture } from '../fixtures/repo'
 
 describe('parseTrack', () => {
@@ -200,6 +200,18 @@ describe('checkoutRef', () => {
     expect(await checkoutRef(fx.work, 'origin', 'refs/heads/feature', 'pr/1', 'origin/feature', ask, fx.env)).toBe('pr/1')
     expect(asked).toEqual(['replace', 'stash'])
     expect(fx.git(['stash', 'list', '--format=%gs'])).toBe('On main: mendel-stash')
+  })
+
+  it('pinned: Push from pr/<n> tracking origin/<head> updates <head> on the remote and creates no pr/<n> there', async () => {
+    fx = createRepoFixture()
+    fx.commitFile('README.md', 'feature\n', 'Feature')
+    fx.git(['push', '-q', 'origin', 'HEAD:refs/heads/feature'])
+    fx.git(['reset', '-q', '--hard', 'origin/main'])
+    expect(await checkoutRef(fx.work, 'origin', 'refs/heads/feature', 'pr/7', 'origin/feature', async () => true, fx.env)).toBe('pr/7')
+    const sha = fx.commitFile('more.txt', 'more\n', 'More')
+    expect(await push(fx.work, { env: fx.env })).toBe('ok')
+    expect(fx.git(['rev-parse', 'refs/heads/feature'], fx.remote)).toBe(sha)
+    expect(fx.git(['for-each-ref', '--format=%(refname)', 'refs/heads/pr'], fx.remote)).toBe('')
   })
 
   it('rejects an invalid branch name or option-like ref', async () => {

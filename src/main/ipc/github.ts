@@ -4,7 +4,11 @@ import { credentialUser, getCredential, removeCredential, saveCredential } from 
 import log from '../log'
 import type { Fetch } from '../providers/http'
 import { testSeams } from '../security'
+import { checkoutRef, validateBranchName } from '../git/branch'
+import { repoRoot } from '../repos'
+import { confirm } from './branch'
 import { activeState } from './provider'
+import { exclusive } from './sync'
 import { urlAllowed } from '../update/feed'
 import type { Handlers } from '.'
 
@@ -30,12 +34,13 @@ export const cancelGithubSignIn = () => {
   pending = null
 }
 
-/** 'owner/repo' of the repo's own GitHub detection (never taken from the renderer). */
-async function projectOf(repo: string): Promise<string> {
+/** The repo's own GitHub detection: 'owner/repo' and remote name (never taken from the renderer). */
+async function detectionOf(repo: string) {
   const d = (await activeState(repo)).detection
   if (d?.provider !== 'github') throw new Error('GitHub is not active for this repository')
-  return d.project
+  return d
 }
+const projectOf = async (repo: string) => (await detectionOf(repo)).project
 
 /** Opens `https://github.com/<owner>/<repo>/<rest>`; the project comes from detection, each part encoded. */
 async function openRepoPage(repo: string, rest: string) {
@@ -45,7 +50,7 @@ async function openRepoPage(repo: string, rest: string) {
 }
 
 export const githubHandlers: Handlers<
-  'github:signIn' | 'github:wait' | 'github:cancel' | 'github:openDevicePage' | 'github:openInstallPage' | 'github:signOut' | 'github:account' | 'github:pulls' | 'github:openPull' | 'github:openPulls'
+  'github:signIn' | 'github:wait' | 'github:cancel' | 'github:openDevicePage' | 'github:openInstallPage' | 'github:signOut' | 'github:account' | 'github:pulls' | 'github:openPull' | 'github:openPulls' | 'github:checkout'
 > = {
   'github:signIn': async () => {
     cancelGithubSignIn()
@@ -72,5 +77,19 @@ export const githubHandlers: Handlers<
   'github:account': () => credentialUser(github.host),
   'github:pulls': async ({ repo }) => github.pulls(await projectOf(repo)),
   'github:openPull': ({ repo, number }) => openRepoPage(repo, `pull/${number}`),
-  'github:openPulls': ({ repo }) => openRepoPage(repo, 'pulls')
+  'github:openPulls': ({ repo }) => openRepoPage(repo, 'pulls'),
+  'github:checkout': async ({ repo, number }, e) => {
+    const { project, remote } = await detectionOf(repo)
+    const root = repoRoot(repo)
+    // The head branch comes from GitHub's answer for this number, never from the renderer; names are case-insensitive.
+    const pr = await github.pull(project, number)
+    if (pr.head.repo?.full_name.toLowerCase() !== project.toLowerCase()) throw new Error('Fork pull requests cannot be checked out yet')
+    const ref = await validateBranchName(root, pr.head.ref)
+    const name = `pr/${number}`
+    const ask = (q: 'replace' | 'stash') =>
+      q === 'replace'
+        ? confirm(e, 'Reset', `Reset ${name} to the pull request head?`, `Commits that are only on ${name} are lost.`)
+        : confirm(e, 'Stash & switch', 'Your local changes would be overwritten by the checkout.', 'Stash them now and restore them when you come back to this branch.')
+    return exclusive((signal) => checkoutRef(root, remote, `refs/heads/${ref}`, name, `${remote}/${ref}`, ask, undefined, signal))
+  }
 }

@@ -2,7 +2,7 @@
 // credential store (main passes net.fetch and providers/credentials; tests pass fakes). Tokens are only ever sent
 // to `origins.login` and `origins.api`, and never put in an error message.
 import { z } from 'zod'
-import { GITHUB_ACCESS_DENIED, GITHUB_AUTH_ERROR, GITHUB_CODE_EXPIRED, GITHUB_NOT_VISIBLE, githubPullSchema, type GithubPulls } from '../../../shared/github'
+import { GITHUB_ACCESS_DENIED, GITHUB_AUTH_ERROR, GITHUB_CODE_EXPIRED, GITHUB_NOT_VISIBLE, githubPullSchema, type GithubPull, type GithubPulls } from '../../../shared/github'
 import type { Credential } from '../credentials'
 import { hostOf, readCapped, type Fetch } from '../http'
 
@@ -277,6 +277,13 @@ export function githubSession(fetchFn: Fetch, store: CredentialStore, origins: G
       const res = await request(path)
       const pulls = await parseApi(res, z.array(githubPullSchema), path, true)
       return { pulls, more: /rel="next"/.test(res.headers.get('link') ?? '') }
+    },
+
+    /** One pull request of `project` ('owner/repo'), read again from the API (Check out uses its head, never the renderer's). */
+    async pull(project: string, number: number): Promise<GithubPull> {
+      if (!Number.isSafeInteger(number) || number <= 0) throw new Error('Invalid pull request number')
+      const path = `/repos/${project.split('/').map(encodeURIComponent).join('/')}/pulls/${number}`
+      return parseApi(await request(path), githubPullSchema, path, true)
     }
   }
 }

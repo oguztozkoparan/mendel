@@ -165,6 +165,10 @@ test('GitHub Pull requests list and detail fit the minimum window with very long
     await row.click()
     await expect(win.getByRole('region', { name: 'Description' })).toBeVisible()
     expect(await overflow(win), 'Pull request selected').toEqual([])
+    // Button row: Open on GitHub, Check out (disabled here: o/r is a fork of this repo) and its visible reason, all inside the window.
+    for (const b of [win.getByRole('button', { name: 'Open on GitHub' }), win.getByRole('button', { name: 'Check out', exact: true }), win.getByText('Fork pull requests: check out on GitHub')]) {
+      await expect(b).toBeInViewport({ ratio: 1 })
+    }
     const ellipsis = (loc: ReturnType<Page['locator']>) => loc.evaluate((el) => getComputedStyle(el).textOverflow === 'ellipsis' && el.scrollWidth > el.clientWidth)
     const rowTitle = row.getByText(title)
     expect(await ellipsis(rowTitle), 'row title ends in an ellipsis').toBe(true)

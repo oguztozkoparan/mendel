@@ -17,7 +17,7 @@ export interface GithubMock extends MockServer {
   access: string
   /** Device-flow token polls received. */
   polls(): number
-  /** Mutable: `GET /repos/<owner>/<repo>/pulls` answers these (GitHub's shape, see `mockPull`). */
+  /** Mutable: `GET /repos/<owner>/<repo>/pulls` answers these (GitHub's shape, see `mockPull`); `/pulls/<n>` the one numbered n. */
   pulls: Record<string, unknown>[]
   /** Mutable: adds a Link rel="next" header to the pulls answer. */
   more: boolean
@@ -26,7 +26,7 @@ export interface GithubMock extends MockServer {
 }
 
 /** One open pull request as `GET /repos/{owner}/{repo}/pulls` returns it (trimmed). */
-export const mockPull = (number: number, over: Partial<{ title: string; login: string; draft: boolean; body: string | null; head: string; base: string }> = {}) => ({
+export const mockPull = (number: number, over: Partial<{ title: string; login: string; draft: boolean; body: string | null; head: string; base: string; headRepo: string | null }> = {}) => ({
   number,
   title: over.title ?? `Pull request ${number}`,
   user: { login: over.login ?? 'hubot' },
@@ -34,7 +34,7 @@ export const mockPull = (number: number, over: Partial<{ title: string; login: s
   html_url: `https://github.com/o/r/pull/${number}`,
   updated_at: new Date(Date.now() - 3_600_000).toISOString(),
   body: over.body === undefined ? `Body of ${number}` : over.body,
-  head: { ref: over.head ?? `feature-${number}`, repo: { full_name: 'o/r' } },
+  head: { ref: over.head ?? `feature-${number}`, repo: over.headRepo === null ? null : { full_name: over.headRepo ?? 'o/r' } },
   base: { ref: over.base ?? 'main' }
 })
 
@@ -60,13 +60,18 @@ export async function startGithubMock(opts: GithubMockOptions = {}): Promise<Git
       if (m.outcome === 'expired') return json({ error: 'expired_token' })
       return json(token())
     },
-    // Any `GET /repos/<owner>/<repo>/pulls`, so tests can use long repo names.
+    // Any `GET /repos/<owner>/<repo>/pulls[/<n>]`, so tests can use long repo names.
     '*': (r) => {
-      if (r.method !== 'GET' || !/^\/repos\/[^/]+\/[^/]+\/pulls$/.test(new URL(r.url, 'http://x').pathname)) return { status: 404, body: 'Not found' }
+      const path = /^\/repos\/[^/]+\/[^/]+\/pulls(?:\/(\d+))?$/.exec(new URL(r.url, 'http://x').pathname)
+      if (r.method !== 'GET' || !path) return { status: 404, body: 'Not found' }
       if (!m.access || r.headers.authorization !== `Bearer ${m.access}`) return json({ message: 'Bad credentials' }, 401)
       if (m.pullsMode === 'notFound') return json({ message: 'Not Found' }, 404)
       if (m.pullsMode === 'rateLimited')
         return { status: 403, headers: { 'content-type': 'application/json', 'x-ratelimit-remaining': '0', 'x-ratelimit-reset': String(Math.floor(Date.now() / 1000) + 600) }, body: JSON.stringify({ message: 'API rate limit exceeded' }) }
+      if (path[1]) {
+        const one = m.pulls.find((p) => p.number === Number(path[1]))
+        return one ? json(one) : json({ message: 'Not Found' }, 404)
+      }
       const res = json(m.pulls)
       if (m.more) res.headers!.link = `<${server.url}/repositories/1/pulls?state=open&per_page=50&page=2>; rel="next"`
       return res

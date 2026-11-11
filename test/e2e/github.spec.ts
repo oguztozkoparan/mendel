@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { mockPull, startGithubMock, type GithubMock } from '../fixtures/github-mock'
 import { createRepoFixture } from '../fixtures/repo'
@@ -41,14 +41,13 @@ test('github.com remote → GitHub provider row, Pull requests tab and no Review
 })
 
 /** github.com repo opened with both GitHub origins pointed at `mock` (e2e seam), on its Pull requests tab. */
-async function launchGithub(mock: GithubMock) {
-  const fx = createRepoFixture()
+async function launchGithub(mock: GithubMock, fx = createRepoFixture()) {
   fx.git(['remote', 'set-url', 'origin', 'https://github.com/o/r.git'])
   fx.git(['config', '--global', `url.${fx.remote}.insteadOf`, 'https://github.com/o/r.git'])
   const app = await launchApp({ ...fx.env, MENDEL_E2E_GITHUB: mock.url })
   await openRepo(app, fx.work)
   await app.win.getByRole('tab', { name: 'Pull requests' }).click()
-  return { ...app, close: async () => (await app.close(), fx.cleanup()) }
+  return { ...app, fx, close: async () => (await app.close(), fx.cleanup()) }
 }
 
 test('Pull requests → Sign in → device code → authorized → Signed in as; Sign out returns to the card', async () => {
@@ -209,6 +208,85 @@ test('a repo the GitHub App cannot see shows the install card; rate limiting sho
     mock.pullsMode = 'ok'
     await win.getByRole('alert').getByRole('button', { name: 'Retry' }).click()
     await expect(win.getByText('No open pull requests')).toBeVisible()
+  } finally {
+    await close()
+    await mock.close()
+  }
+})
+
+test('Check out puts a same-repo pull request on pr/7 tracking origin/<head>; reset and stash are asked; a fork pull request cannot be checked out', async () => {
+  const mock = await startGithubMock({ pending: 0 })
+  mock.pulls = [mockPull(7, { title: 'Add the thing', head: 'feat-thing' }), mockPull(8, { title: 'From a fork', head: 'feat-thing', headRepo: 'someone/r' })]
+  const fx = createRepoFixture()
+  // The bare remote has the pull request head on feat-thing; the user's own local feat-thing stays on main.
+  const main = fx.git(['rev-parse', 'HEAD'])
+  fx.git(['branch', 'feat-thing'])
+  const sha = fx.commitFile('README.md', 'thing\n', 'Add the thing')
+  fx.git(['push', '-q', 'origin', 'HEAD:refs/heads/feat-thing'])
+  fx.git(['reset', '-q', '--hard', 'origin/main'])
+  const { app, win, close } = await launchGithub(mock, fx)
+  // Native confirms answer `r` and record their messages.
+  const answer = async (r: number) => {
+    await app.evaluate(({ dialog }, r) => {
+      const g = globalThis as { __asked?: string[] }
+      g.__asked = []
+      dialog.showMessageBox = (async (_w: unknown, o: { message: string }) => (g.__asked!.push(o.message), { response: r, checkboxChecked: false })) as never
+    }, r)
+  }
+  const recorded = () => app.evaluate(() => (globalThis as { __asked?: string[] }).__asked)
+  try {
+    await signIn(win)
+    await win.getByRole('option', { name: /Add the thing/ }).click()
+    const button = win.getByRole('button', { name: 'Check out', exact: true })
+    await expect(button).toBeEnabled()
+    await button.click()
+    await expect(win.getByRole('status').filter({ hasText: 'Checked out #7 on pr/7' })).toBeVisible()
+    await expect(win.getByLabel('Toolbar').getByRole('button', { name: 'Current branch pr/7' })).toBeVisible()
+    expect(fx.git(['branch', '--show-current'])).toBe('pr/7')
+    expect(fx.git(['rev-parse', 'HEAD'])).toBe(sha)
+    expect(fx.git(['rev-parse', '--abbrev-ref', '@{upstream}'])).toBe('origin/feat-thing')
+    expect(fx.git(['rev-parse', 'feat-thing'])).toBe(main)
+    // only the number went to main; it read the head from GET /repos/o/r/pulls/7
+    expect(mock.requests.some((r) => r.url === '/repos/o/r/pulls/7')).toBe(true)
+
+    // Again: Reset is asked; Cancel keeps the branch.
+    fx.commitFile('local.txt', 'mine\n', 'Local work')
+    const local = fx.git(['rev-parse', 'HEAD'])
+    await answer(1)
+    await button.click()
+    await expect(button).toBeEnabled()
+    expect(await recorded()).toEqual(['Reset pr/7 to the pull request head?'])
+    expect(fx.git(['branch', '--show-current'])).toBe('pr/7')
+    expect(fx.git(['rev-parse', 'HEAD'])).toBe(local)
+
+    // From main with a dirty README.md: Reset, then Stash & switch.
+    fx.git(['switch', '-q', 'main'])
+    writeFileSync(path.join(fx.work, 'README.md'), 'local edit\n')
+    await answer(0)
+    await button.click()
+    await expect(win.getByRole('status').filter({ hasText: 'Checked out #7 on pr/7' })).toBeVisible()
+    expect(await recorded()).toEqual(['Reset pr/7 to the pull request head?', 'Your local changes would be overwritten by the checkout.'])
+    expect(fx.git(['rev-parse', 'HEAD'])).toBe(sha)
+    expect(fx.git(['stash', 'list', '--format=%gs'])).toBe('On main: mendel-stash')
+    expect(fx.git(['rev-parse', 'feat-thing'])).toBe(main)
+
+    // Fork pull request: disabled, with its reason as the description and visible next to it.
+    await win.getByRole('option', { name: /From a fork/ }).click()
+    const fork = win.getByRole('button', { name: 'Check out', exact: true })
+    await expect(fork).toBeDisabled()
+    await expect(fork).toHaveAccessibleDescription('Fork pull requests: check out on GitHub')
+    await expect(win.getByText('Fork pull requests: check out on GitHub')).toBeVisible()
+    // Main refuses it on its own (the renderer only sends the number), also when the fork was deleted.
+    const call = (number: number) =>
+      win.evaluate(async (n) => window.mendel['github:checkout']({ repo: (await window.mendel['repo:list']()).current!, number: n }).then(String, (e: Error) => e.message), number)
+    expect(await call(8)).toContain('Fork pull requests cannot be checked out yet')
+    mock.pulls.push(mockPull(9, { head: 'feat-thing', headRepo: null }))
+    expect(await call(9)).toContain('Fork pull requests cannot be checked out yet')
+    // head.ref from the API is untrusted: it must pass the branch-name check.
+    mock.pulls.push(mockPull(10, { head: '-evil' }), mockPull(11, { head: 'a..b' }))
+    expect(await call(10)).toContain('Invalid branch name: -evil')
+    expect(await call(11)).toContain('Invalid branch name: a..b')
+    expect(fx.git(['branch', '--list', '--format=%(refname:short)', 'pr/*'])).toBe('pr/7')
   } finally {
     await close()
     await mock.close()

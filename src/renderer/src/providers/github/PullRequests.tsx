@@ -1,11 +1,12 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { RefreshCw } from 'lucide-react'
 import { AnimatePresence } from 'motion/react'
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { Button, ListBox, ListBoxItem } from 'react-aria-components'
 import { GITHUB_AUTH_ERROR, GITHUB_NOT_VISIBLE, type GithubPull } from '../../../../shared/github'
 import type { ProviderState } from '../../../../shared/ipc'
 import a from '../../App.module.css'
+import { refreshRepo } from '../../Branches'
 import c from '../../Changes.module.css'
 import { PaneBanners } from '../../ErrorBanner'
 import { Highlight } from '../../motion'
@@ -71,7 +72,7 @@ export function PullRequests({ repo, state }: { repo: string; state: ProviderSta
         <Button onPress={() => void pulls.refetch()}>Retry</Button>
       </div>
     )
-  else if (pr) main = <PullDetail repo={repo} project={project} pr={pr} />
+  else if (pr) main = <PullDetail key={pr.number} repo={repo} project={project} pr={pr} />
   else
     main = (
       <div className={`${a.card} ${s.signin}`} role="region" aria-label="GitHub account">
@@ -147,9 +148,27 @@ export function PullRequests({ repo, state }: { repo: string; state: ProviderSta
   )
 }
 
+const FORK = 'Fork pull requests: check out on GitHub'
+
 /** Detail of one pull request (from the list; no extra request). The body is plain text: no Markdown, HTML or images. */
 function PullDetail({ repo, project, pr }: { repo: string; project: string; pr: GithubPull }) {
+  const qc = useQueryClient()
+  const [busy, setBusy] = useState(false)
+  const [notice, setNotice] = useState<{ error: boolean; text: string } | null>(null)
+  const reason = useId()
   const head = pr.head.repo && pr.head.repo.full_name !== project ? `${pr.head.repo.full_name}:${pr.head.ref}` : pr.head.ref
+  // Main checks again with the API's own answer; this only disables the button.
+  const fork = pr.head.repo?.full_name.toLowerCase() !== project.toLowerCase()
+  const checkout = () => {
+    setBusy(true)
+    setNotice(null)
+    window.mendel['github:checkout']({ repo, number: pr.number })
+      .then(
+        (b) => b && setNotice({ error: false, text: `Checked out #${pr.number} on ${b}` }),
+        (err: Error) => setNotice({ error: true, text: err.message })
+      )
+      .finally(() => (setBusy(false), void refreshRepo(qc, repo)))
+  }
   return (
     <div className={`${pc.detail} ${s.pull}`}>
       <header className={pc.detailHeader}>
@@ -162,6 +181,20 @@ function PullDetail({ repo, project, pr }: { repo: string; project: string; pr: 
         </div>
         <div className={pc.toolbarRow}>
           <Button onPress={() => void window.mendel['github:openPull']({ repo, number: pr.number })}>Open on GitHub</Button>
+          <Button isDisabled={busy || fork} aria-describedby={fork ? reason : undefined} onPress={checkout}>
+            {busy ? 'Checking out…' : 'Check out'}
+          </Button>
+          {/* visible for keyboard users (a disabled button takes no focus); screen readers get it as the button's description */}
+          {fork && (
+            <span id={reason} className={pc.meta} title={FORK} aria-hidden>
+              {FORK}
+            </span>
+          )}
+          {notice && (
+            <span role={notice.error ? 'alert' : 'status'} className={notice.error ? a.error : pc.meta} title={notice.text}>
+              {notice.text}
+            </span>
+          )}
         </div>
       </header>
       <section aria-label="Description" className={s.body}>

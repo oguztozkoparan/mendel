@@ -520,6 +520,8 @@ export const invoke = {
   'github:pulls': res<GithubPulls>()(inRepo),
   /** Open https://github.com/<owner>/<repo>/pull/<number> in the browser (url built in main). */
   'github:openPull': res<void>()(z.object({ repo: repoId, number: z.number().int().positive().max(Number.MAX_SAFE_INTEGER) }).strict()),
+  /** Same-repo pull request only: main re-reads its head branch from the API and checks it out on `pr/<number>` tracking `<remote>/<head.ref>`; null = cancelled. */
+  'github:checkout': res<string | null>()(z.object({ repo: repoId, number: z.number().int().positive().max(Number.MAX_SAFE_INTEGER) }).strict()),
   /** Open https://github.com/<owner>/<repo>/pulls in the browser (url built in main). */
   'github:openPulls': res<void>()(inRepo),
   'gerrit:commitHint': res<GerritCommitHint>()(inRepo),

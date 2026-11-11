@@ -277,6 +277,18 @@ describe('github pulls', () => {
     expect(await failWith(500, all, { message: 'rate limit' })).toBe('GitHub error 500')
   })
 
+  it('GETs one pull request by number (each repo part encoded), zod-validated, head.repo may be null', async () => {
+    const { f, s } = session(() => json(pull(7, { head: { ref: 'feat/x', repo: { full_name: 'o/r' } } })), '/repos/o%20x/r%23y/pulls/7')
+    expect((await s.pull('o x/r#y', 7)).head).toEqual({ ref: 'feat/x', repo: { full_name: 'o/r' } })
+    expect(f.calls[0].url).toBe(`${origins.api}/repos/o%20x/r%23y/pulls/7`)
+    expect(new Headers(f.calls[0].init.headers).get('authorization')).toBe('Bearer ghu_tok')
+    expect((await session(() => json(pull(8, { head: { ref: 'gone', repo: null } })), '/repos/o/r/pulls/8').s.pull('o/r', 8)).head.repo).toBeNull()
+    await expect(session(() => json({ number: 9 }), '/repos/o/r/pulls/9').s.pull('o/r', 9)).rejects.toThrow('Unexpected response from GitHub for /repos/o/r/pulls/9')
+    await expect(session(() => json({ message: 'Not Found' }, 404), '/repos/o/r/pulls/9').s.pull('o/r', 9)).rejects.toThrow(GITHUB_NOT_VISIBLE)
+    await expect(s.pull('o/r', 0)).rejects.toThrow('Invalid pull request number')
+    await expect(s.pull('o/r', 1.5)).rejects.toThrow('Invalid pull request number')
+  })
+
   it('a 403/404 outside repo calls is a plain error, not the cannot-see text', async () => {
     const f = fakeFetch({ '/user': () => json({ message: 'Not Found' }, 404) })
     await expect(githubSession(f.fn, memStore(stored({ access: 'ghu_tok' })), origins).api(user, '/user')).rejects.toThrow('GitHub error 404')
