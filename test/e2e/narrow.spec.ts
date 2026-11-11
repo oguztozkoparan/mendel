@@ -21,6 +21,18 @@ const overflow = (win: Page) =>
       .map((el) => `${el.tagName}.${el.className} "${(el.textContent ?? '').slice(0, 30)}" ${el.scrollWidth}/${el.clientWidth} right=${Math.round(el.getBoundingClientRect().right)}`)
   })
 
+/** Each sidebar tab's label: text box (from a Range over its text node) and its tab box. */
+const tabLabels = (win: Page) =>
+  win.evaluate(() =>
+    [...document.querySelectorAll<HTMLElement>('[role="tablist"] [role="tab"]')].map((tab) => {
+      const range = document.createRange()
+      range.selectNodeContents([...tab.childNodes].find((n) => n.nodeType === Node.TEXT_NODE)!)
+      const t = range.getBoundingClientRect()
+      const b = tab.getBoundingClientRect()
+      return { name: tab.textContent, left: t.left, right: t.right, tabLeft: b.left, tabRight: b.right, clipped: tab.scrollWidth > tab.clientWidth }
+    })
+  )
+
 test('no horizontal overflow or clipped buttons at the minimum window width', async () => {
   const fx = createRepoFixture()
   // long trailer name (person chip) and a long branch (the commit button) must end in an ellipsis, not clip
@@ -68,6 +80,14 @@ test('GitHub Pull requests sign-in card and dialog fit the minimum window', asyn
     await win.getByRole('tab', { name: 'Pull requests' }).click()
     await expect(win.getByRole('region', { name: 'Sign in to GitHub' })).toBeVisible()
     expect(await overflow(win), 'Pull requests').toEqual([])
+    // four tabs on a fixed-width sidebar: labels keep a visible gap and padding inside their pill, none clipped
+    const labels = await tabLabels(win)
+    expect(labels.map((l) => l.name)).toEqual(['Changes', 'History', 'Stashes', 'Pull requests'])
+    for (const [i, l] of labels.entries()) {
+      expect(l.clipped, `${l.name} clipped`).toBe(false)
+      expect(Math.min(l.left - l.tabLeft, l.tabRight - l.right), `${l.name} padding in its pill`).toBeGreaterThanOrEqual(3.5)
+      if (i) expect(l.left - labels[i - 1]!.right, `gap before ${l.name}`).toBeGreaterThanOrEqual(7)
+    }
     await win.getByRole('button', { name: 'Sign in…' }).click()
     const dialog = win.getByRole('dialog', { name: 'Sign in to GitHub' })
     await expect(dialog.getByLabel('Your code')).toHaveText(mock.userCode)
