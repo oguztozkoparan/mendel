@@ -375,7 +375,7 @@ Native expectations:
 - **Dialogs**: native folder picker; native message boxes for destructive confirms (discard, delete branch, abandon, submit).
 - **Notifications**: OS notification only when the window is unfocused and a long op finishes (clone, push/send for review, pull) or an update is ready.
 - **Theme**: follow OS light/dark live (`System` default); user override in settings.
-- **Window**: restore size/position/maximized per display; single instance (second launch focuses existing window and opens its path argument, `mendel <dir>`); minimum size 960×600.
+- **Window**: restore size/position/maximized per display; single instance (second launch focuses existing window and opens its path argument, `mendel <dir>`); minimum size 720×600.
 - **Other**: drag a folder onto the window to open it; external links open in default browser; correct app icon per OS; macOS universal behavior (window close ≠ quit).
 
 ---
