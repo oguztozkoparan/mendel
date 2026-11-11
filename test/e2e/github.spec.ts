@@ -292,3 +292,37 @@ test('Check out puts a same-repo pull request on pr/7 tracking origin/<head>; re
     await mock.close()
   }
 })
+
+test('Create pull request opens the compare page of the upstream branch; absent without an upstream, shown after Publish branch', async () => {
+  const mock = await startGithubMock({ pending: 0 })
+  const fx = createRepoFixture()
+  fx.git(['switch', '-q', '-c', 'feat/a#b'])
+  fx.git(['push', '-q', '-u', 'origin', 'feat/a#b'])
+  const { app, win, close } = await launchGithub(mock, fx)
+  try {
+    await app.evaluate(({ shell }) => {
+      shell.openExternal = async (u: string) => void ((globalThis as { __opened?: string }).__opened = u)
+    })
+    const opened = () => app.evaluate(() => (globalThis as { __opened?: string }).__opened)
+    await signIn(win)
+    const create = win.getByRole('button', { name: 'Create pull request' })
+    await expect(create.getByTitle('Create pull request from feat/a#b')).toBeVisible()
+    await create.click()
+    await expect.poll(opened).toBe('https://github.com/o/r/compare/feat%2Fa%23b?expand=1')
+
+    // No upstream: no button, and main refuses on its own.
+    fx.git(['switch', '-q', '-c', 'local-only'])
+    await expect(win.getByLabel('Toolbar').getByRole('button', { name: 'Current branch local-only' })).toBeVisible()
+    await expect(create).toHaveCount(0)
+    const call = () => win.evaluate(async () => window.mendel['github:createPull']({ repo: (await window.mendel['repo:list']()).current! }).then(String, (e: Error) => e.message))
+    expect(await call()).toContain('Push the branch first')
+
+    await win.getByLabel('Toolbar').getByRole('button', { name: 'Publish branch' }).click()
+    await expect(create).toBeVisible()
+    await create.click()
+    await expect.poll(opened).toBe('https://github.com/o/r/compare/local-only?expand=1')
+  } finally {
+    await close()
+    await mock.close()
+  }
+})

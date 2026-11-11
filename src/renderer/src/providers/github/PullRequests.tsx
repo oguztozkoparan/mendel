@@ -6,7 +6,7 @@ import { Button, ListBox, ListBoxItem } from 'react-aria-components'
 import { GITHUB_AUTH_ERROR, GITHUB_NOT_VISIBLE, type GithubPull } from '../../../../shared/github'
 import type { ProviderState } from '../../../../shared/ipc'
 import a from '../../App.module.css'
-import { refreshRepo } from '../../Branches'
+import { refreshRepo, useBranches } from '../../Branches'
 import c from '../../Changes.module.css'
 import { PaneBanners } from '../../ErrorBanner'
 import { Highlight } from '../../motion'
@@ -40,6 +40,12 @@ export function PullRequests({ repo, state }: { repo: string; state: ProviderSta
   const pr = pulls.data?.pulls.find((p) => p.number === selected)
   // A failed refetch keeps react-query's old data: do not list it next to the error.
   const list = signedIn && !pulls.error ? pulls.data : undefined
+  // Branch data refetches after a push, switch or checkout; main checks the upstream again before opening the compare page.
+  const branches = useBranches(repo).data
+  const current = branches?.local.find((b) => b.name === branches.current)
+  const remote = state.detection?.remote
+  const canCreate = !!remote && !!current?.upstream?.startsWith(`${remote}/`)
+  const [createError, setCreateError] = useState<string | null>(null)
 
   let main
   if (!account.isSuccess) main = null
@@ -96,6 +102,16 @@ export function PullRequests({ repo, state }: { repo: string; state: ProviderSta
               <RefreshCw size={14} aria-hidden />
             </Button>
           </div>
+        )}
+        {signedIn && canCreate && (
+          <Button className={s.more} onPress={() => (setCreateError(null), void window.mendel['github:createPull']({ repo }).catch((e: Error) => setCreateError(e.message)))}>
+            <span title={`Create pull request from ${current!.name}`}>Create pull request</span>
+          </Button>
+        )}
+        {signedIn && canCreate && createError && (
+          <p role="alert" className={`${a.error} ${s.more}`}>
+            {createError}
+          </p>
         )}
         {list && !list.pulls.length && <p className={pc.empty}>No open pull requests</p>}
         {!!list?.pulls.length && (

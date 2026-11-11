@@ -45,7 +45,7 @@
   color: var(--fg);
 }
 
-/* "More on GitHub": the list's last row. */
+/* Full-width sidebar buttons: "Create pull request" under the header, "More on GitHub" as the list's last row. */
 .more {
   margin: 0 8px 8px;
 }

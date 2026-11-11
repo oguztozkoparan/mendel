@@ -161,6 +161,15 @@ test('GitHub Pull requests list and detail fit the minimum window with very long
     await openRepo(app, fx.work)
     await win.getByRole('tab', { name: 'Pull requests' }).click()
     await win.getByRole('button', { name: 'Sign in…' }).click()
+    // Sidebar: long project name in the header, Create pull request (main tracks origin/main) and More on GitHub.
+    const create = win.getByRole('button', { name: 'Create pull request' })
+    for (const b of [create, win.getByRole('button', { name: 'More on GitHub' }), win.getByRole('button', { name: 'Refresh pull requests' })]) {
+      await expect(b).toBeInViewport({ ratio: 1 })
+    }
+    await expect(create.getByTitle('Create pull request from main')).toBeVisible()
+    const project = win.getByTitle('an-organization-with-a-long-name/a-repository-name-that-goes-on-and-on-and-on', { exact: true })
+    expect(await project.evaluate((el) => getComputedStyle(el).textOverflow === 'ellipsis' && el.scrollWidth > el.clientWidth), 'project ends in an ellipsis').toBe(true)
+    expect(await overflow(win), 'Pull requests sidebar').toEqual([])
     const row = win.getByRole('option', { name: new RegExp(title) })
     await row.click()
     await expect(win.getByRole('region', { name: 'Description' })).toBeVisible()

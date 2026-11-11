@@ -4,7 +4,7 @@ import { credentialUser, getCredential, removeCredential, saveCredential } from 
 import log from '../log'
 import type { Fetch } from '../providers/http'
 import { testSeams } from '../security'
-import { checkoutRef, validateBranchName } from '../git/branch'
+import { checkoutRef, listBranches, validateBranchName } from '../git/branch'
 import { repoRoot } from '../repos'
 import { confirm } from './branch'
 import { activeState } from './provider'
@@ -50,7 +50,7 @@ async function openRepoPage(repo: string, rest: string) {
 }
 
 export const githubHandlers: Handlers<
-  'github:signIn' | 'github:wait' | 'github:cancel' | 'github:openDevicePage' | 'github:openInstallPage' | 'github:signOut' | 'github:account' | 'github:pulls' | 'github:openPull' | 'github:openPulls' | 'github:checkout'
+  'github:signIn' | 'github:wait' | 'github:cancel' | 'github:openDevicePage' | 'github:openInstallPage' | 'github:signOut' | 'github:account' | 'github:pulls' | 'github:openPull' | 'github:openPulls' | 'github:checkout' | 'github:createPull'
 > = {
   'github:signIn': async () => {
     cancelGithubSignIn()
@@ -78,6 +78,15 @@ export const githubHandlers: Handlers<
   'github:pulls': async ({ repo }) => github.pulls(await projectOf(repo)),
   'github:openPull': ({ repo, number }) => openRepoPage(repo, `pull/${number}`),
   'github:openPulls': ({ repo }) => openRepoPage(repo, 'pulls'),
+  'github:createPull': async ({ repo }) => {
+    const { remote } = await detectionOf(repo)
+    const { current, local } = await listBranches(repoRoot(repo))
+    if (!current) throw new Error('Switch to a branch first')
+    // Upstream from local git ("origin/feat/x"); GitHub picks the base branch itself.
+    const upstream = local.find((b) => b.name === current)?.upstream
+    if (!upstream?.startsWith(`${remote}/`)) throw new Error('Push the branch first')
+    await openRepoPage(repo, `compare/${encodeURIComponent(upstream.slice(remote.length + 1))}?expand=1`)
+  },
   'github:checkout': async ({ repo, number }, e) => {
     const { project, remote } = await detectionOf(repo)
     const root = repoRoot(repo)
