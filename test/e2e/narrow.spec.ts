@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
-import { writeFileSync } from 'node:fs'
+import { mkdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
+import { startGerritMock } from '../fixtures/gerrit-mock'
 import { startGithubMock } from '../fixtures/github-mock'
 import { createRepoFixture } from '../fixtures/repo'
 import { launchApp, openRepo } from './launch'
@@ -77,6 +78,45 @@ test('GitHub Pull requests sign-in card and dialog fit the minimum window', asyn
   } finally {
     await app.close()
     await mock.close()
+    fx.cleanup()
+  }
+})
+
+test('Settings → Git providers fits the minimum window with a long Gerrit host and a long GitHub login', async () => {
+  const fx = createRepoFixture()
+  const host = 'gerrit.a-very-long-gerrit-host-name-of-some-department.example.test'
+  const url = `ssh://test@${host}:29418/p/q`
+  fx.git(['remote', 'set-url', 'origin', url])
+  fx.git(['config', '--global', `url.${fx.remote}.insteadOf`, url])
+  const gerrit = await startGerritMock()
+  const github = await startGithubMock({ login: 'a-github-login-that-is-very-long-indeed-and-goes-on', pending: 0 })
+  const userData = path.join(fx.dir, 'userData')
+  mkdirSync(userData)
+  // Probe result pre-cached: no network probe of the made-up host.
+  writeFileSync(path.join(userData, 'providers.json'), JSON.stringify({ hosts: { [host]: { baseUrl: gerrit.url, version: '3.1.3' } } }))
+  const app = await launchApp({ ...fx.env, MENDEL_E2E_USERDATA: userData, MENDEL_E2E_GITHUB: github.url })
+  const { win } = app
+  try {
+    const min = await app.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.getMinimumSize())
+    await app.app.evaluate(({ BrowserWindow }, [w, h]) => BrowserWindow.getAllWindows()[0]!.setSize(w, h), min as [number, number])
+    await expect.poll(() => win.evaluate(() => window.innerWidth)).toBeLessThanOrEqual(min[0]!)
+    await openRepo(app, fx.work)
+    await win.getByRole('button', { name: 'Settings' }).click()
+    const settings = win.getByRole('dialog', { name: 'Settings' })
+    await settings.getByRole('tab', { name: 'Git providers' }).click()
+    await expect(settings.getByRole('region', { name: 'Gerrit' })).toContainText(host)
+    // Sign-in is per host: it works from a Gerrit repo too.
+    const card = settings.getByRole('region', { name: 'GitHub' })
+    await card.getByRole('button', { name: 'Sign in…' }).click()
+    await expect(card).toContainText(`Signed in as ${github.login}`)
+    expect(await overflow(win), 'Git providers').toEqual([])
+    const box = (await settings.boundingBox())!
+    const size = await win.evaluate(() => [window.innerWidth, window.innerHeight])
+    expect(box.x >= 0 && box.y >= 0 && box.x + box.width <= size[0]! && box.y + box.height <= size[1]!, 'Settings inside the window').toBe(true)
+  } finally {
+    await app.close()
+    await github.close()
+    await gerrit.close()
     fx.cleanup()
   }
 })

@@ -10,6 +10,8 @@ import { hostOf, readCapped, type Fetch } from '../http'
 export const CLIENT_ID = 'Iv23liekfapPcvye2Ilc'
 /** Where the user types the code; opened from here, never from the response's verification_uri. */
 export const DEVICE_PAGE = 'https://github.com/login/device'
+/** Install page of the app: a user token only reaches repos where the app is installed. */
+export const INSTALL_PAGE = 'https://github.com/apps/trimbit/installations/new'
 export const GITHUB_ORIGINS = { login: 'https://github.com', api: 'https://api.github.com' }
 export type GithubOrigins = typeof GITHUB_ORIGINS
 

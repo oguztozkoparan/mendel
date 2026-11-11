@@ -510,6 +510,8 @@ export const invoke = {
   'github:cancel': res<void>()(z.undefined()),
   /** Open https://github.com/login/device in the browser. */
   'github:openDevicePage': res<void>()(z.undefined()),
+  /** Open https://github.com/apps/trimbit/installations/new in the browser. */
+  'github:openInstallPage': res<void>()(z.undefined()),
   /** Forget the stored token (local only). */
   'github:signOut': res<void>()(z.undefined()),
   /** Login of the stored GitHub token, null = signed out. */

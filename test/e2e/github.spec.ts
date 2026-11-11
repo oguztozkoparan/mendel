@@ -96,3 +96,41 @@ test('a sign-in denied on GitHub shows the message; Cancel closes the dialog and
     await mock.close()
   }
 })
+
+test('Settings → Git providers → GitHub: sign in shows on the Pull requests tab, sign out, Install the GitHub App opens its install page', async () => {
+  const mock = await startGithubMock({ pending: 1000 })
+  const { app, win, close } = await launchGithub(mock)
+  try {
+    await app.evaluate(({ shell }) => {
+      shell.openExternal = async (u: string) => void ((globalThis as { __opened?: string }).__opened = u)
+    })
+    const settings = win.getByRole('dialog', { name: 'Settings' })
+    const card = settings.getByRole('region', { name: 'GitHub' })
+    const open = async () => {
+      await win.getByRole('button', { name: 'Settings' }).click()
+      await settings.getByRole('tab', { name: 'Git providers' }).click()
+    }
+    await open()
+    await expect(card).toContainText('github.com')
+    await expect(card).toContainText('Not signed in')
+    await card.getByRole('button', { name: 'Sign in…' }).click()
+    const dialog = win.getByRole('dialog', { name: 'Sign in to GitHub' })
+    await expect(dialog.getByLabel('Your code')).toHaveText(mock.userCode)
+    mock.pending = 0
+    await expect(dialog).toHaveCount(0)
+    await expect(card).toContainText(`Signed in as ${mock.login}`)
+    await settings.getByRole('button', { name: 'Done' }).click()
+    await expect(win.getByRole('region', { name: 'GitHub account' })).toContainText(`Signed in as ${mock.login}`)
+
+    await open()
+    await card.getByRole('button', { name: 'Sign out' }).click()
+    await expect(card).toContainText('Not signed in')
+    await card.getByRole('button', { name: 'Install the GitHub App…' }).click()
+    await expect.poll(() => app.evaluate(() => (globalThis as { __opened?: string }).__opened)).toBe('https://github.com/apps/trimbit/installations/new')
+    await settings.getByRole('button', { name: 'Done' }).click()
+    await expect(win.getByRole('region', { name: 'Sign in to GitHub' })).toBeVisible()
+  } finally {
+    await close()
+    await mock.close()
+  }
+})

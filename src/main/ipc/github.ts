@@ -1,5 +1,5 @@
 import { net, shell } from 'electron'
-import { DEVICE_PAGE, githubAuth, githubSession, GITHUB_ORIGINS, type DeviceCode } from '../providers/github/client'
+import { DEVICE_PAGE, INSTALL_PAGE, githubAuth, githubSession, GITHUB_ORIGINS, type DeviceCode } from '../providers/github/client'
 import { credentialUser, getCredential, removeCredential, saveCredential } from '../providers/credentials'
 import type { Fetch } from '../providers/http'
 import { testSeams } from '../security'
@@ -28,7 +28,7 @@ export const cancelGithubSignIn = () => {
   pending = null
 }
 
-export const githubHandlers: Handlers<'github:signIn' | 'github:wait' | 'github:cancel' | 'github:openDevicePage' | 'github:signOut' | 'github:account'> = {
+export const githubHandlers: Handlers<'github:signIn' | 'github:wait' | 'github:cancel' | 'github:openDevicePage' | 'github:openInstallPage' | 'github:signOut' | 'github:account'> = {
   'github:signIn': async () => {
     cancelGithubSignIn()
     const g = generation
@@ -48,6 +48,7 @@ export const githubHandlers: Handlers<'github:signIn' | 'github:wait' | 'github:
   },
   'github:cancel': cancelGithubSignIn,
   'github:openDevicePage': () => shell.openExternal(DEVICE_PAGE),
+  'github:openInstallPage': () => shell.openExternal(INSTALL_PAGE),
   // Local only: revoking a user token server-side needs the app's client secret, which this app does not have.
   'github:signOut': () => removeCredential(github.host),
   'github:account': () => credentialUser(github.host)
