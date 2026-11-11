@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import { applyBranchStash, createBranch, deleteBranch, listBranches, listStashes, parseTrack, stashAction, stashAndSwitch, switchBranch, validateBranchName } from '../../src/main/git/branch'
+import { applyBranchStash, checkoutRef, createBranch, deleteBranch, listBranches, listStashes, parseTrack, stashAction, stashAndSwitch, switchBranch, validateBranchName } from '../../src/main/git/branch'
 import type { StashEntry } from '../../src/shared/ipc'
 import { rebaseOntoUpstream } from '../../src/main/git/sync'
 import { createRepoFixture, type RepoFixture } from '../fixtures/repo'
@@ -159,5 +159,53 @@ describe('git calls per op', () => {
     expect(await count('for-each-ref', (env) => deleteBranch(fx.work, 'main', false, env))).toBe(1)
     fx.git(['switch', '-q', '-c', 'main', '--track', 'origin/main'])
     expect(await count('for-each-ref', (env) => rebaseOntoUpstream(fx.work, false, { env }))).toBe(1)
+  })
+})
+
+describe('checkoutRef', () => {
+  let fx: RepoFixture
+  afterEach(() => fx?.cleanup())
+
+  it('fetches a branch ref into a new local branch tracking it; replace and stash are asked', async () => {
+    fx = createRepoFixture()
+    // remote `feature` one commit ahead of main; local `feature` stays on main; no remote-tracking ref yet
+    fx.git(['branch', 'feature'])
+    const sha = fx.commitFile('README.md', 'feature\n', 'Feature')
+    fx.git(['push', '-q', 'origin', 'HEAD:refs/heads/feature'])
+    fx.git(['reset', '-q', '--hard', 'origin/main'])
+    fx.git(['update-ref', '-d', 'refs/remotes/origin/feature'])
+    const main = fx.git(['rev-parse', 'main'])
+
+    // pinned: a plain `git fetch origin refs/heads/feature` updates refs/remotes/origin/feature (opportunistic update)
+    fx.git(['fetch', '-q', 'origin', 'refs/heads/feature'])
+    expect(fx.git(['rev-parse', 'refs/remotes/origin/feature'])).toBe(sha)
+    fx.git(['update-ref', '-d', 'refs/remotes/origin/feature'])
+
+    const asked: string[] = []
+    const ask = async (q: 'replace' | 'stash') => (asked.push(q), true)
+    expect(await checkoutRef(fx.work, 'origin', 'refs/heads/feature', 'pr/1', 'origin/feature', ask, fx.env)).toBe('pr/1')
+    expect(fx.git(['branch', '--show-current'])).toBe('pr/1')
+    expect(fx.git(['rev-parse', 'HEAD'])).toBe(sha)
+    expect(fx.git(['rev-parse', '--abbrev-ref', '@{upstream}'])).toBe('origin/feature')
+    expect(fx.git(['rev-parse', 'feature'])).toBe(main)
+    expect(asked).toEqual([])
+
+    fx.git(['switch', '-q', 'main'])
+    expect(await checkoutRef(fx.work, 'origin', 'refs/heads/feature', 'pr/1', 'origin/feature', async (q) => (asked.push(q), false), fx.env)).toBeNull()
+    expect(asked).toEqual(['replace'])
+    expect(fx.git(['branch', '--show-current'])).toBe('main')
+
+    fx.git(['branch', '-q', '-D', 'pr/1'])
+    writeFileSync(path.join(fx.work, 'README.md'), 'local edit\n')
+    expect(await checkoutRef(fx.work, 'origin', 'refs/heads/feature', 'pr/1', 'origin/feature', ask, fx.env)).toBe('pr/1')
+    expect(asked).toEqual(['replace', 'stash'])
+    expect(fx.git(['stash', 'list', '--format=%gs'])).toBe('On main: mendel-stash')
+  })
+
+  it('rejects an invalid branch name or option-like ref', async () => {
+    fx = createRepoFixture()
+    const ask = async () => true
+    await expect(checkoutRef(fx.work, 'origin', 'refs/heads/main', '-x', null, ask, fx.env)).rejects.toThrow('Invalid branch name')
+    await expect(checkoutRef(fx.work, 'origin', '-', 'pr/1', null, ask, fx.env)).rejects.toThrow('Invalid argument')
   })
 })

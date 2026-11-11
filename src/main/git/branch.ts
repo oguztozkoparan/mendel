@@ -82,6 +82,40 @@ export async function createBranch(cwd: string, name: string, from: string | und
 export const isDirtyError = (err: unknown) => err instanceof GitError && /would be overwritten by checkout|untracked working tree files would be/.test(err.stderr)
 
 /**
+ * Fetch `ref` from `remote`, switch to local branch `name` on it (`ask('replace')` first when it exists, `ask('stash')` when
+ * local changes block the switch), then track `upstream` (e.g. origin/main) when that remote-tracking ref exists.
+ * Returns `name`, or null when cancelled. Gerrit change and pull-request checkout.
+ */
+export async function checkoutRef(
+  cwd: string,
+  remote: string,
+  ref: string,
+  name: string,
+  upstream: string | null,
+  ask: (q: 'replace' | 'stash') => Promise<boolean>,
+  env?: NodeJS.ProcessEnv,
+  signal?: AbortSignal
+): Promise<string | null> {
+  await validateBranchName(cwd, name, env)
+  const has = (r: string) => git(['rev-parse', '--verify', '-q', r], { cwd, env, signal }).then(() => true, () => false)
+  await git(['-c', 'protocol.ext.allow=never', 'fetch', ...endOfOptions(remote, ref)], { cwd, env, signal })
+  const sha = (await git(['rev-parse', '--verify', 'FETCH_HEAD^{commit}'], { cwd, env, signal })).stdout.trim()
+  const exists = await has(`refs/heads/${name}`)
+  if (exists && !(await ask('replace'))) return null
+  const sw = () => git(['switch', exists ? '-C' : '-c', name, ...endOfOptions(sha)], { cwd, env, signal })
+  try {
+    await sw()
+  } catch (err) {
+    if (!isDirtyError(err)) throw err
+    if (!(await ask('stash'))) return null
+    await stashPush(cwd, env, signal)
+    await sw()
+  }
+  if (upstream && (await has(`refs/remotes/${upstream}`))) await git(['branch', `--set-upstream-to=${upstream}`], { cwd, env, signal })
+  return name
+}
+
+/**
  * Switch to a local branch, or to a remote one (`origin/x` -> local `x`, created tracking it if missing).
  * Plain `git switch` first so non-conflicting changes come along; 'dirty' = git refused because of local changes.
  */

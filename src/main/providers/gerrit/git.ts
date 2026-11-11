@@ -6,7 +6,7 @@ import { access } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { changeRef, reviewRef, type GerritCommit, type GerritSent } from '../../../shared/gerrit'
-import { isDirtyError, stashPush, validateBranchName } from '../../git/branch'
+import { checkoutRef, validateBranchName } from '../../git/branch'
 import { endOfOptions, git, GitError } from '../../git/runner'
 
 /** `Change-Id: I<40 hex>` in the message's last paragraph (where Gerrit reads it), or null. */
@@ -120,21 +120,5 @@ export async function checkoutChange(
   signal?: AbortSignal
 ): Promise<string | null> {
   if (![n, ps].every((x) => Number.isSafeInteger(x) && x > 0)) throw new Error('Invalid change or patch set number')
-  const name = `change/${n}-ps${ps}`
-  const has = (ref: string) => git(['rev-parse', '--verify', '-q', ref], { cwd, env, signal }).then(() => true, () => false)
-  await git(['-c', 'protocol.ext.allow=never', 'fetch', ...endOfOptions(remote, changeRef(n, ps))], { cwd, env, signal })
-  const sha = (await git(['rev-parse', '--verify', 'FETCH_HEAD^{commit}'], { cwd, env, signal })).stdout.trim()
-  const exists = await has(`refs/heads/${name}`)
-  if (exists && !(await ask('replace'))) return null
-  const sw = () => git(['switch', exists ? '-C' : '-c', name, ...endOfOptions(sha)], { cwd, env, signal })
-  try {
-    await sw()
-  } catch (err) {
-    if (!isDirtyError(err)) throw err
-    if (!(await ask('stash'))) return null
-    await stashPush(cwd, env, signal)
-    await sw()
-  }
-  if (upstream && (await has(`refs/remotes/${upstream}`))) await git(['branch', `--set-upstream-to=${upstream}`], { cwd, env, signal })
-  return name
+  return checkoutRef(cwd, remote, changeRef(n, ps), `change/${n}-ps${ps}`, upstream, ask, env, signal)
 }
