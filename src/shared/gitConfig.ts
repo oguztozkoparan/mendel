@@ -1,0 +1,51 @@
+// Git identity/signing config (Settings > Git): the only keys mendel reads for display or writes. Field names cross
+// IPC; main maps them to git keys here, so no other key can be read or written through src/main/git/config.ts.
+import { z } from 'zod'
+
+export const GIT_CONFIG_KEYS = {
+  name: 'user.name',
+  email: 'user.email',
+  signingKey: 'user.signingkey',
+  gpgSign: 'commit.gpgsign',
+  gpgFormat: 'gpg.format'
+} as const
+export type GitConfigField = keyof typeof GIT_CONFIG_KEYS
+export const GIT_CONFIG_FIELDS = Object.keys(GIT_CONFIG_KEYS) as GitConfigField[]
+
+export const GPG_FORMATS = ['openpgp', 'ssh', 'x509'] as const
+/** Caps: names/emails are short; a signing key may be an inline SSH public key (`key::ssh-rsa …`, ~750 chars for RSA 4096). */
+export const MAX_CONFIG_NAME = 256
+export const MAX_CONFIG_SIGNING_KEY = 2048
+
+// Control characters (C0, DEL, C1, incl. newline/NUL) are rejected before trimming, so "a\n" is refused, not trimmed.
+const text = (max: number) =>
+  z
+    .string()
+    .regex(/^\P{Cc}*$/u, 'Control characters (newline, NUL, …) are not allowed')
+    .trim()
+    .max(max)
+
+/** A write: '' unsets the key (inherit), an absent field is left untouched. Unknown fields are rejected. */
+export const gitConfigWriteSchema = z.strictObject({
+  name: text(MAX_CONFIG_NAME).optional(),
+  email: text(MAX_CONFIG_NAME).optional(),
+  signingKey: text(MAX_CONFIG_SIGNING_KEY).optional(),
+  gpgSign: z.enum(['', 'true', 'false']).optional(),
+  gpgFormat: z.enum(['', ...GPG_FORMATS]).optional()
+})
+export type GitConfigWrite = z.input<typeof gitConfigWriteSchema>
+
+/** Values as git stores them; null = not set. `gpgSign` is normalized to 'true'/'false' when git would parse it as a bool. */
+export type GitConfigValues = Record<GitConfigField, string | null>
+
+/** Where an effective value comes from: `project` = the repo's .git/config (or worktree config); `command` = `-c`/env. */
+export type GitConfigSource = 'project' | 'profile' | 'global' | 'system' | 'command' | 'none'
+
+export interface GitConfigEffective {
+  value: string | null
+  source: GitConfigSource
+  /** The repo's own value, even when something else wins (null when none). */
+  project: string | null
+  /** The last value a known profile file contributes to this repo's config, even when something else wins. */
+  profile: { file: string; value: string } | null
+}
