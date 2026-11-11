@@ -426,3 +426,20 @@
   margin: 0;
   line-height: 1.5;
 }
+
+/* Detail panes (History, Stashes, Gerrit change): the description and the file list cap their height (share of the window) and scroll on their own, so the diff below stays in view. */
+.capText {
+  max-height: 15vh;
+  overflow: auto;
+}
+
+.capList {
+  max-height: 30vh;
+  overflow: auto;
+}
+
+/* a description is a tab stop (tabIndex 0, named region) so the keyboard can scroll it; ring inside, the pane clips outside */
+.capText:focus-visible {
+  outline: none;
+  box-shadow: inset var(--focus);
+}

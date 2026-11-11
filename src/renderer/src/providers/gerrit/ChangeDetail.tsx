@@ -195,7 +195,7 @@ export function ChangeDetail({ repo, number, me, onBack, onOpen }: { repo: strin
         disallowEmptySelection
         selectedKeys={file ? [file] : []}
         onSelectionChange={(k) => k !== 'all' && k.size && (setPicked(String([...k][0])), setFocus(null))}
-        className={s.files}
+        className={`${s.files} ${c.capList}`}
       >
         {paths.map((p) => {
           const f = files.data![p]

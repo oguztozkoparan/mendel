@@ -4,6 +4,7 @@ import path from 'node:path'
 import { startGerritMock } from '../fixtures/gerrit-mock'
 import { mockPull, startGithubMock } from '../fixtures/github-mock'
 import { createRepoFixture } from '../fixtures/repo'
+import { connectGerrit, launchGerrit } from './gerrit'
 import { launchApp, openRepo } from './launch'
 
 /** Elements that overflow sideways: wider content than box (not a horizontal scroller), or poking past the window edge. */
@@ -20,6 +21,38 @@ const overflow = (win: Page) =>
       })
       .map((el) => `${el.tagName}.${el.className} "${(el.textContent ?? '').slice(0, 30)}" ${el.scrollWidth}/${el.clientWidth} right=${Math.round(el.getBoundingClientRect().right)}`)
   })
+
+type Loc = ReturnType<Page['locator']>
+
+/** A capped detail area: scrolls on its own (overflowing, overflow-y auto) and keeps under `share` of the window height. */
+const capped = async (loc: Loc, share: number) => {
+  const m = await loc.evaluate((el) => ({ sh: el.scrollHeight, ch: el.clientHeight, oy: getComputedStyle(el).overflowY, vh: window.innerHeight }))
+  expect(m.sh, 'overflows').toBeGreaterThan(m.ch + 1)
+  expect(m.oy).toBe('auto')
+  expect(m.ch, 'capped').toBeLessThanOrEqual(m.vh * share)
+  return m.ch
+}
+
+/** Minimum window size; the repo or provider view opened by `open` afterwards. */
+const minSize = async (app: Awaited<ReturnType<typeof launchApp>>) => {
+  const min = await app.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.getMinimumSize())
+  await app.app.evaluate(({ BrowserWindow }, [w, h]) => BrowserWindow.getAllWindows()[0]!.setSize(w, h), min as [number, number])
+  await expect.poll(() => app.win.evaluate(() => window.innerWidth)).toBeLessThanOrEqual(min[0]!)
+}
+
+/** Click the first file, End, Enter: the last file is selected, scrolled into view inside the list, and its diff shows below. */
+const lastFileByKeyboard = async (win: Page, list: Loc, last: RegExp, diff: Loc) => {
+  await list.getByRole('option').first().click()
+  await win.keyboard.press('End')
+  await win.keyboard.press('Enter')
+  const row = list.getByRole('option', { name: last })
+  await expect(row).toHaveAttribute('aria-selected', 'true')
+  await expect(row).toBeInViewport({ ratio: 1 })
+  const [r, l] = await Promise.all([row.boundingBox(), list.boundingBox()])
+  expect(r!.y + r!.height, 'last row inside the list box').toBeLessThanOrEqual(l!.y + l!.height + 1)
+  await diff.scrollIntoViewIfNeeded()
+  await expect(diff).toBeInViewport()
+}
 
 /** Hovers `loc`: its tooltip shows `text` fully inside the window; `null`: no tooltip shows (after the open delay). */
 const tooltip = async (win: Page, loc: ReturnType<Page['locator']>, text: string | RegExp | null) => {
@@ -296,5 +329,64 @@ test('GitHub signed-in card fits the minimum window with a 39-character login an
     await app.close()
     await mock.close()
     fx.cleanup()
+  }
+})
+
+test('History commit detail at the minimum window: 200 files and a 150-line message each scroll on their own, the diff stays reachable', async () => {
+  const fx = createRepoFixture()
+  for (let i = 0; i < 200; i++) writeFileSync(path.join(fx.work, `f${String(i).padStart(3, '0')}.txt`), `file ${i}\n`)
+  fx.git(['add', '-A'])
+  fx.git(['commit', '-q', '-m', ['Many files', '', ...Array.from({ length: 150 }, (_, i) => `Body line ${i + 1} explaining the change.`)].join('\n')])
+  const app = await launchApp(fx.env)
+  const { win } = app
+  try {
+    await minSize(app)
+    await openRepo(app, fx.work)
+    await win.getByRole('tab', { name: 'History' }).click()
+    await win.getByRole('row', { name: /Many files/ }).click()
+    const detail = win.getByLabel('Commit detail')
+    const message = detail.getByRole('region', { name: 'Commit message' })
+    const files = detail.getByRole('listbox', { name: 'Changed files' })
+    await expect(files.getByRole('option').first()).toBeVisible()
+    // both caps together leave the diff at least half the window
+    const vh = await win.evaluate(() => window.innerHeight)
+    expect((await capped(message, 0.2)) + (await capped(files, 0.35)), 'caps leave room for the diff').toBeLessThanOrEqual(vh / 2)
+    expect(await overflow(win), 'History detail').toEqual([])
+    // the message is a named tab stop that scrolls by keyboard
+    await message.focus()
+    await win.keyboard.press('PageDown')
+    await expect.poll(() => message.evaluate((el) => el.scrollTop)).toBeGreaterThan(0)
+    await lastFileByKeyboard(win, files, /f199\.txt/, win.getByLabel('Commit diff'))
+    await expect(detail.getByRole('heading', { name: 'f199.txt' })).toBeVisible()
+    // another commit and back: both start at the top again
+    await win.getByRole('row', { name: /initial commit/ }).click()
+    await win.getByRole('row', { name: /Many files/ }).click()
+    await expect(files.getByRole('option').first()).toBeVisible()
+    expect(await files.evaluate((el) => el.scrollTop)).toBe(0)
+    expect(await message.evaluate((el) => el.scrollTop)).toBe(0)
+  } finally {
+    await app.close()
+    fx.cleanup()
+  }
+})
+
+test('Gerrit change detail at the minimum window: 200 files scroll on their own, the diff stays reachable', async () => {
+  const gerrit = await startGerritMock()
+  const ch = gerrit.changes.find((c) => c._number === 101)!
+  for (let i = 0; i < 200; i++) ch.files['b'.repeat(40)][`src/f${String(i).padStart(3, '0')}.ts`] = { lines_inserted: 1, diff: [{ ab: ['x'] }, { b: ['y'] }] }
+  const g = await launchGerrit(gerrit)
+  const { win } = g
+  try {
+    await minSize(g)
+    await connectGerrit(win, gerrit)
+    await win.getByRole('option', { name: /Add feature X/ }).click()
+    const files = win.getByRole('listbox', { name: 'Files' })
+    await expect(files.getByRole('option').first()).toBeVisible()
+    await capped(files, 0.35)
+    expect(await overflow(win), 'Gerrit change detail').toEqual([])
+    await lastFileByKeyboard(win, files, /src\/f199\.ts/, win.getByRole('region', { name: 'Diff of src/f199.ts' }))
+  } finally {
+    await g.close()
+    await gerrit.close()
   }
 })

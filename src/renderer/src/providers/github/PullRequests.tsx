@@ -213,7 +213,7 @@ function PullDetail({ repo, project, pr }: { repo: string; project: string; pr: 
           )}
         </div>
       </header>
-      <section aria-label="Description" className={s.body}>
+      <section aria-label="Description" className={s.body} tabIndex={0}>
         {pr.body?.trim() ? pr.body : <span className={pc.meta}>No description</span>}
       </section>
     </div>

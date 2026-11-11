@@ -340,7 +340,11 @@ function CommitView(p: { repo: string; sha: string; pick?: 'cherry-pick' | 'reve
         <TagButton repo={p.repo} sha={d.sha} />
       </div>
       {error && <p role="alert" className={c.empty}>{error}</p>}
-      {text && <pre className={s.message}>{text}</pre>}
+      {text && (
+        <pre className={`${s.message} ${c.capText}`} role="region" aria-label="Commit message" tabIndex={0}>
+          {text}
+        </pre>
+      )}
       {trailers.length > 0 && <Trailers repo={p.repo} trailers={trailers} />}
       <FileFilter value={query} onChange={setQuery} count={shown !== d.files ? `${shown.length} of ${d.files.length} files` : undefined} className={s.filesFilter} />
       <Virtualizer layout={ListLayout} layoutOptions={{ rowHeight: 30 }}>
@@ -351,7 +355,7 @@ function CommitView(p: { repo: string; sha: string; pick?: 'cherry-pick' | 'reve
           disallowEmptySelection
           selectedKeys={f ? [f.path] : []}
           onSelectionChange={(keys) => keys !== 'all' && keys.size && setFile(String([...keys][0]))}
-          className={s.files}
+          className={`${s.files} ${c.capList}`}
           renderEmptyState={() => <p className={c.empty}>No matching files</p>}
         >
           {(x) => (
