@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { AnimatePresence } from 'motion/react'
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { Button, Checkbox, Dialog, Heading, Input, Label, Radio, RadioGroup, Tab, TabList, TabPanel, Tabs, TextField } from 'react-aria-components'
-import { GIT_CONFIG_FIELDS, gitConfigWriteSchema, type GitConfigField, type GitConfigValues } from '../../shared/gitConfig'
+import { GIT_CONFIG_FIELDS, gitConfigWriteSchema, gitProfileNameSchema, type GitConfigField, type GitConfigValues, type GitConfigWrite, type GitProfile } from '../../shared/gitConfig'
 import type { Settings, UpdateState } from '../../shared/ipc'
 import a from './App.module.css'
 import c from './Changes.module.css'
@@ -218,6 +218,31 @@ const GIT_LABEL: Record<GitConfigField, string> = {
 }
 const formValues = (v?: GitConfigValues) => Object.fromEntries(GIT_CONFIG_FIELDS.map((f) => [f, v?.[f] ?? ''])) as Record<GitConfigField, string>
 
+/**
+ * Only changed fields, validated (a value git stores in a form the form cannot show, e.g. gpgsign = maybe, is left
+ * alone); a string = the first error, labelled.
+ */
+function gitConfigChanges(v: Record<GitConfigField, string>, loaded: Record<GitConfigField, string>): GitConfigWrite | string {
+  const r = gitConfigWriteSchema.safeParse(Object.fromEntries(GIT_CONFIG_FIELDS.filter((f) => v[f] !== loaded[f]).map((f) => [f, v[f]])))
+  return r.success ? r.data : `${GIT_LABEL[r.error.issues[0]!.path[0] as GitConfigField]}: ${r.error.issues[0]!.message}`
+}
+
+/** The five allow-listed fields: the Global card and the profile dialog. */
+function GitConfigFields({ field }: { field(f: GitConfigField): { value: string; onChange(x: string): void } }) {
+  return (
+    <>
+      {(['name', 'email', 'signingKey'] as const).map((f) => (
+        <TextField key={f} {...field(f)} className={a.field}>
+          <Label>{GIT_LABEL[f]}</Label>
+          <Input spellCheck={false} />
+        </TextField>
+      ))}
+      <Choice label={GIT_LABEL.gpgSign} {...field('gpgSign')} options={[['', 'Not set'], ['true', 'Yes'], ['false', 'No']]} />
+      <Choice label={GIT_LABEL.gpgFormat} {...field('gpgFormat')} options={[['', 'Not set'], ['openpgp', 'OpenPGP'], ['ssh', 'SSH'], ['x509', 'X.509']]} />
+    </>
+  )
+}
+
 /** Global card: the allow-listed identity/signing keys of `git config --global`; an empty field unsets its key. */
 function GitSection() {
   const qc = useQueryClient()
@@ -230,11 +255,9 @@ function GitSection() {
   }, [id.data])
   const field = (f: GitConfigField) => ({ value: v[f], onChange: (x: string) => (setMsg(null), setV((o) => ({ ...o, [f]: x }))) })
   const save = () => {
-    // Only changed fields: a value git stores in a form the form cannot show (e.g. gpgsign = maybe) is left alone.
-    const loaded = formValues(id.data)
-    const r = gitConfigWriteSchema.safeParse(Object.fromEntries(GIT_CONFIG_FIELDS.filter((f) => v[f] !== loaded[f]).map((f) => [f, v[f]])))
-    if (!r.success) return setMsg(`${GIT_LABEL[r.error.issues[0]!.path[0] as GitConfigField]}: ${r.error.issues[0]!.message}`)
-    void window.mendel['settings:setGitIdentity'](r.data).then(
+    const values = gitConfigChanges(v, formValues(id.data))
+    if (typeof values === 'string') return setMsg(values)
+    void window.mendel['settings:setGitIdentity'](values).then(
       () => {
         setMsg('Saved')
         void id.refetch()
@@ -253,21 +276,117 @@ function GitSection() {
         <div className={s.providerHead}>
           <strong id="git-global">Global</strong>
         </div>
-        {(['name', 'email', 'signingKey'] as const).map((f) => (
-          <TextField key={f} {...field(f)} className={a.field}>
-            <Label>{GIT_LABEL[f]}</Label>
-            <Input spellCheck={false} />
-          </TextField>
-        ))}
-        <Choice label={GIT_LABEL.gpgSign} {...field('gpgSign')} options={[['', 'Not set'], ['true', 'Yes'], ['false', 'No']]} />
-        <Choice label={GIT_LABEL.gpgFormat} {...field('gpgFormat')} options={[['', 'Not set'], ['openpgp', 'OpenPGP'], ['ssh', 'SSH'], ['x509', 'X.509']]} />
+        <GitConfigFields field={field} />
         <div className={a.row}>
           <Button onPress={save}>Save identity</Button>
           <Button onPress={open}>Open global git config…</Button>
         </div>
         {msg && <span role="status">{msg}</span>}
       </section>
+      <ProfilesSection />
     </>
+  )
+}
+
+/** "Name <email>", then whatever else is set. */
+function profileSummary(v: GitConfigValues): string {
+  const who = v.name && v.email ? `${v.name} <${v.email}>` : (v.name ?? (v.email && `<${v.email}>`))
+  const rest = [v.signingKey && `key ${v.signingKey}`, v.gpgSign && `gpgsign ${v.gpgSign}`, v.gpgFormat && `format ${v.gpgFormat}`]
+  return [who, ...rest].filter(Boolean).join(' · ') || 'No values set'
+}
+
+/** Profiles card: named sets of the five fields (userData/git-profiles/), added and edited in a dialog. */
+function ProfilesSection() {
+  const q = useQuery({ queryKey: ['gitProfiles'], queryFn: () => window.mendel['settings:gitProfiles']() })
+  const [edit, setEdit] = useState<GitProfile | 'new' | null>(null)
+  const [msg, setMsg] = useState<string | null>(null)
+  const del = (id: string) => void window.mendel['settings:deleteGitProfile']({ id }).then(() => (setMsg(null), q.refetch()), (e: Error) => setMsg(e.message))
+  return (
+    <section className={s.provider} aria-labelledby="git-profiles">
+      <div className={s.providerHead}>
+        <strong id="git-profiles">Profiles</strong>
+      </div>
+      {q.data?.length === 0 && <p className={a.muted}>No profiles yet. A profile is a reusable identity, e.g. Work or Personal.</p>}
+      {q.data?.map((p) => (
+        <div key={p.id} role="group" aria-label={p.name} className={a.row}>
+          <div className={s.profile}>
+            <span>{p.name}</span>
+            <span className={a.muted}>{profileSummary(p.values)}</span>
+          </div>
+          <Button aria-label={`Edit ${p.name}`} onPress={() => setEdit(p)}>
+            Edit…
+          </Button>
+          <Button aria-label={`Delete ${p.name}`} onPress={() => del(p.id)}>
+            Delete…
+          </Button>
+        </div>
+      ))}
+      <div className={a.row}>
+        <Button onPress={() => setEdit('new')}>Add profile…</Button>
+      </div>
+      {msg && (
+        <p role="alert" className={a.error}>
+          {msg}
+        </p>
+      )}
+      <AnimatePresence>
+        {edit && <ProfileDialog key="profile" profile={edit === 'new' ? undefined : edit} onSaved={() => (setMsg(null), void q.refetch())} onClose={() => setEdit(null)} />}
+      </AnimatePresence>
+    </section>
+  )
+}
+
+/** Add / edit a profile. Seeded once from the snapshot it opened with, so a background refetch never resets edits. */
+function ProfileDialog(p: { profile?: GitProfile; onSaved(): void; onClose(): void }) {
+  const [loaded] = useState(() => formValues(p.profile?.values))
+  const [name, setName] = useState(p.profile?.name ?? '')
+  const [v, setV] = useState(loaded)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const field = (f: GitConfigField) => ({ value: v[f], onChange: (x: string) => (setError(null), setV((o) => ({ ...o, [f]: x }))) })
+  const submit = (e: FormEvent) => {
+    e.preventDefault()
+    const n = gitProfileNameSchema.safeParse(name)
+    if (!n.success) return setError(`Profile name: ${n.error.issues[0]!.message}`)
+    const values = gitConfigChanges(v, loaded)
+    if (typeof values === 'string') return setError(values)
+    setBusy(true)
+    const req = p.profile
+      ? window.mendel['settings:updateGitProfile']({ id: p.profile.id, name: n.data, values })
+      : window.mendel['settings:createGitProfile']({ name: n.data, values })
+    req.then(
+      () => (p.onSaved(), p.onClose()),
+      (err: Error) => (setBusy(false), setError(err.message))
+    )
+  }
+  return (
+    <DialogShell isDismissable className={a.backdrop} onOpenChange={(o) => !o && p.onClose()}>
+      <Dialog aria-labelledby="profile-title" className={`${a.dialog} ${s.profileDialog}`}>
+        <form className={a.form} onSubmit={submit}>
+          <Heading slot="title" id="profile-title">
+            {p.profile ? 'Edit profile' : 'Add profile'}
+          </Heading>
+          <TextField value={name} onChange={(x) => (setError(null), setName(x))} className={a.field} autoFocus>
+            <Label>Profile name</Label>
+            <Input spellCheck={false} />
+          </TextField>
+          <GitConfigFields field={field} />
+          {error && (
+            <p role="alert" className={a.error}>
+              {error}
+            </p>
+          )}
+          <div className={a.actions}>
+            <button type="button" onClick={p.onClose}>
+              Cancel
+            </button>
+            <button type="submit" className="primary" disabled={busy}>
+              Save
+            </button>
+          </div>
+        </form>
+      </Dialog>
+    </DialogShell>
   )
 }
 

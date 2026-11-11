@@ -50,3 +50,14 @@ export interface GitConfigEffective {
   /** The last value a known profile file contributes to this repo's config, even when something else wins. */
   profile: { file: string; value: string } | null
 }
+
+/** A git config profile's name (Settings > Git > Profiles): shown only, never part of a path. */
+export const MAX_PROFILE_NAME = 64
+export const gitProfileNameSchema = text(MAX_PROFILE_NAME).min(1, 'Enter a profile name')
+
+export interface GitProfile {
+  /** mendel-generated UUID; the profile file is `<id>.gitconfig`. */
+  id: string
+  name: string
+  values: GitConfigValues
+}

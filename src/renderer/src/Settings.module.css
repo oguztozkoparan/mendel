@@ -131,3 +131,24 @@
   flex: 1;
   align-self: center;
 }
+
+/* Git > Profiles row: name over its summary; both end in an ellipsis (tooltip shows the full text) */
+.profile {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-self: center;
+}
+
+.profile > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* fits a short window: the dialog scrolls inside instead of growing past it */
+.profileDialog {
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+}

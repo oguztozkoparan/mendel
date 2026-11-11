@@ -8,7 +8,7 @@ import { z } from 'zod'
 import { SHA_PREFIX, TRAILER_KEY } from './historyQuery'
 import { GERRIT_OPS, MAX_TERM, MAX_TERMS, MAX_TEXT } from './gerritQuery'
 import { draftSchema, HASHTAG, PUSH_OPTION_VALUE, type GerritChange, type GerritCommit, type GerritSent, type GerritChangeLists, type GerritComment, type GerritConnected, type GerritDiff, type GerritFiles, type GerritRelated, type GerritSearchPage } from './gerrit'
-import { gitConfigWriteSchema, type GitConfigValues } from './gitConfig'
+import { gitConfigWriteSchema, gitProfileNameSchema, type GitConfigValues, type GitProfile } from './gitConfig'
 import type { GithubDeviceCode, GithubPulls, GithubSignedIn } from './github'
 
 const res = <Res>() => <Req extends z.ZodType>(req: Req) => ({ req, res: null as unknown as Res })
@@ -493,6 +493,14 @@ export const invoke = {
   'settings:setGitIdentity': res<void>()(gitConfigWriteSchema),
   /** Open the global git config file in the external editor; rejects while no global file exists. */
   'settings:openGitConfig': res<void>()(z.undefined()),
+  /** Git config profiles (userData/git-profiles/) with their allow-listed values. */
+  'settings:gitProfiles': res<GitProfile[]>()(z.undefined()),
+  /** Rejects a name already used (ignoring case). */
+  'settings:createGitProfile': res<void>()(z.object({ name: gitProfileNameSchema, values: gitConfigWriteSchema }).strict()),
+  /** Rename and set fields ('' unsets, absent = untouched). */
+  'settings:updateGitProfile': res<void>()(z.object({ id: z.uuid(), name: gitProfileNameSchema, values: gitConfigWriteSchema }).strict()),
+  /** Delete after a native confirm; false = cancelled. */
+  'settings:deleteGitProfile': res<boolean>()(z.object({ id: z.uuid() }).strict()),
   'settings:openLogs': res<void>()(z.undefined()),
   /** Detect the repo's provider (cached per host; probes unknown hosts, 3 s timeout). */
   'provider:get': res<ProviderState>()(inRepo),

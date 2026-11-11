@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { execFileSync } from 'node:child_process'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { startGerritMock } from '../fixtures/gerrit-mock'
@@ -319,6 +320,57 @@ test('GitHub signed-in card fits the minimum window with a 39-character login an
   } finally {
     await app.close()
     await mock.close()
+    fx.cleanup()
+  }
+})
+
+test('Settings → Git → Profiles fits the minimum window with a 64-character name and long values', async () => {
+  const fx = createRepoFixture()
+  const name = `Profile ${'P'.repeat(56)}`
+  const email = 'a-very-long-local-part-of-an-address.that-goes-on@a-long-subdomain.example.test'
+  const id = '0b7c3c1e-6a4f-4f3e-9f53-1b2a3c4d5e6f'
+  const userData = path.join(fx.dir, 'userData')
+  mkdirSync(path.join(userData, 'git-profiles'), { recursive: true })
+  writeFileSync(path.join(userData, 'git-profiles', 'index.json'), JSON.stringify({ profiles: [{ id, name }] }))
+  const file = path.join(userData, 'git-profiles', `${id}.gitconfig`)
+  for (const [k, v] of [['user.name', 'N'.repeat(200)], ['user.email', email], ['user.signingkey', `key::ssh-rsa ${'A'.repeat(700)} me@host`]])
+    execFileSync('git', ['config', '--file', file, k!, v!], { env: fx.env })
+  const app = await launchApp({ ...fx.env, MENDEL_E2E_USERDATA: userData })
+  const { win } = app
+  try {
+    const min = await app.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.getMinimumSize())
+    await app.app.evaluate(({ BrowserWindow }, [w, h]) => BrowserWindow.getAllWindows()[0]!.setSize(w, h), min as [number, number])
+    await expect.poll(() => win.evaluate(() => window.innerWidth)).toBeLessThanOrEqual(min[0]!)
+    await openRepo(app, fx.work)
+    await win.getByRole('button', { name: 'Settings' }).click()
+    const settings = win.getByRole('dialog', { name: 'Settings' })
+    await settings.getByRole('tab', { name: 'Git', exact: true }).click()
+    const row = settings.getByRole('region', { name: 'Profiles' }).getByRole('group', { name })
+    await row.scrollIntoViewIfNeeded()
+    expect(await overflow(win), 'Settings → Git → Profiles').toEqual([])
+    // the row's name and summary end in an ellipsis; the tooltip shows the full text
+    await tooltip(win, row.getByText(name, { exact: true }), name)
+    await expect(row.getByRole('button', { name: `Edit ${name}` })).toBeInViewport({ ratio: 1 })
+    await row.getByRole('button', { name: `Edit ${name}` }).click()
+    const dlg = win.getByRole('dialog', { name: 'Edit profile' })
+    await dlg.getByLabel('Email (user.email)').fill('a b')
+    await dlg.getByRole('button', { name: 'Save' }).click()
+    await expect(dlg.getByRole('alert')).toContainText('Email (user.email):')
+    expect(await overflow(win), 'Edit profile').toEqual([])
+    // the dialog stays inside the window at the minimum size
+    const box = (await dlg.boundingBox())!
+    const size = await win.evaluate(() => [window.innerWidth, window.innerHeight])
+    expect(box.x >= 0 && box.y >= 0 && box.x + box.width <= size[0]! && box.y + box.height <= size[1]!, 'Edit profile inside the window').toBe(true)
+    // a window shorter than the dialog (below the app's minimum, test only): the dialog scrolls inside it
+    await app.app.evaluate(({ BrowserWindow }) => (BrowserWindow.getAllWindows()[0]!.setMinimumSize(400, 300), BrowserWindow.getAllWindows()[0]!.setSize(720, 360)))
+    await expect.poll(() => dlg.evaluate((el) => el.scrollHeight > el.clientHeight + 50)).toBe(true)
+    const short = (await dlg.boundingBox())!
+    expect(short.y >= 0 && short.y + short.height <= (await win.evaluate(() => window.innerHeight)), 'Edit profile inside a short window').toBe(true)
+    await dlg.getByRole('button', { name: 'Save' }).scrollIntoViewIfNeeded()
+    await expect(dlg.getByRole('button', { name: 'Save' })).toBeInViewport({ ratio: 1 })
+    await expect(dlg.getByLabel('Profile name')).not.toBeInViewport()
+  } finally {
+    await app.close()
     fx.cleanup()
   }
 })
