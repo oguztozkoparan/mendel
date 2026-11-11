@@ -45,11 +45,11 @@ Cross-platform desktop git client (Electron + React + Vite + TypeScript), GitHub
 - **Conflict UI: minimal in MVP.** "Rebase onto latest" and pull are in MVP, so conflicts *will* happen; leaving the user stuck mid-rebase is unacceptable. A 3-way editor is large; users already have an editor. So: detect, list, open-in-editor, mark resolved, continue/abort.
 - **Stash: only stash-and-switch in MVP.** `git switch` refuses on a dirty tree; offering "Stash & switch" + a "You have stashed changes on <branch> — Restore / Discard" banner covers 90% of use. Stash list (post-MVP): a Stashes tab lists all stashes (`git stash list`), shows the selected one's diff (History's commit detail on the stash commit, vs. the commit it was made on; untracked files not shown), and Apply / Pop / Drop (native confirm). Main resolves the renderer's stash sha to `stash@{n}` at action time, so a shifted list cannot hit the wrong entry.
 - **Line-level staging → later.** Hunk staging is cheap (build a patch from the hunk, `git apply --cached`); line selection needs patch re-synthesis and more tests.
-- **Multi-account → later.** One credential per Gerrit host. Git auth is owned by system git (SSH agent / credential helper), so mendel needs no account system for git itself.
+- **Multi-account → later.** One credential per Gerrit host. Git auth is owned by system git (SSH agent / credential helper), so mendel needs no account system for git itself. A different commit identity per repository is a git config profile (§12), not an account.
 - **Review notifications (new incoming review) → later.** MVP refreshes on focus and on an interval.
 
 ### Done after MVP
-Line staging, stash list, tags, blame, history search & file history, cherry-pick/revert UI, `mendel` CLI launcher, Gerrit attention set + hashtags, Gerrit related changes, review notifications (new incoming reviews), interactive rebase of unpushed commits, Gerrit review history with advanced search, GitHub provider v1 (github.com: GitHub App sign-in, open pull requests list and detail, check out a same-repo pull request, create pull request on GitHub; §5.6).
+Line staging, stash list, tags, blame, history search & file history, cherry-pick/revert UI, `mendel` CLI launcher, Gerrit attention set + hashtags, Gerrit related changes, review notifications (new incoming reviews), interactive rebase of unpushed commits, Gerrit review history with advanced search, GitHub provider v1 (github.com: GitHub App sign-in, open pull requests list and detail, check out a same-repo pull request, create pull request on GitHub; §5.6), git config profiles (identity and signing per repository; §12).
 
 ### Later
 GitHub after v1:
@@ -61,6 +61,12 @@ GitHub after v1:
 - **History badges and notifications**: extra API calls per refresh against the rate limit; Gerrit's "in review #N" pattern can be reused.
 - **Pull requests of an upstream remote when origin is a fork**: detection takes the first github.com remote (`origin` first); picking `upstream` needs a rule or a setting.
 - **Paging past 50**: the first page only; "More on GitHub" opens the full list in the browser.
+
+Git config profiles after v1 (§12):
+- **Assignment by folder**: "every repository under a folder uses a profile", and the user can change that folder path afterwards. The same conditional include with a folder pattern instead of one repository's git dir.
+- **Generic key/value editor**: some keys run commands (`core.sshCommand`, `core.fsmonitor`, `!` aliases); everything outside the five keys is edited in the file ("Open global git config…").
+- **Profile choice in the Clone dialog**: v1 assigns from Settings → Git → This repository once the clone is open.
+- **More keys in a profile**: the allow-list is the five identity and signing keys; each added key widens what mendel writes on the global side.
 
 Code signing: macOS Developer ID + notarization and a Windows certificate (secrets and open checks in `docs/RELEASE.md` → Signing). Until then releases are unsigned and macOS opens the download page instead of self-installing. With it: split signing and publishing into separate CI jobs (RELEASE.md → CI hardening).
 
@@ -334,7 +340,7 @@ github.com only; main in `src/main/providers/github/` (`detect.ts`, `client.ts`)
 | Section | Contents |
 |---|---|
 | General | Theme: System / Light / Dark / Soft dark / Soft light · Default clone folder · External editor (auto-detected list + custom command) · Terminal (auto-detected + custom) · Reopen last repo on start · Confirm before discard (on) |
-| Git | Detected git path + version (read-only) · Global `user.name` / `user.email` (edit) · Auto-fetch interval (off / 5 / 15 / 30 min, default 15) · Default pull strategy for repos without provider (merge / rebase) |
+| Git | Detected git path + version (read-only) · Global: `user.name`, `user.email`, `user.signingkey`, `commit.gpgsign`, `gpg.format` (edit) + "Open global git config…" · Profiles: add / edit / delete (§12) · This repository (repo open): profile, effective value and source per key, project values (§12) · Auto-fetch interval (off / 5 / 15 / 30 min, default 15) · Default pull strategy for repos without provider (merge / rebase) |
 | Commit | Summary soft limit (default 72) · Show 72-col ruler in description · Spellcheck on/off |
 | Providers → This repository | Detected provider of the open repo · "Repository provider…" (override, below) |
 | Providers → Gerrit | Hosts list: host, base URL (editable), username, connection status, "Test", "Remove credentials" · Reviews refresh interval (default 5 min) · "Only this project" default |
@@ -525,3 +531,42 @@ Goal: work on several branches at once without stashing. Each worktree is opened
 **Security**: renderer sends only `repo` ids, branch names (validated in main), a single folder-name segment and worktree paths that main re-checks against `git worktree list`; the parent folder comes only from the native dialog or the main worktree; argv arrays with `--end-of-options`; removal only through `git worktree remove`, never `fs.rm`.
 
 **Done when**: integration tests (list/add/remove/prune, branch-elsewhere, open a linked worktree, watcher on a linked worktree) and `test/e2e/worktree.spec.ts` (create from new branch + open, branch-elsewhere notice + open, remove with dirty confirm) pass.
+
+---
+
+## 12. Git config profiles
+
+Goal: a different commit identity and signing setup per repository (e.g. Work, Personal) that the terminal sees too. Settings → Git; code in `src/shared/gitConfig.ts` (allow-list, schemas), `src/main/git/config.ts` (git calls), `src/main/gitProfiles.ts` (store, assignments), channels `settings:gitIdentity` … `settings:setRepoGitConfig`.
+
+**A profile** = a name (1–64 characters, unique ignoring case) plus any of five keys, the allow-list used everywhere in this feature: `user.name`, `user.email`, `user.signingkey`, `commit.gpgsign` (Yes / No), `gpg.format` (OpenPGP / SSH / X.509). Every field is optional; an empty field is not written, so the key is inherited. No other key is read for display or written. At most 100 profiles.
+
+**In scope** (three cards in Settings → Git)
+- **Global**: the five fields (`git config --global`; only changed fields are written, an empty field unsets its key), "Save identity", "Open global git config…" (the file `git config --global` uses: `$GIT_CONFIG_GLOBAL`, `~/.gitconfig` or `$XDG_CONFIG_HOME/git/config`, in the external editor; refused while none exists). Everything else in the global config is edited there. The Welcome "Who are you?" form (§4.1) still writes only name and email.
+- **Profiles**: one row per profile (name, "Name <email>" summary plus key / gpgsign / format, "Used by N repositories"), "Add profile…" and "Edit…" (dialog: profile name + the five fields), "Delete…".
+- **This repository** (only with a repo open): Profile select (None + profiles); one row per key with the effective value and its source: Project, Worktree config, Profile <name>, Global, System, Command line, Not set; "Project values…".
+- After any change the Git cards, the Welcome form and the commit box's "Committing as …" line refresh.
+
+**How a profile is applied**: git's conditional include, on the global side.
+- mendel's own folder `<userData>/git-profiles/`: `index.json` (profiles `{id, name}`, assignments `{gitDir, repoId, profileId}`), one git config file `<id>.gitconfig` per profile (only the five keys), and the generated `assignments.gitconfig`: per assigned repository `includeIf "gitdir:<common git dir>".path` (the main work tree) and `includeIf "gitdir:<common git dir>/worktrees/".path` (its linked worktrees), both pointing at the profile file.
+- The user's global git config gets one line, `include.path = <userData>/git-profiles/assignments.gitconfig`, appended with the first assignment and removed with the last; any other `include.path` stays.
+- The repository's own `.git/config` is never touched by assigning.
+- Resulting precedence, the same in mendel and the terminal: project (`.git/config`) > profile > global.
+- Not an include inside `.git/config`: a later `git config <key> <value>` from the terminal could then be silently ineffective.
+
+**Per repository**: an assignment is keyed by the repository's common git dir (real absolute path), so a linked worktree shows and changes its main repository's assignment, and a worktree added later gets it too. Submodules do not inherit their superproject's profile (`<gitdir>/worktrees/`, not `<gitdir>/`, which would also match `<gitdir>/modules/`).
+
+**Project values**: "Project values…" writes the repository's own config (`git config --local`; from a linked worktree that is the shared config); an empty field removes the value. A row with a project value offers "Remove", or "Use profile" when the assigned profile sets that key (the row then says "overrides profile <name>"); both remove the project value. Values from `config.worktree` (`extensions.worktreeConfig`) show as "Worktree config" and are not edited.
+
+**Notices** (in the This repository card)
+- **Ordering trap**: the global file defines a key the profile sets after mendel's include line, so the global value wins. The notice names the keys, says to move the `include.path` line to the end of the file and offers "Open global git config…"; mendel does not rewrite the user's file.
+- **Not applied**: the profile sets values but git reads none of them in this repository (e.g. the include line was removed by hand, or the global write failed). "Apply again" assigns again, which rebuilds the generated file and the line.
+
+**Moved repositories**: when the card loads and no assignment matches this git dir but one matches its repo id, the assignment takes the new path and the file is regenerated. A path that no longer exists never drops an assignment (unmounted drives).
+
+**Deleting a profile**: native confirm that names how many repositories use it ("… will use the global config again"); its assignments go, the generated file and the global line are rebuilt (the line removed when none is left), then its file is deleted.
+
+**Out of scope (v1)**: see §2 Later (assignment by folder, generic key/value editor, profile choice when cloning, more keys).
+
+**Security**: TECH.md §6.10.
+
+**Done when**: `test/integration/git-config.test.ts`, `git-profiles.test.ts`, `git-assign.test.ts` and `test/e2e/settings.spec.ts` (Global card), `git-profiles.spec.ts`, `git-assign.spec.ts` and the Settings → Git cases in `narrow.spec.ts` pass.
