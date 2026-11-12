@@ -11,6 +11,7 @@ import s from './Changes.module.css'
 import { ConfirmDialog } from './ConfirmDialog'
 import { Highlight } from './motion'
 import { DiffView } from './DiffView'
+import { FilePath } from './FilePath'
 import { bannerError, ErrorBanner, PaneBanners, type BannerError } from './ErrorBanner'
 import { useGerritCommitHint } from './providers/gerrit/commitHint'
 import type { Notice } from './SyncButton'
@@ -182,9 +183,7 @@ export function ChangesView(p: {
                   <>
                     {isSelected && <Highlight id="sel-files" />}
                     <Box label="Staged" selected={fullyStaged(f)} indeterminate={!!f.staged && !!f.unstaged} onChange={(v) => setStaged([f], v)} />
-                    <span className={s.path} data-tip={f.origPath ? `${f.origPath} → ${f.path}` : undefined}>
-                      {f.path}
-                    </span>
+                    <FilePath path={f.path} orig={f.origPath} className={s.path} />
                     <span className={s.letter} data-status={statusLetter(f)} aria-label={`status ${statusLetter(f)}`}>
                       {statusLetter(f)}
                     </span>

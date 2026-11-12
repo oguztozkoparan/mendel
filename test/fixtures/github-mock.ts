@@ -25,6 +25,54 @@ export interface GithubMock extends MockServer {
   pullsMode: 'ok' | 'notFound' | 'rateLimited'
 }
 
+/** A pull request body exercising GitHub-flavoured Markdown, links of every kind and raw HTML that must not render. */
+export const richBody = [
+  '# Summary heading',
+  '',
+  'This paragraph has a soft',
+  'line break, `inline code`, **bold**, *italic* and ~~struck~~ text.',
+  '',
+  '## Changes',
+  '',
+  '- first item',
+  '- second item',
+  '',
+  '- [x] done task',
+  '- [ ] open task',
+  '',
+  '| Column | Centred | A long column |',
+  '| :--- | :---: | ---: |',
+  `| a | 1 | ${'widecell'.repeat(25)}end |`,
+  '',
+  '```ts',
+  `const longLine = '${'code-'.repeat(60)}end'`,
+  '```',
+  '',
+  '> A quoted line',
+  '',
+  '---',
+  '',
+  'Links: [relative link](docs/guide.md), [github link](https://github.com/o/r/issues/1), [external link](https://example.com/page), and bare https://github.com/o/r/wiki',
+  '',
+  '[script link](javascript:alert(1))',
+  '',
+  '![diagram alt](https://example.com/diagram.png)',
+  '',
+  '<script>alert(1)</script>',
+  '',
+  'Inline <img src=x onerror="alert(1)"> html.',
+  '',
+  '<details><summary>Hidden summary</summary>Hidden details</details>',
+  '',
+  '<!-- template comment -->',
+  '',
+  'A claim with a footnote[^note].',
+  '',
+  '[^note]: The footnote text.',
+  '',
+  'The end.'
+].join('\n')
+
 /** One open pull request as `GET /repos/{owner}/{repo}/pulls` returns it (trimmed). */
 export const mockPull = (number: number, over: Partial<{ title: string; login: string; draft: boolean; body: string | null; head: string; base: string; headRepo: string | null }> = {}) => ({
   number,

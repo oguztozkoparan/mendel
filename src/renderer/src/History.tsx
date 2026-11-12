@@ -11,7 +11,9 @@ import { refreshRepo, useBranches } from './Branches'
 import { FileFilter, matchFile } from './Changes'
 import c from './Changes.module.css'
 import { useParsedDiff, visible } from './DiffView'
+import { FilePath } from './FilePath'
 import { highlight, highlightLines, renderTokens } from './highlight'
+import { fullPath } from './paths'
 import { bannerError, ErrorBanner, PaneBanners, type BannerError } from './ErrorBanner'
 import s from './History.module.css'
 import { RebaseDialog } from './RebaseDialog'
@@ -19,8 +21,7 @@ import { Highlight, PopPopover } from './motion'
 import r from './Repos.module.css'
 import { ago } from './time'
 import { fitRow, graphRows, type GraphRow } from './graph'
-import { Trailers } from './CommitTrailers'
-import { splitTrailers } from './trailers'
+import { CommitBody } from './CommitTrailers'
 import { useDebounced } from './debounce'
 
 const PAGE = 100
@@ -296,7 +297,6 @@ function CommitView(p: { repo: string; sha: string; pick?: 'cherry-pick' | 'reve
   const d = q.data
   if (!d) return null
   const [summary, ...body] = d.message.split('\n')
-  const { text, trailers } = splitTrailers(body.join('\n'))
   const shown = query.trim() ? d.files.filter(matchFile(query)) : d.files
   // The picked file stays selected while the filter still shows it.
   const f = shown.find((x) => x.path === file) ?? shown[0]
@@ -338,8 +338,7 @@ function CommitView(p: { repo: string; sha: string; pick?: 'cherry-pick' | 'reve
         <TagButton repo={p.repo} sha={d.sha} />
       </div>
       {error && <p role="alert" className={c.empty}>{error}</p>}
-      {text && <pre className={s.message}>{text}</pre>}
-      {trailers.length > 0 && <Trailers repo={p.repo} trailers={trailers} />}
+      <CommitBody repo={p.repo} body={body.join('\n')} label="Commit message" />
       <FileFilter value={query} onChange={setQuery} count={shown !== d.files ? `${shown.length} of ${d.files.length} files` : undefined} className={s.filesFilter} />
       <Virtualizer layout={ListLayout} layoutOptions={{ rowHeight: 30 }}>
         <ListBox
@@ -349,16 +348,16 @@ function CommitView(p: { repo: string; sha: string; pick?: 'cherry-pick' | 'reve
           disallowEmptySelection
           selectedKeys={f ? [f.path] : []}
           onSelectionChange={(keys) => keys !== 'all' && keys.size && setFile(String([...keys][0]))}
-          className={s.files}
+          className={`${s.files} ${c.capList}`}
           renderEmptyState={() => <p className={c.empty}>No matching files</p>}
         >
           {(x) => (
             // Row-fill selection, not the floating plate: rows sit inside a bordered table. Hairline above every row but the first.
-            <ListBoxItem id={x.path} textValue={x.path} className={x === shown[0] ? s.fileRow : `${s.fileRow} ${s.divided}`}>
+            <ListBoxItem id={x.path} textValue={x.path} aria-label={`${x.status} ${fullPath(x.path, x.origPath)}${x.add !== undefined ? ` +${x.add} −${x.del}` : ''}`} className={x === shown[0] ? s.fileRow : `${s.fileRow} ${s.divided}`}>
               <span className={c.letter} data-status={x.status}>
                 {x.status}
               </span>
-              <span className={s.filePath}>{x.origPath ? `${x.origPath} → ${x.path}` : x.path}</span>
+              <FilePath path={x.path} orig={x.origPath} className={s.filePath} />
               {x.add !== undefined && (
                 <span className={s.fileStat}>
                   <span className={c.statAdd}>+{x.add}</span> <span className={c.statDel}>−{x.del}</span>

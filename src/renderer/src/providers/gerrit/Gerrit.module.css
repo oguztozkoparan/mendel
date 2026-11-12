@@ -79,6 +79,12 @@
   color: var(--accent);
 }
 
+/* change description (History's message + trailers styles) between the header and the labels */
+.description {
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
 .related {
   margin: 0;
   padding: 0;

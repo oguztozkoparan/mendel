@@ -44,3 +44,16 @@ export interface GithubPulls {
   pulls: GithubPull[]
   more: boolean
 }
+
+/** Where a link in a pull request body of `project` ('owner/repo') points; relative links resolve against the repo page. null = unparsable or too long. */
+export function githubLink(project: string, href: string): URL | null {
+  if (href.length > 4096) return null
+  try {
+    return new URL(href, `https://github.com/${project.split('/').map(encodeURIComponent).join('/')}/`)
+  } catch {
+    return null
+  }
+}
+
+/** The only links main opens from a pull request body: https on github.com itself (no port, no credentials). */
+export const onGithub = (u: URL) => u.protocol === 'https:' && u.host === 'github.com' && !u.username && !u.password

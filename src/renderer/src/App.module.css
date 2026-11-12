@@ -267,9 +267,30 @@
   align-items: center;
 }
 
+/* the text column may shrink below a long path, so the path is cut off instead of overflowing the banner */
+.conflicts > span {
+  min-width: 0;
+}
+
 .conflicts ul {
   margin: 4px 0 0;
   padding-left: 16px;
+}
+
+/* a conflicted file's path: inline before its buttons like the plain path was; the name stays, the folder is cut off first */
+.conflicts .conflictPath {
+  display: inline-flex;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+/* undo `.banner span { flex: 1 }` inside it: name keeps its width, the folder shrinks */
+.conflicts .conflictPath span {
+  flex: 0 1 auto;
+}
+
+.conflicts .conflictPath span:first-child {
+  flex: none;
 }
 
 .settings {

@@ -3,16 +3,17 @@ import { execFileSync } from 'node:child_process'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { startGerritMock } from '../fixtures/gerrit-mock'
-import { mockPull, startGithubMock } from '../fixtures/github-mock'
+import { mockPull, richBody, startGithubMock } from '../fixtures/github-mock'
 import { createRepoFixture } from '../fixtures/repo'
+import { connectGerrit, launchGerrit } from './gerrit'
 import { launchApp, openRepo } from './launch'
 
-/** Elements that overflow sideways: wider content than box (not a horizontal scroller), or poking past the window edge. */
+/** Elements that overflow sideways: wider content than box (not a horizontal scroller), or poking past the window edge. Content of a pull request body's code blocks and tables scrolls inside them (checked on its own). */
 const overflow = (win: Page) =>
   win.evaluate(() => {
     const w = document.documentElement.clientWidth
     return [...document.querySelectorAll<HTMLElement>('body *')]
-      .filter((el) => el.getClientRects().length && !el.closest('.diff, [role="dialog"] pre, [hidden]'))
+      .filter((el) => el.getClientRects().length && !el.closest('.diff, [role="dialog"] pre, [hidden], section[aria-label="Description"] :is(pre, table) *'))
       .filter((el) => {
         const r = el.getBoundingClientRect()
         const ox = getComputedStyle(el).overflowX
@@ -21,6 +22,38 @@ const overflow = (win: Page) =>
       })
       .map((el) => `${el.tagName}.${el.className} "${(el.textContent ?? '').slice(0, 30)}" ${el.scrollWidth}/${el.clientWidth} right=${Math.round(el.getBoundingClientRect().right)}`)
   })
+
+type Loc = ReturnType<Page['locator']>
+
+/** A capped detail area: scrolls on its own (overflowing, overflow-y auto) and keeps under `share` of the window height. */
+const capped = async (loc: Loc, share: number) => {
+  const m = await loc.evaluate((el) => ({ sh: el.scrollHeight, ch: el.clientHeight, oy: getComputedStyle(el).overflowY, vh: window.innerHeight }))
+  expect(m.sh, 'overflows').toBeGreaterThan(m.ch + 1)
+  expect(m.oy).toBe('auto')
+  expect(m.ch, 'capped').toBeLessThanOrEqual(m.vh * share)
+  return m.ch
+}
+
+/** Minimum window size; the repo or provider view opened by `open` afterwards. */
+const minSize = async (app: Awaited<ReturnType<typeof launchApp>>) => {
+  const min = await app.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.getMinimumSize())
+  await app.app.evaluate(({ BrowserWindow }, [w, h]) => BrowserWindow.getAllWindows()[0]!.setSize(w, h), min as [number, number])
+  await expect.poll(() => app.win.evaluate(() => window.innerWidth)).toBeLessThanOrEqual(min[0]!)
+}
+
+/** Click the first file, End, Enter: the last file is selected, scrolled into view inside the list, and its diff shows below. */
+const lastFileByKeyboard = async (win: Page, list: Loc, last: RegExp, diff: Loc) => {
+  await list.getByRole('option').first().click()
+  await win.keyboard.press('End')
+  await win.keyboard.press('Enter')
+  const row = list.getByRole('option', { name: last })
+  await expect(row).toHaveAttribute('aria-selected', 'true')
+  await expect(row).toBeInViewport({ ratio: 1 })
+  const [r, l] = await Promise.all([row.boundingBox(), list.boundingBox()])
+  expect(r!.y + r!.height, 'last row inside the list box').toBeLessThanOrEqual(l!.y + l!.height + 1)
+  await diff.scrollIntoViewIfNeeded()
+  await expect(diff).toBeInViewport()
+}
 
 /** Hovers `loc`: its tooltip shows `text` fully inside the window; `null`: no tooltip shows (after the open delay). */
 const tooltip = async (win: Page, loc: ReturnType<Page['locator']>, text: string | RegExp | null) => {
@@ -81,9 +114,13 @@ test('no horizontal overflow or clipped buttons at the minimum window width', as
 
 test('tooltips stay inside the minimum window: icon button at the right edge, truncated text; fitting text shows none', async () => {
   const fx = createRepoFixture()
-  const long = 'some/deeply/nested/folder/with-a-rather-long-file-name-that-cannot-fit-the-changes-list.txt'
+  const name = 'with-a-rather-long-file-name-that-cannot-fit-the-changes-list.txt'
+  const long = `some/deeply/nested/folder/${name}`
+  const deep = 'a-very-long-folder-name-that-goes-on/and-on-and-on-and-on/and-still-further-down/below/short.txt'
   fx.commitFile(long, 'one\n', 'add file')
+  fx.commitFile(deep, 'one\n', 'add deep file')
   writeFileSync(path.join(fx.work, long), 'one\ntwo\n')
+  writeFileSync(path.join(fx.work, deep), 'one\ntwo\n')
   writeFileSync(path.join(fx.work, 'b.txt'), 'b\n')
   const app = await launchApp(fx.env)
   const { win } = app
@@ -97,8 +134,17 @@ test('tooltips stay inside the minimum window: icon button at the right edge, tr
     await tooltip(win, settings, 'Settings')
     await expect(settings).toHaveAccessibleDescription('')
     expect(await overflow(win), 'icon button tooltip').toEqual([])
-    await tooltip(win, win.getByRole('row', { name: /with-a-rather-long-file-name/ }).getByText(long), long)
+    // file rows: name first, then the folder; the full path is the row's name and its tooltip
+    const longRow = win.getByRole('row', { name: long })
+    await tooltip(win, longRow.getByText(name, { exact: true }), long)
     expect(await overflow(win), 'truncated text tooltip').toEqual([])
+    const deepRow = win.getByRole('row', { name: deep })
+    const short = deepRow.getByText('short.txt', { exact: true })
+    await expect(short).toBeInViewport({ ratio: 1 })
+    expect(await short.evaluate((el) => el.scrollWidth <= el.clientWidth), 'name not cut off by a long folder').toBe(true)
+    expect(await longRow.getByText(name, { exact: true }).evaluate((el) => el.scrollWidth > el.clientWidth), 'a too long name is cut off').toBe(true)
+    for (const row of [longRow, deepRow]) expect(await row.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true)
+    await tooltip(win, deepRow.getByText('a-very-long-folder-name', { exact: false }), deep)
     await tooltip(win, win.getByRole('row', { name: /b\.txt/ }).getByText('b.txt', { exact: true }), null)
     // keyboard focus shows it too; Escape hides it
     await win.mouse.move(0, 0)
@@ -230,7 +276,7 @@ test('Settings → Git fits the minimum window with a 200-character name and a l
   }
 })
 
-test('GitHub Pull requests list and detail fit the minimum window with very long title, branches, login and body', async () => {
+test('GitHub Pull requests list and detail fit the minimum window with very long title, branches, login and body; a Markdown body scrolls wide blocks inside itself', async () => {
   const fx = createRepoFixture()
   const url = 'https://github.com/an-organization-with-a-long-name/a-repository-name-that-goes-on-and-on-and-on.git'
   fx.git(['remote', 'set-url', 'origin', url])
@@ -239,7 +285,7 @@ test('GitHub Pull requests list and detail fit the minimum window with very long
   const title = 'A pull request title that keeps going and going well past any reasonable width of the sidebar or the main pane'
   const head = 'feature/a-very-long-head-branch-name-that-does-not-fit-anywhere-in-a-narrow-window'
   const base = 'release/a-very-long-base-branch-name-that-also-does-not-fit'
-  mock.pulls = [mockPull(12345, { title, head, base, draft: true, login: 'a-github-login-that-is-very-long-indeed-and-goes-on', body: 'x'.repeat(2000) })]
+  mock.pulls = [mockPull(12345, { title, head, base, draft: true, login: 'a-github-login-that-is-very-long-indeed-and-goes-on', body: 'x'.repeat(2000) }), mockPull(7, { title: 'Rich body', body: richBody })]
   mock.more = true
   const app = await launchApp({ ...fx.env, MENDEL_E2E_GITHUB: mock.url })
   const { win } = app
@@ -279,6 +325,19 @@ test('GitHub Pull requests list and detail fit the minimum window with very long
     expect(await ellipsis(branches), 'branches end in an ellipsis').toBe(true)
     // mockPull heads are o/r: from this repo that is a fork, shown as owner/repo:branch
     await tooltip(win, branches, `o/r:${head} → ${base}`)
+    // Markdown body: the long code line and the wide table scroll inside themselves, never the pane.
+    await win.getByRole('option', { name: /Rich body/ }).click()
+    const desc = win.getByRole('region', { name: 'Description' })
+    await expect(desc.getByRole('table')).toBeVisible()
+    expect(await overflow(win), 'Markdown body').toEqual([])
+    const sideways = (loc: Loc) => loc.evaluate((el) => ({ wider: el.scrollWidth > el.clientWidth + 1, ox: getComputedStyle(el).overflowX, right: el.getBoundingClientRect().right }))
+    const pane = await sideways(desc)
+    expect(pane.wider, 'body has no horizontal overflow').toBe(false)
+    for (const loc of [desc.locator('pre'), desc.getByRole('table')]) {
+      const m = await sideways(loc)
+      expect(m).toMatchObject({ wider: true, ox: 'auto' })
+      expect(m.right).toBeLessThanOrEqual(pane.right)
+    }
     mock.pullsMode = 'notFound'
     await win.getByRole('button', { name: 'Refresh pull requests' }).click()
     await expect(win.getByRole('region', { name: 'GitHub App cannot see the repository' })).toBeVisible()
@@ -437,5 +496,70 @@ test('Settings → Git → This repository fits the minimum window with a long p
   } finally {
     await app.close()
     fx.cleanup()
+  }
+})
+
+test('History commit detail at the minimum window: 200 files and a 150-line message each scroll on their own, the diff stays reachable', async () => {
+  const fx = createRepoFixture()
+  for (let i = 0; i < 200; i++) writeFileSync(path.join(fx.work, `f${String(i).padStart(3, '0')}.txt`), `file ${i}\n`)
+  fx.git(['add', '-A'])
+  fx.git(['commit', '-q', '-m', ['Many files', '', ...Array.from({ length: 150 }, (_, i) => `Body line ${i + 1} explaining the change.`)].join('\n')])
+  const app = await launchApp(fx.env)
+  const { win } = app
+  try {
+    await minSize(app)
+    await openRepo(app, fx.work)
+    await win.getByRole('tab', { name: 'History' }).click()
+    await win.getByRole('row', { name: /Many files/ }).click()
+    const detail = win.getByLabel('Commit detail')
+    const message = detail.getByRole('region', { name: 'Commit message' })
+    const files = detail.getByRole('listbox', { name: 'Changed files' })
+    await expect(files.getByRole('option').first()).toBeVisible()
+    // both caps together leave the diff at least half the window
+    const vh = await win.evaluate(() => window.innerHeight)
+    expect((await capped(message, 0.2)) + (await capped(files, 0.35)), 'caps leave room for the diff').toBeLessThanOrEqual(vh / 2)
+    expect(await overflow(win), 'History detail').toEqual([])
+    // the message is a named tab stop that scrolls by keyboard
+    await message.focus()
+    await win.keyboard.press('PageDown')
+    await expect.poll(() => message.evaluate((el) => el.scrollTop)).toBeGreaterThan(0)
+    await lastFileByKeyboard(win, files, /f199\.txt/, win.getByLabel('Commit diff'))
+    await expect(detail.getByRole('heading', { name: 'f199.txt' })).toBeVisible()
+    // another commit and back: both start at the top again
+    await win.getByRole('row', { name: /initial commit/ }).click()
+    await win.getByRole('row', { name: /Many files/ }).click()
+    await expect(files.getByRole('option').first()).toBeVisible()
+    expect(await files.evaluate((el) => el.scrollTop)).toBe(0)
+    expect(await message.evaluate((el) => el.scrollTop)).toBe(0)
+  } finally {
+    await app.close()
+    fx.cleanup()
+  }
+})
+
+test('Gerrit change detail at the minimum window: 200 files and a 150-line description each scroll on their own, the diff stays reachable', async () => {
+  const gerrit = await startGerritMock()
+  const ch = gerrit.changes.find((c) => c._number === 101)!
+  ch.revisions['b'.repeat(40)].commit.message = ['Add feature X', '', ...Array.from({ length: 150 }, (_, i) => `Body line ${i + 1} explaining the change with a long unbroken token ${'x'.repeat(120)}.`), '', 'Change-Id: I1'].join('\n')
+  for (let i = 0; i < 200; i++) ch.files['b'.repeat(40)][`src/f${String(i).padStart(3, '0')}.ts`] = { lines_inserted: 1, diff: [{ ab: ['x'] }, { b: ['y'] }] }
+  const g = await launchGerrit(gerrit)
+  const { win } = g
+  try {
+    await minSize(g)
+    await connectGerrit(win, gerrit)
+    await win.getByRole('option', { name: /Add feature X/ }).click()
+    const files = win.getByRole('listbox', { name: 'Files' })
+    await expect(files.getByRole('option').first()).toBeVisible()
+    const desc = win.getByRole('region', { name: 'Change description' })
+    const vh = await win.evaluate(() => window.innerHeight)
+    expect((await capped(desc, 0.2)) + (await capped(files, 0.35)), 'caps leave room for the diff').toBeLessThanOrEqual(vh / 2)
+    expect(await overflow(win), 'Gerrit change detail').toEqual([])
+    await desc.focus()
+    await win.keyboard.press('PageDown')
+    await expect.poll(() => desc.evaluate((el) => el.scrollTop)).toBeGreaterThan(0)
+    await lastFileByKeyboard(win, files, /src\/f199\.ts/, win.getByRole('region', { name: 'Diff of src/f199.ts' }))
+  } finally {
+    await g.close()
+    await gerrit.close()
   }
 })

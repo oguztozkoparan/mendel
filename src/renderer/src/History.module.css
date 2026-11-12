@@ -122,11 +122,11 @@
   cursor: text;
 }
 
-/* concept .detail p */
+/* concept .detail p; the gap above is margin, so text scrolling inside the capped message does not run up against the buttons */
 .message {
   max-width: 68ch;
-  margin: 0;
-  padding: 16px 26px 0;
+  margin: 16px 0 0;
+  padding: 0 26px;
   font: inherit;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -135,9 +135,7 @@
 /* concept .ftable: bordered, rounded file table inside the detail padding; a real border so row fills sit inside it */
 .files {
   flex: none;
-  max-height: 200px;
   margin: 18px 26px 12px;
-  overflow: auto;
   border: 1px solid var(--border);
   border-radius: var(--ctl-radius);
   outline: none;

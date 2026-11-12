@@ -1,5 +1,6 @@
 import { net, shell } from 'electron'
 import { DEVICE_PAGE, INSTALL_PAGE, githubAuth, githubSession, GITHUB_ORIGINS, type DeviceCode } from '../providers/github/client'
+import { githubLink, onGithub } from '../../shared/github'
 import { credentialUser, getCredential, removeCredential, saveCredential } from '../providers/credentials'
 import log from '../log'
 import type { Fetch } from '../providers/http'
@@ -50,7 +51,7 @@ async function openRepoPage(repo: string, rest: string) {
 }
 
 export const githubHandlers: Handlers<
-  'github:signIn' | 'github:wait' | 'github:cancel' | 'github:openDevicePage' | 'github:openInstallPage' | 'github:signOut' | 'github:account' | 'github:pulls' | 'github:openPull' | 'github:openPulls' | 'github:checkout' | 'github:createPull'
+  'github:signIn' | 'github:wait' | 'github:cancel' | 'github:openDevicePage' | 'github:openInstallPage' | 'github:signOut' | 'github:account' | 'github:pulls' | 'github:openPull' | 'github:openPulls' | 'github:openLink' | 'github:checkout' | 'github:createPull'
 > = {
   'github:signIn': async () => {
     cancelGithubSignIn()
@@ -78,6 +79,11 @@ export const githubHandlers: Handlers<
   'github:pulls': async ({ repo }) => github.pulls(await projectOf(repo)),
   'github:openPull': ({ repo, number }) => openRepoPage(repo, `pull/${number}`),
   'github:openPulls': ({ repo }) => openRepoPage(repo, 'pulls'),
+  'github:openLink': async ({ repo, href }) => {
+    const u = githubLink(await projectOf(repo), href)
+    if (!u || !onGithub(u)) return log.warn('[github] blocked external url')
+    await shell.openExternal(u.href)
+  },
   'github:createPull': async ({ repo }) => {
     const { remote } = await detectionOf(repo)
     const { current, local } = await listBranches(repoRoot(repo))
