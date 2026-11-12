@@ -100,7 +100,7 @@ export function gerritClient(baseUrl: string, auth: GerritAuth, fetchFn: Fetch) 
       call(z.array(changeSchema), 'GET', `changes/?q=${encodeURIComponent(`status:open (${ids.map((i) => `change:${i}`).join(' OR ')})${projectTerm(project)}`)}`, undefined, HINT_TIMEOUT_MS),
 
     change: (n: number) =>
-      call(changeSchema, 'GET', `changes/${enc(n)}/detail?o=CURRENT_REVISION&o=ALL_REVISIONS&o=DETAILED_LABELS&o=DETAILED_ACCOUNTS&o=CURRENT_ACTIONS&o=MESSAGES`),
+      call(changeSchema, 'GET', `changes/${enc(n)}/detail?o=CURRENT_REVISION&o=ALL_REVISIONS&o=DETAILED_LABELS&o=DETAILED_ACCOUNTS&o=CURRENT_ACTIONS&o=MESSAGES&o=ALL_COMMITS`),
 
     /** Files of `rev` (sha, patch set number or "current"), against patch set `base` or the parent. */
     files: (n: number, rev: string, base?: number) =>

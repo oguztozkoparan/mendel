@@ -31,7 +31,7 @@ export function UpdatePill() {
   if (state.status === 'error' && shown.current)
     return (
       <div className={s.root}>
-        <button type="button" className={s.pill} title={state.message} onClick={() => openSettings('Updates')}>
+        <button type="button" className={s.pill} data-tip={state.message} onClick={() => openSettings('Updates')}>
           Update failed…
         </button>
       </div>

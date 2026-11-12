@@ -14,6 +14,7 @@ Git work goes through your installed `git`, so SSH keys, `~/.ssh/config`, creden
 - History with commit detail and diffs
 - Gerrit: detection, HTTP-password login (OS keychain), **Send for review** (topic, reviewers, WIP), Change-Id added when the hook is missing, new-patchset hints, Reviews list, change detail with side-by-side diff, comment threads, votes, submit / abandon / rebase, checkout a change locally
 - GitHub: sign-in with the GitHub App (device flow, OS keychain), open pull requests list and detail, Open on GitHub, check out a same-repo pull request as `pr/<N>`, Create pull request on GitHub
+- Git identity and signing (Settings → Git): global form, named profiles assigned per repository through git's own conditional include (the terminal agrees), project-specific values
 - Native menus and shortcuts, light/dark theme, in-app update checker
 - `mendel .` opens a repo from the terminal (also into a running app): macOS/Linux install it via the menu (Install `mendel` Command…, writes `~/.local/bin/mendel`, no sudo); on Windows run `Mendel.exe <dir>` instead
 

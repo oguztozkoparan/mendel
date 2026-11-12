@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Button } from 'react-aria-components'
 import a from './App.module.css'
+import { FilePath } from './FilePath'
 import { refreshRepo } from './Branches'
 
 /**
@@ -22,7 +23,9 @@ export function ConflictBanner(p: { repo: string; onError(e: unknown): void }) {
         <ul>
           {conflicted.map((f) => (
             <li key={f.path}>
-              <code>{f.path}</code> <Button onPress={() => run(window.mendel['repo:openEditor']({ repo: p.repo, path: f.path }))}>Open in editor</Button>{' '}
+              <code>
+                <FilePath path={f.path} className={a.conflictPath} />
+              </code> <Button onPress={() => run(window.mendel['repo:openEditor']({ repo: p.repo, path: f.path }))}>Open in editor</Button>{' '}
               <Button onPress={() => run(window.mendel['changes:stage']({ repo: p.repo, paths: [f.path] }))}>Mark resolved</Button>
             </li>
           ))}

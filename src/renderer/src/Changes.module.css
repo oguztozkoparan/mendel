@@ -40,6 +40,30 @@
   white-space: nowrap;
 }
 
+/* FilePath: the name keeps its width up to the whole cell, the folder takes what is left */
+.split {
+  display: flex;
+  gap: 6px;
+}
+
+.fileName,
+.fileDir {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fileName {
+  flex: none;
+  max-width: 100%;
+}
+
+.fileDir {
+  flex: 0 1 auto;
+  min-width: 0;
+  color: var(--muted);
+}
+
 .letter {
   font: 600 10.5px/18px var(--mono);
   text-align: center;
@@ -401,4 +425,21 @@
 .confirmText {
   margin: 0;
   line-height: 1.5;
+}
+
+/* Detail panes (History, Stashes, Gerrit change): the description and the file list cap their height (share of the window) and scroll on their own, so the diff below stays in view. */
+.capText {
+  max-height: 15vh;
+  overflow: auto;
+}
+
+.capList {
+  max-height: 30vh;
+  overflow: auto;
+}
+
+/* a description is a tab stop (tabIndex 0, named region) so the keyboard can scroll it; ring inside, the pane clips outside */
+.capText:focus-visible {
+  outline: none;
+  box-shadow: inset var(--focus);
 }

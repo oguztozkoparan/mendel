@@ -13,6 +13,11 @@ describe('settings file validation', () => {
       summaryLimit: 50
     })
   })
+  it('accepts Vesper and Lauds; an unknown theme falls back to the default', () => {
+    expect(parseSettings({ theme: 'vesper' }).theme).toBe('vesper')
+    expect(parseSettings({ theme: 'lauds' }).theme).toBe('lauds')
+    expect(parseSettings({ theme: 'sepia' }).theme).toBe(DEFAULTS.theme)
+  })
   it('window state needs finite numbers', () => {
     expect(parseWindowState({ window: { x: 1, y: 2, width: 3, height: 4, maximized: true } })).toEqual({ x: 1, y: 2, width: 3, height: 4, maximized: true })
     expect(parseWindowState({ window: { x: 'a', y: 2, width: 3, height: 4 } })).toBeNull()

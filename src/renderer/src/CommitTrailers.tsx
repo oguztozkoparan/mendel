@@ -1,11 +1,15 @@
 import { useQuery } from '@tanstack/react-query'
 import { AnimatePresence } from 'motion/react'
-import { useRef, useState } from 'react'
+import { useRef, useState, type ReactNode } from 'react'
 import { Button, Dialog, DialogTrigger } from 'react-aria-components'
+import { onGithub } from '../../shared/github'
+import c from './Changes.module.css'
 import s from './History.module.css'
+import { Markdown } from './Markdown'
+import md from './Markdown.module.css'
 import { PopPopover } from './motion'
 import r from './Repos.module.css'
-import { trailerLabel, trailerRole, type Trailer } from './trailers'
+import { splitTrailers, trailerLabel, trailerRole, type Trailer } from './trailers'
 
 type Person = Extract<Trailer, { kind: 'person' }>
 
@@ -18,6 +22,66 @@ export function useCopy() {
       setTimeout(() => setCopied(false), 1500)
     })
   return [copied, copy] as const
+}
+
+/**
+ * Commit message body (message without its summary line) as Markdown in a capped, focusable region, then its trailers;
+ * nothing when both are empty. Line breaks are kept and HTML-looking text stays literal: most messages are plain text.
+ */
+export function CommitBody({ repo, body, label }: { repo: string; body: string; label: string }) {
+  const { text, trailers } = splitTrailers(body)
+  return (
+    <>
+      {text && (
+        <div className={`${s.message} ${c.capText} ${md.markdown} ${md.lines}`} role="region" aria-label={label} tabIndex={0}>
+          <Markdown text={text} gfm htmlAsText link={({ href, children }) => <CommitLink repo={repo} href={href}>{children}</CommitLink>} />
+        </div>
+      )}
+      {trailers.length > 0 && <Trailers repo={repo} trailers={trailers} />}
+    </>
+  )
+}
+
+/**
+ * How a URL in a commit is activated: opened by main when it is on the repo's own provider (configured Gerrit origin, or
+ * github.com for a GitHub repo; main checks again), otherwise null = copied, never opened.
+ */
+function useUrlOpener(repo: string) {
+  const d = useQuery({ queryKey: ['provider', repo], queryFn: () => window.mendel['provider:get']({ repo }) }).data?.detection
+  return (u: URL): (() => void) | null => {
+    if (d?.provider === 'gerrit' && d.baseUrl && new URL(d.baseUrl).origin === u.origin) return () => void window.mendel['gerrit:open']({ repo, path: u.href })
+    if (d?.provider === 'github' && onGithub(u)) return () => void window.mendel['github:openLink']({ repo, href: u.href })
+    return null
+  }
+}
+
+/** A link in a commit message. Only absolute web and mail URLs are links; relative ones, '#…' and dropped unsafe schemes stay text. */
+function CommitLink({ repo, href, children }: { repo: string; href?: string; children?: ReactNode }) {
+  const opener = useUrlOpener(repo)
+  const [copied, copy] = useCopy()
+  const u = href && URL.canParse(href) ? new URL(href) : null
+  if (!u || !['https:', 'http:', 'mailto:'].includes(u.protocol)) return <>{children}</>
+  const open = opener(u)
+  return (
+    <>
+      <a
+        href={u.href}
+        data-tip={`${u.href}\n${open ? 'Click to open' : 'Click to copy'}`}
+        onClick={(e) => {
+          e.preventDefault()
+          if (open) open()
+          else copy(u.href)
+        }}
+      >
+        {children}
+      </a>
+      {copied && (
+        <span role="status" className={s.chipNote}>
+          Copied
+        </span>
+      )}
+    </>
+  )
 }
 
 /** Commit trailers below the body, grouped by key; unknown ones stay plain `Key: value` text. */
@@ -64,27 +128,18 @@ function CopyChip({ text }: { text: string }) {
   )
 }
 
-/** Opens through gerrit:open when the URL is on the repo's configured Gerrit (main re-checks the origin); anything else is copied, never opened. */
+/** Opens through main when the URL is on the repo's own provider (useUrlOpener); anything else is copied, never opened. */
 function UrlChip({ repo, url }: { repo: string; url: string }) {
-  const provider = useQuery({ queryKey: ['provider', repo], queryFn: () => window.mendel['provider:get']({ repo }) })
+  const opener = useUrlOpener(repo)
   const [copied, copy] = useCopy()
-  let u: URL
-  try {
-    u = new URL(url)
-  } catch {
-    return <CopyChip text={url} />
-  }
-  const d = provider.data?.detection
-  const gerrit = d?.provider === 'gerrit' && !!d.baseUrl && new URL(d.baseUrl).origin === u.origin
+  if (!URL.canParse(url)) return <CopyChip text={url} />
+  const u = new URL(url)
+  const open = opener(u)
   const parts = u.pathname.split('/').filter(Boolean)
   const short = u.host + (parts.length > 2 ? `/${parts[0]}/…/${parts.at(-1)}` : u.pathname.replace(/\/$/, ''))
   return (
-    <Button
-      className={s.chip}
-      aria-label={gerrit ? `Open ${url} in browser` : `${copied ? 'Copied' : 'Copy'} ${url}`}
-      onPress={() => (gerrit ? void window.mendel['gerrit:open']({ repo, path: u.href }) : copy(url))}
-    >
-      <span title={`${url}\n${gerrit ? 'Click to open' : 'Click to copy'}`}>{short}</span>
+    <Button className={s.chip} aria-label={open ? `Open ${url} in browser` : `${copied ? 'Copied' : 'Copy'} ${url}`} onPress={() => (open ? open() : copy(url))}>
+      <span data-tip={`${url}\n${open ? 'Click to open' : 'Click to copy'}`}>{short}</span>
       {copied && <span className={s.chipNote}>Copied</span>}
     </Button>
   )

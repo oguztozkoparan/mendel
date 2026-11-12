@@ -103,11 +103,58 @@
   }
 }
 
+/* Vesper and Lauds (data-theme, App.tsx): main forces the base scheme, so only the tokens that differ are overridden.
+   window.ts mirrors --bg-side and --fg for the native window controls. Text, muted text, git colours and accents hold
+   4.5:1 on every surface of both. */
+/* Vesper: dusk. An indigo slate, lighter than Dark. */
+:root[data-theme='vesper'] {
+  --border: rgb(255 255 255 / 0.11);
+  --bg: #272b38;
+  --bg-side: rgb(44 49 64 / 0.9);
+  /* muted on glass >= 5:1 on every accent's --bg-selected, also over a mid-grey sidebar material */
+  --muted-glass: #c9cddc;
+  --bg-raised: #303546;
+  --fg: #e4e5ef;
+  --muted: #b0b5c7;
+  --danger: #ff7b7b;
+  --diff-add-bg: #223b31;
+  --diff-add-gutter: #2a4a3c;
+  --diff-del-bg: #42272e;
+  --diff-del-gutter: #53303a;
+  --well: color-mix(in srgb, #2c3140, #000 35%);
+}
+
+/* Lauds: dawn on straw paper. Warm and dimmer than Light; the inks (git colours, accents below) are darker to match. */
+:root[data-theme='lauds'] {
+  --border: rgb(60 45 20 / 0.16);
+  --bg: #ece4d0;
+  --bg-side: rgb(225 216 194 / 0.85);
+  /* muted on glass >= 4.5:1 on every accent's --bg-selected even over a black material (as Light) */
+  --muted-glass: #3d3629;
+  --bg-raised: #f3ecdb;
+  --fg: #2a2418;
+  --muted: #594f40;
+  --danger: #b3261e;
+  --git-add: #166534;
+  --git-mod: #7c4a03;
+  --git-ren: #075985;
+  --diff-add-bg: #dbe7cd;
+  --diff-add-gutter: #c6dbb5;
+  --diff-del-bg: #f1d8ce;
+  --diff-del-gutter: #e7c2b5;
+  --face-top: color-mix(in srgb, var(--bg-raised), #fff 35%);
+  --well: color-mix(in srgb, #e1d8c2, var(--fg) 5%);
+}
+
 :root[data-accent='cyan'] { --accent: light-dark(#0e7490, #67e8f9); --on-accent: light-dark(#ffffff, #062a33); }
 :root[data-accent='cobalt'] { --accent: light-dark(#2457d6, #7aa7ff); --on-accent: light-dark(#ffffff, #071a3d); }
 :root[data-accent='violet'] { --accent: light-dark(#6d28d9, #c4b5fd); --on-accent: light-dark(#ffffff, #1e1037); }
 :root[data-accent='fuchsia'] { --accent: light-dark(#a21caf, #f0abfc); --on-accent: light-dark(#ffffff, #2e0a33); }
 :root[data-accent='graphite'] { --accent: light-dark(#27272a, #e4e4e7); --on-accent: light-dark(#ffffff, #18181b); }
+/* Lauds: the three lighter accents are inked darker to hold 4.5:1 on straw (violet and graphite already do) */
+:root[data-theme='lauds'][data-accent='cyan'] { --accent: #0a5a70; }
+:root[data-theme='lauds'][data-accent='cobalt'] { --accent: #1e4bb8; }
+:root[data-theme='lauds'][data-accent='fuchsia'] { --accent: #931a9f; }
 
 :root {
   --bg-selected: color-mix(in srgb, var(--accent) 14%, transparent);
@@ -587,6 +634,39 @@ select option:disabled {
 [role='row']:has(.hl) {
   position: relative;
   isolation: isolate;
+}
+
+/* Tooltip (Tooltips.tsx): a small concept .menu panel; ignores the pointer, sits above dialogs and popovers,
+   wraps at its max width and breaks long unbroken values; pre-line keeps a multi-line element's line breaks */
+.tooltip {
+  z-index: 1000;
+  max-width: min(360px, calc(100vw - 16px));
+  padding: 4px 8px;
+  border-radius: var(--radius);
+  background: var(--bg-raised);
+  color: var(--fg);
+  box-shadow: inset 0 1px 0 var(--hi), 0 0 0 1px var(--edge), 0 8px 24px var(--drop);
+  font-size: 12px;
+  line-height: 1.4;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+  pointer-events: none;
+  transform-origin: var(--trigger-anchor-point);
+}
+
+.tooltip[data-entering] {
+  animation: tooltip-in 0.12s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.tooltip[data-exiting] {
+  animation: tooltip-in 0.08s ease-in reverse;
+}
+
+@keyframes tooltip-in {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
 }
 
 /* accent and mode crossfade (motion.tsx withTransition) */

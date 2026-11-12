@@ -131,3 +131,56 @@
   flex: 1;
   align-self: center;
 }
+
+/* Git > Profiles row: name over its summary; both end in an ellipsis (tooltip shows the full text) */
+.profile {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-self: center;
+}
+
+.profile > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* fits a short window: the dialog scrolls inside instead of growing past it */
+.profileDialog {
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+}
+
+/* a This repository row: value and source, each ellipsized within the card */
+.fieldValue {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* Use profile / Remove next to a project value */
+.fieldAction {
+  flex: none;
+  align-self: center;
+}
+
+.fieldValue > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profileSelect {
+  width: min(320px, 100%);
+}
+
+/* the ordering-trap notice inside the This repository card */
+.trap {
+  margin: 0;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 10px 14px;
+}

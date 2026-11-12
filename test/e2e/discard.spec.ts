@@ -76,7 +76,8 @@ test('discard all: themed confirm, untracked kept unless ticked, backup stash wi
     expect(read('a.txt')).toBe('a\n')
     expect(read('README.md')).toBe('changed\n')
     await win.getByRole('button', { name: 'Undo' }).click()
-    await expect.poll(() => read('a.txt')).toBe('changed\n')
+    // the file is briefly absent while the stash is restored
+    await expect.poll(() => (existsSync(path.join(fx.work, 'a.txt')) ? read('a.txt') : null)).toBe('changed\n')
     await win.getByRole('searchbox', { name: 'Filter changed files' }).fill('')
 
     // All, untracked not ticked: loose.txt survives.

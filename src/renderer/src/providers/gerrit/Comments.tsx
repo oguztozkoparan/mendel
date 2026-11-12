@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { Button } from 'react-aria-components'
 import type { GerritComment, GerritDraft } from '../../../../shared/gerrit'
+import { Markdown } from '../../Markdown'
 import pc from '../Provider.module.css'
 import s from './Gerrit.module.css'
-import { Markdown } from './Markdown'
 import { shortDate, who } from './util'
 
 export type Pending = GerritDraft & { key: string }
@@ -89,7 +89,20 @@ export function Thread(p: { repo: string; thread: GerritComment[]; fallbackPs: n
             <strong>{who(c.author)}</strong>
             <span className={pc.meta}>{shortDate(c.updated)}</span>
           </div>
-          <Markdown repo={p.repo} text={c.message ?? ''} />
+          <Markdown
+            text={c.message ?? ''}
+            link={({ href, children }) => (
+              <a
+                href={href}
+                onClick={(e) => {
+                  e.preventDefault()
+                  if (href) void window.mendel['gerrit:open']({ repo: p.repo, path: href })
+                }}
+              >
+                {children}
+              </a>
+            )}
+          />
         </div>
       ))}
       {drafts.map((d) => (

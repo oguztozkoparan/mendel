@@ -11,10 +11,14 @@ const ts = (d: string) => `${d} 10:00:00.000000000`
 const CR_VALUES = { '-2': 'This shall not be submitted', '-1': 'I would prefer this is not submitted as is', ' 0': 'No score', '+1': 'Looks good to me, but someone else must approve', '+2': 'Looks good to me, approved' }
 const V_VALUES = { '-1': 'Fails', ' 0': 'No score', '+1': 'Verified' }
 const sha = (c: string) => c.repeat(40)
+/** Stands for the mock's base URL in default commit messages (the port is known only once it listens). */
+const GERRIT_URL = 'http://gerrit.mock'
 
 /** Per revision: file list (FileInfo map incl. /COMMIT_MSG) and diff content blocks per path. */
 export interface MockFile {
   status?: 'A' | 'D' | 'R' | 'M'
+  /** A rename's source path. */
+  old_path?: string
   lines_inserted?: number
   lines_deleted?: number
   /** DiffInfo.content blocks: `{ab}` / `{a,b}` / `{a}` / `{b}` (/ `{skip}`). */
@@ -82,14 +86,17 @@ export function defaultChanges(): MockChange[] {
       hashtags: ['ux'],
       current_revision: sha('b'),
       revisions: {
-        [sha('a')]: { kind: 'REWORK', _number: 1, created: ts('2026-11-01'), uploader: SELF, ref: 'refs/changes/01/101/1', commit: { subject: 'Add feature X' } },
+        [sha('a')]: { kind: 'REWORK', _number: 1, created: ts('2026-11-01'), uploader: SELF, ref: 'refs/changes/01/101/1', commit: { subject: 'Add feature X', message: `Add feature X\n\nFirst draft of feature X.\n\nChange-Id: I${'0'.repeat(37)}101\n` } },
         [sha('b')]: {
           kind: 'REWORK',
           _number: 2,
           created: ts('2026-11-02'),
           uploader: SELF,
           ref: 'refs/changes/01/101/2',
-          commit: { subject: 'Add feature X' },
+          commit: {
+            subject: 'Add feature X',
+            message: `Add feature X\n\nAdds feature X behind a flag.\nKeeps **bold** and <tag> as typed.\nSee https://example.com/spec and ${GERRIT_URL}/c/p/q/+/90\n\nChange-Id: I${'0'.repeat(37)}101\nReviewed-on: ${GERRIT_URL}/c/p/q/+/101\nSigned-off-by: Test User <test@example.com>\n`
+          },
           actions: {
             submit: { method: 'POST', label: 'Submit', title: 'Submit patch set 2 into main', enabled: true },
             rebase: { method: 'POST', label: 'Rebase', title: 'Rebase onto tip of branch or parent change', enabled: true },
@@ -130,7 +137,7 @@ export function defaultChanges(): MockChange[] {
       permitted_labels: { 'Code-Review': ['-1', ' 0', '+1'] },
       reviewers: { REVIEWER: [SELF] },
       current_revision: sha('c'),
-      revisions: { [sha('c')]: { _number: 1, created: ts('2026-11-02'), uploader: OTHER, ref: 'refs/changes/02/102/1', commit: { subject: 'Fix crash in parser' }, actions: {} } },
+      revisions: { [sha('c')]: { _number: 1, created: ts('2026-11-02'), uploader: OTHER, ref: 'refs/changes/02/102/1', commit: { subject: 'Fix crash in parser', message: `Fix crash in parser\n\nChange-Id: I${'0'.repeat(37)}102\n` }, actions: {} } },
       actions: {},
       files: { [sha('c')]: { '/COMMIT_MSG': commitMsg('Fix crash in parser', 102) } }
     }),
@@ -143,7 +150,7 @@ export function defaultChanges(): MockChange[] {
       permitted_labels: {},
       reviewers: { REVIEWER: [SELF] },
       current_revision: sha('d'),
-      revisions: { [sha('d')]: { _number: 1, created: ts('2026-11-02'), uploader: OTHER, ref: 'refs/changes/03/103/1', commit: { subject: 'Draft: refactor' }, actions: {} } },
+      revisions: { [sha('d')]: { _number: 1, created: ts('2026-11-02'), uploader: OTHER, ref: 'refs/changes/03/103/1', commit: { subject: 'Draft: refactor', message: 'Draft: refactor\n' }, actions: {} } },
       actions: {},
       files: { [sha('d')]: { '/COMMIT_MSG': commitMsg('Draft: refactor', 103) } }
     }),
@@ -204,13 +211,23 @@ export async function startGerritMock(opts: GerritMockOptions = {}): Promise<Ger
   const find = (id: string) => changes.find((c) => String(c._number) === id || c.id === id)
   const revOf = (c: MockChange, rev: string) =>
     rev === 'current' ? c.current_revision : Object.keys(c.revisions).find((s) => s === rev || String(c.revisions[s]._number) === rev)
+  // CommitInfo.message only with ALL_COMMITS (every revision) or CURRENT_COMMIT (current revision), as Gerrit does.
+  const commits = (c: MockChange, revisions: Json, o: string[] = []) =>
+    Object.fromEntries(
+      Object.entries<Json>(revisions).map(([s, r]) => {
+        if (!r.commit) return [s, r]
+        const { message, ...commit } = r.commit
+        const keep = message !== undefined && (o.includes('ALL_COMMITS') || (o.includes('CURRENT_COMMIT') && s === c.current_revision))
+        return [s, { ...r, commit: keep ? { ...commit, message: message.replaceAll(GERRIT_URL, server.url) } : commit }]
+      })
+    )
   const summary = (c: MockChange) => {
     const { files: _f, comments: _c, rebaseConflict: _r, related: _rel, messages: _m, revisions, ...rest } = c
-    return { ...rest, revisions: { [c.current_revision]: revisions[c.current_revision] } }
+    return { ...rest, revisions: commits(c, { [c.current_revision]: revisions[c.current_revision] }) }
   }
-  const detail = (c: MockChange) => {
-    const { files: _f, comments: _c, rebaseConflict: _r, related: _rel, ...rest } = c
-    return rest
+  const detail = (c: MockChange, o: string[]) => {
+    const { files: _f, comments: _c, rebaseConflict: _r, related: _rel, revisions, ...rest } = c
+    return { ...rest, revisions: commits(c, revisions, o) }
   }
   const query = (q: string) => {
     const project = /project:"?([^"\s]+)"?/.exec(q)?.[1]
@@ -295,13 +312,13 @@ export async function startGerritMock(opts: GerritMockOptions = {}): Promise<Ger
     const key = `${req.method} ${m[2] ? 'rev/' : ''}${rest.replace(/^files\/[^/]+\/diff$/, 'files/:path/diff')}`
     switch (key) {
       case 'GET detail':
-        return json(detail(c))
+        return json(detail(c, u.searchParams.getAll('o')))
       case 'GET comments':
         return json(c.comments)
       case 'GET rev/related':
         return json({ changes: c.related ?? [] })
       case 'GET rev/files': {
-        const fs = Object.fromEntries(Object.entries(c.files[rev!] ?? {}).map(([p, f]) => [p, { status: f.status, lines_inserted: f.lines_inserted, lines_deleted: f.lines_deleted, size_delta: 0, size: 100 }]))
+        const fs = Object.fromEntries(Object.entries(c.files[rev!] ?? {}).map(([p, f]) => [p, { status: f.status, old_path: f.old_path, lines_inserted: f.lines_inserted, lines_deleted: f.lines_deleted, size_delta: 0, size: 100 }]))
         return json(fs)
       }
       case 'GET rev/files/:path/diff': {

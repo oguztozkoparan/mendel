@@ -95,7 +95,7 @@ export function CommitBox(p: { repo: string; hasStaged: boolean; hint?: CommitHi
       <form className={s.commitBox} onSubmit={submit} onKeyDown={onKeyDown} aria-label="Commit">
         <TextField aria-label="Summary" value={summary} onChange={setSummary} className={s.summaryField}>
           <Input placeholder="Summary (required)" className={s.summary} spellCheck={settings?.spellcheck} />
-          <span className={summary.length > limit ? s.over : s.counter} title={`Keep summaries under ${limit} characters`}>
+          <span className={summary.length > limit ? s.over : s.counter} data-tip={`Keep summaries under ${limit} characters`}>
             {limit - summary.length}
           </span>
         </TextField>
@@ -138,8 +138,8 @@ export function CommitBox(p: { repo: string; hasStaged: boolean; hint?: CommitHi
           </p>
         )}
         <Button type="submit" className={op ? undefined : 'primary'} isDisabled={!canCommit}>
-          {/* a long branch name ends in an ellipsis; the span carries the tooltip (RAC Button takes no title) */}
-          <span className={s.commitLabel} title={commitLabel}>
+          {/* a long branch name ends in an ellipsis on the span (the full label shows in the tooltip) */}
+          <span className={s.commitLabel}>
             {commitLabel}
           </span>
         </Button>
@@ -189,7 +189,7 @@ function MessageEditor(p: {
           </Heading>
           <TextField aria-label="Summary" value={summary} onChange={setSummary} autoFocus className={s.summaryField}>
             <Input placeholder="Summary (required)" className={s.summary} spellCheck={p.spellcheck} />
-            <span className={summary.length > p.limit ? s.over : s.counter} title={`Keep summaries under ${p.limit} characters`}>
+            <span className={summary.length > p.limit ? s.over : s.counter} data-tip={`Keep summaries under ${p.limit} characters`}>
               {p.limit - summary.length}
             </span>
           </TextField>

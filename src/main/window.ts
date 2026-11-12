@@ -2,7 +2,7 @@ import { app, BrowserWindow, nativeTheme, screen, type Rectangle } from 'electro
 import { release } from 'node:os'
 import path from 'node:path'
 import { appEntryUrl } from './security'
-import { getWindowState, setWindowState } from './settings'
+import { getSettings, getWindowState, onSettingsChanged, setWindowState } from './settings'
 
 const MIN = { width: 720, height: 600 }
 /** global.css --toolbar-h: 6px drag strip + 44px toolbar row. */
@@ -26,6 +26,9 @@ export const glass = process.platform === 'darwin' || (process.platform === 'win
  */
 const overlay = () => {
   const dark = nativeTheme.shouldUseDarkColors
+  const theme = getSettings().theme
+  if (theme === 'vesper') return { color: glass ? '#2c3140e6' : '#2c303f', symbolColor: '#e4e5ef', height: TOOLBAR_H }
+  if (theme === 'lauds') return { color: glass ? '#e1d8c2d9' : '#e3dac4', symbolColor: '#2a2418', height: TOOLBAR_H }
   const color = glass ? (dark ? '#161c22e6' : '#f6f8fad9') : dark ? '#141a1f' : '#f9fbfc'
   return { color, symbolColor: dark ? '#e8eef2' : '#0f171e', height: TOOLBAR_H }
 }
@@ -63,7 +66,9 @@ export function createMainWindow(): BrowserWindow {
   if (!mac) {
     const update = () => win.setTitleBarOverlay(overlay())
     nativeTheme.on('updated', update)
-    win.on('closed', () => nativeTheme.off('updated', update))
+    // Dark <-> Vesper keeps nativeTheme as is, so 'updated' does not fire.
+    const off = onSettingsChanged(update)
+    win.on('closed', () => (nativeTheme.off('updated', update), off()))
   }
   void win.loadURL(appEntryUrl)
   return win

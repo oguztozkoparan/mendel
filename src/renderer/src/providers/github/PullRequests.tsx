@@ -1,14 +1,17 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { RefreshCw } from 'lucide-react'
 import { AnimatePresence } from 'motion/react'
-import { useId, useState } from 'react'
+import { useId, useState, type ReactNode } from 'react'
 import { Button, ListBox, ListBoxItem } from 'react-aria-components'
-import { GITHUB_AUTH_ERROR, GITHUB_NOT_VISIBLE, type GithubPull } from '../../../../shared/github'
+import { GITHUB_AUTH_ERROR, GITHUB_NOT_VISIBLE, githubLink, onGithub, type GithubPull } from '../../../../shared/github'
 import type { ProviderState } from '../../../../shared/ipc'
 import a from '../../App.module.css'
 import { refreshRepo, useBranches } from '../../Branches'
 import c from '../../Changes.module.css'
+import { useCopy } from '../../CommitTrailers'
 import { PaneBanners } from '../../ErrorBanner'
+import { Markdown } from '../../Markdown'
+import md from '../../Markdown.module.css'
 import { Highlight } from '../../motion'
 import { useSettings } from '../../Settings'
 import { ago } from '../../time'
@@ -62,7 +65,7 @@ export function PullRequests({ repo, state }: { repo: string; state: ProviderSta
   else if (pulls.error?.message === GITHUB_NOT_VISIBLE)
     main = (
       <div className={`${a.card} ${s.signin}`} role="region" aria-label="GitHub App cannot see the repository">
-        <p className={`${s.login} ${s.strong}`} title={`GitHub App cannot see ${project}`}>
+        <p className={`${s.login} ${s.strong}`}>
           GitHub App cannot see {project}
         </p>
         <p>Install the GitHub App on this repository (or ask its owner to), then refresh.</p>
@@ -82,7 +85,7 @@ export function PullRequests({ repo, state }: { repo: string; state: ProviderSta
   else
     main = (
       <div className={`${a.card} ${s.signin}`} role="region" aria-label="GitHub account">
-        <p className={`${s.login} ${s.strong}`} title={`Signed in as ${login}`}>
+        <p className={`${s.login} ${s.strong}`}>
           Signed in as {login}
         </p>
         {!persisted && <p>No OS keychain available: you stay signed in for this session only.</p>}
@@ -95,7 +98,7 @@ export function PullRequests({ repo, state }: { repo: string; state: ProviderSta
       <aside className={a.side}>
         {signedIn && (
           <div className={pc.sideHeader}>
-            <span className={pc.grow} title={project}>
+            <span className={pc.grow}>
               {project}
             </span>
             <Button className="ghost" aria-label="Refresh pull requests" onPress={() => void pulls.refetch()}>
@@ -105,7 +108,7 @@ export function PullRequests({ repo, state }: { repo: string; state: ProviderSta
         )}
         {signedIn && canCreate && (
           <Button className={s.more} onPress={() => (setCreateError(null), void window.mendel['github:createPull']({ repo }).catch((e: Error) => setCreateError(e.message)))}>
-            <span title={`Create pull request from ${current!.name}`}>Create pull request</span>
+            <span data-tip={`Create pull request from ${current!.name}`}>Create pull request</span>
           </Button>
         )}
         {signedIn && canCreate && createError && (
@@ -128,10 +131,10 @@ export function PullRequests({ repo, state }: { repo: string; state: ProviderSta
                   <>
                     {isSelected && <Highlight id="sel-pulls" />}
                     <span className={pc.changeText}>
-                      <span className={pc.subject} title={p.title}>
+                      <span className={pc.subject}>
                         {p.title}
                       </span>
-                      <span className={pc.meta} title={`${p.draft ? 'Draft · ' : ''}#${p.number} · ${p.user.login} · ${ago(Date.parse(p.updated_at))}`}>
+                      <span className={pc.meta} data-tip={`${p.draft ? 'Draft · ' : ''}#${p.number} · ${p.user.login} · ${ago(Date.parse(p.updated_at))}`}>
                         {p.draft && <span className={s.draft}>Draft</span>}#{p.number} · {p.user.login} · {ago(Date.parse(p.updated_at))}
                       </span>
                     </span>
@@ -166,7 +169,7 @@ export function PullRequests({ repo, state }: { repo: string; state: ProviderSta
 
 const FORK = 'Fork pull requests: check out on GitHub'
 
-/** Detail of one pull request (from the list; no extra request). The body is plain text: no Markdown, HTML or images. */
+/** Detail of one pull request (from the list; no extra request). The body is GitHub-flavoured Markdown: no raw HTML, images not loaded. */
 function PullDetail({ repo, project, pr }: { repo: string; project: string; pr: GithubPull }) {
   const qc = useQueryClient()
   const [busy, setBusy] = useState(false)
@@ -189,10 +192,10 @@ function PullDetail({ repo, project, pr }: { repo: string; project: string; pr: 
     <div className={`${pc.detail} ${s.pull}`}>
       <header className={pc.detailHeader}>
         <h2>{pr.title}</h2>
-        <div className={pc.meta} title={`${pr.draft ? 'Draft · ' : ''}#${pr.number} · ${pr.user.login} · updated ${ago(Date.parse(pr.updated_at))}`}>
+        <div className={pc.meta} data-tip={`${pr.draft ? 'Draft · ' : ''}#${pr.number} · ${pr.user.login} · updated ${ago(Date.parse(pr.updated_at))}`}>
           {pr.draft && <span className={s.draft}>Draft</span>}#{pr.number} · {pr.user.login} · updated {ago(Date.parse(pr.updated_at))}
         </div>
-        <div className={pc.meta} title={`${head} → ${pr.base.ref}`} aria-label="Branches">
+        <div className={pc.meta} aria-label="Branches">
           {head} → {pr.base.ref}
         </div>
         <div className={pc.toolbarRow}>
@@ -202,20 +205,62 @@ function PullDetail({ repo, project, pr }: { repo: string; project: string; pr: 
           </Button>
           {/* visible for keyboard users (a disabled button takes no focus); screen readers get it as the button's description */}
           {fork && (
-            <span id={reason} className={pc.meta} title={FORK} aria-hidden>
+            <span id={reason} className={pc.meta} aria-hidden>
               {FORK}
             </span>
           )}
           {notice && (
-            <span role={notice.error ? 'alert' : 'status'} className={notice.error ? a.error : pc.meta} title={notice.text}>
+            <span role={notice.error ? 'alert' : 'status'} className={notice.error ? a.error : pc.meta}>
               {notice.text}
             </span>
           )}
         </div>
       </header>
-      <section aria-label="Description" className={s.body}>
-        {pr.body?.trim() ? pr.body : <span className={pc.meta}>No description</span>}
+      <section aria-label="Description" className={`${s.body} ${md.markdown}`} tabIndex={0}>
+        {pr.body?.trim() ? (
+          <Markdown
+            gfm
+            text={pr.body}
+            link={({ href, children }) => (
+              <BodyLink repo={repo} project={project} href={href}>
+                {children}
+              </BodyLink>
+            )}
+          />
+        ) : (
+          <span className={pc.meta}>No description</span>
+        )}
       </section>
     </div>
+  )
+}
+
+/** A link in a pull request body: main opens it when it is on github.com (and checks again); any other URL is copied, never opened. */
+function BodyLink({ repo, project, href, children }: { repo: string; project: string; href?: string; children?: ReactNode }) {
+  const [copied, copy] = useCopy()
+  // href is '' when react-markdown's urlTransform dropped an unsafe scheme (javascript:, data:, file:...).
+  // Footnote links (remark-gfm, '#user-content-fn…') are in-page anchors: plain text, not the repository page.
+  const u = href ? githubLink(project, href) : null
+  if (!href || !u || href.startsWith('#user-content-fn')) return <>{children}</>
+  const open = onGithub(u)
+  return (
+    <>
+      <a
+        href={u.href}
+        data-tip={`${u.href}\n${open ? 'Click to open' : 'Click to copy'}`}
+        onClick={(e) => {
+          e.preventDefault()
+          if (open) void window.mendel['github:openLink']({ repo, href })
+          else copy(u.href)
+        }}
+      >
+        {children}
+      </a>
+      {copied && (
+        <span role="status" className={s.copied}>
+          Copied
+        </span>
+      )}
+    </>
   )
 }

@@ -7,7 +7,7 @@ import { launchApp, openRepo } from './launch'
 
 test('history lists commits newest first; selecting shows message, files and diff', async () => {
   const fx = createRepoFixture()
-  fx.commitFile('a.txt', 'hello\n', 'Add a\n\nWhy a exists')
+  fx.commitFile('a.txt', 'hello\n', 'Add a\n\nWhy a exists\n\n- one `code`\n- two')
   const sha = fx.commitFile('b.txt', 'bee\n', 'Add b')
   const app = await launchApp(fx.env)
   const { win } = app
@@ -28,6 +28,10 @@ test('history lists commits newest first; selecting shows message, files and dif
     await list.getByRole('row', { name: /Add a/ }).click()
     await expect(detail.getByRole('heading', { name: 'Add a' })).toBeVisible()
     await expect(detail).toContainText('Why a exists')
+    // the message body is Markdown
+    const message = detail.getByRole('region', { name: 'Commit message' })
+    await expect(message.getByRole('listitem')).toHaveText(['one code', 'two'])
+    await expect(message.locator('code')).toHaveText('code')
     await expect(detail.getByRole('listbox', { name: 'Changed files' })).toContainText('a.txt')
     await expect(win.getByLabel('Commit diff')).toContainText('hello')
   } finally {
@@ -212,7 +216,8 @@ test('filter a commit’s changed files by path; selection kept while visible; E
     await expect(files.getByRole('option', { name: 'app.css' })).toHaveAttribute('aria-selected', 'true')
     await expect(win.getByLabel('Commit diff')).toContainText('src/app.css')
     await filter.fill('other')
-    await expect(files.getByRole('option')).toHaveText([/src\/Other.ts/])
+    await expect(files.getByRole('option')).toHaveCount(1)
+    await expect(files.getByRole('option', { name: 'src/Other.ts' })).toBeVisible()
     await expect(files.getByRole('option').first()).toHaveAttribute('aria-selected', 'true')
     await expect(win.getByLabel('Commit diff')).toContainText('other')
     await filter.fill('nothing-matches')
@@ -239,7 +244,7 @@ test('commit trailers render as chips: person card with email, Change-Id copies,
     const detail = win.getByLabel('Commit detail')
     const trailers = detail.getByLabel('Trailers')
     await expect(detail).toContainText('Body line.')
-    await expect(detail.locator('pre')).not.toContainText('Change-Id')
+    await expect(detail.getByRole('region', { name: 'Commit message' })).not.toContainText('Change-Id')
     await expect(trailers).toContainText('Reviewed by')
     await expect(trailers).toContainText('Bug: 42')
 

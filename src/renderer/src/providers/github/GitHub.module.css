@@ -31,6 +31,12 @@
   user-select: text;
 }
 
+/* a tab stop so the keyboard can scroll it (same ring as Changes.module.css .capText) */
+.body:focus-visible {
+  outline: none;
+  box-shadow: inset var(--focus);
+}
+
 .hint {
   margin: 0;
   color: var(--muted);
@@ -50,20 +56,26 @@
   margin: 8px;
 }
 
-/* Selected pull request fills the main pane so the body scrolls on its own. */
+/* Selected pull request fills the main pane so the body scrolls on its own: nothing sits below it, so the pane's height is its cap. */
 .pull {
   height: 100%;
   min-height: 0;
 }
 
-/* Body as plain text: never wider than the pane, its own scroll. */
+/* Body as rendered Markdown (Markdown.module.css): never wider than the pane, its own scroll. */
 .body {
   flex: 1;
   min-height: 0;
   overflow: auto;
   margin: 0;
   padding: 16px 26px;
-  white-space: pre-wrap;
   overflow-wrap: anywhere;
   user-select: text;
+}
+
+/* "Copied" after a body link that is not on github.com */
+.copied {
+  margin-left: 4px;
+  color: var(--muted);
+  font-size: 11px;
 }
