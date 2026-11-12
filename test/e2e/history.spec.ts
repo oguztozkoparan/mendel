@@ -244,7 +244,7 @@ test('commit trailers render as chips: person card with email, Change-Id copies,
     const detail = win.getByLabel('Commit detail')
     const trailers = detail.getByLabel('Trailers')
     await expect(detail).toContainText('Body line.')
-    await expect(detail.locator('pre')).not.toContainText('Change-Id')
+    await expect(detail.getByRole('region', { name: 'Commit message' })).not.toContainText('Change-Id')
     await expect(trailers).toContainText('Reviewed by')
     await expect(trailers).toContainText('Bug: 42')
 
