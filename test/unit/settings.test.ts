@@ -13,9 +13,9 @@ describe('settings file validation', () => {
       summaryLimit: 50
     })
   })
-  it('accepts the soft themes; an unknown theme falls back to the default', () => {
-    expect(parseSettings({ theme: 'soft-dark' }).theme).toBe('soft-dark')
-    expect(parseSettings({ theme: 'soft-light' }).theme).toBe('soft-light')
+  it('accepts Vesper and Lauds; an unknown theme falls back to the default', () => {
+    expect(parseSettings({ theme: 'vesper' }).theme).toBe('vesper')
+    expect(parseSettings({ theme: 'lauds' }).theme).toBe('lauds')
     expect(parseSettings({ theme: 'sepia' }).theme).toBe(DEFAULTS.theme)
   })
   it('window state needs finite numbers', () => {

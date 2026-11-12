@@ -103,39 +103,47 @@
   }
 }
 
-/* Soft themes (data-theme, App.tsx): main forces the base scheme, so only the tokens that differ are overridden.
-   window.ts mirrors --bg-side and --fg for the native window controls. */
-:root[data-theme='soft-dark'] {
-  --border: rgb(255 255 255 / 0.1);
-  --bg: #1d232a;
-  --bg-side: rgb(33 40 48 / 0.9);
-  /* muted on glass >= 5:1 on every accent's --bg-selected, measured over the macOS sidebar material */
-  --muted-glass: #bcc6cd;
-  --bg-raised: #252c34;
-  --fg: #dfe5ea;
-  --muted: #97a3ad;
-  --diff-add-bg: #1a3127;
-  --diff-add-gutter: #203f2f;
-  --diff-del-bg: #371f23;
-  --diff-del-gutter: #48272c;
-  --well: color-mix(in srgb, #212830, #000 35%);
+/* Vesper and Lauds (data-theme, App.tsx): main forces the base scheme, so only the tokens that differ are overridden.
+   window.ts mirrors --bg-side and --fg for the native window controls. Text, muted text, git colours and accents hold
+   4.5:1 on every surface of both. */
+/* Vesper: dusk. An indigo slate, lighter than Dark. */
+:root[data-theme='vesper'] {
+  --border: rgb(255 255 255 / 0.11);
+  --bg: #272b38;
+  --bg-side: rgb(44 49 64 / 0.9);
+  /* muted on glass >= 5:1 on every accent's --bg-selected, also over a mid-grey sidebar material */
+  --muted-glass: #c9cddc;
+  --bg-raised: #303546;
+  --fg: #e4e5ef;
+  --muted: #b0b5c7;
+  --danger: #ff7b7b;
+  --diff-add-bg: #223b31;
+  --diff-add-gutter: #2a4a3c;
+  --diff-del-bg: #42272e;
+  --diff-del-gutter: #53303a;
+  --well: color-mix(in srgb, #2c3140, #000 35%);
 }
 
-:root[data-theme='soft-light'] {
-  --border: rgb(30 26 18 / 0.13);
-  --bg: #f4f3f0;
-  --bg-side: rgb(233 232 228 / 0.85);
+/* Lauds: dawn on straw paper. Warm and dimmer than Light; the inks (git colours, accents below) are darker to match. */
+:root[data-theme='lauds'] {
+  --border: rgb(60 45 20 / 0.16);
+  --bg: #ece4d0;
+  --bg-side: rgb(225 216 194 / 0.85);
   /* muted on glass >= 4.5:1 on every accent's --bg-selected even over a black material (as Light) */
-  --muted-glass: #3a444d;
-  --bg-raised: #f8f7f4;
-  --fg: #1c2329;
-  --muted: #565f67;
-  --diff-add-bg: #e0f0e5;
-  --diff-add-gutter: #c7e5d1;
-  --diff-del-bg: #f6e3e1;
-  --diff-del-gutter: #eecbc8;
+  --muted-glass: #3d3629;
+  --bg-raised: #f3ecdb;
+  --fg: #2a2418;
+  --muted: #594f40;
+  --danger: #b3261e;
+  --git-add: #166534;
+  --git-mod: #7c4a03;
+  --git-ren: #075985;
+  --diff-add-bg: #dbe7cd;
+  --diff-add-gutter: #c6dbb5;
+  --diff-del-bg: #f1d8ce;
+  --diff-del-gutter: #e7c2b5;
   --face-top: color-mix(in srgb, var(--bg-raised), #fff 35%);
-  --well: color-mix(in srgb, #e9e8e4, var(--fg) 5%);
+  --well: color-mix(in srgb, #e1d8c2, var(--fg) 5%);
 }
 
 :root[data-accent='cyan'] { --accent: light-dark(#0e7490, #67e8f9); --on-accent: light-dark(#ffffff, #062a33); }
@@ -143,6 +151,10 @@
 :root[data-accent='violet'] { --accent: light-dark(#6d28d9, #c4b5fd); --on-accent: light-dark(#ffffff, #1e1037); }
 :root[data-accent='fuchsia'] { --accent: light-dark(#a21caf, #f0abfc); --on-accent: light-dark(#ffffff, #2e0a33); }
 :root[data-accent='graphite'] { --accent: light-dark(#27272a, #e4e4e7); --on-accent: light-dark(#ffffff, #18181b); }
+/* Lauds: the three lighter accents are inked darker to hold 4.5:1 on straw (violet and graphite already do) */
+:root[data-theme='lauds'][data-accent='cyan'] { --accent: #0a5a70; }
+:root[data-theme='lauds'][data-accent='cobalt'] { --accent: #1e4bb8; }
+:root[data-theme='lauds'][data-accent='fuchsia'] { --accent: #931a9f; }
 
 :root {
   --bg-selected: color-mix(in srgb, var(--accent) 14%, transparent);

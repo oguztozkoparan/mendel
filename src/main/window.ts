@@ -27,8 +27,8 @@ export const glass = process.platform === 'darwin' || (process.platform === 'win
 const overlay = () => {
   const dark = nativeTheme.shouldUseDarkColors
   const theme = getSettings().theme
-  if (theme === 'soft-dark') return { color: glass ? '#212830e6' : '#21282f', symbolColor: '#dfe5ea', height: TOOLBAR_H }
-  if (theme === 'soft-light') return { color: glass ? '#e9e8e4d9' : '#ebeae6', symbolColor: '#1c2329', height: TOOLBAR_H }
+  if (theme === 'vesper') return { color: glass ? '#2c3140e6' : '#2c303f', symbolColor: '#e4e5ef', height: TOOLBAR_H }
+  if (theme === 'lauds') return { color: glass ? '#e1d8c2d9' : '#e3dac4', symbolColor: '#2a2418', height: TOOLBAR_H }
   const color = glass ? (dark ? '#161c22e6' : '#f6f8fad9') : dark ? '#141a1f' : '#f9fbfc'
   return { color, symbolColor: dark ? '#e8eef2' : '#0f171e', height: TOOLBAR_H }
 }
@@ -66,7 +66,7 @@ export function createMainWindow(): BrowserWindow {
   if (!mac) {
     const update = () => win.setTitleBarOverlay(overlay())
     nativeTheme.on('updated', update)
-    // Dark <-> Soft dark keeps nativeTheme as is, so 'updated' does not fire.
+    // Dark <-> Vesper keeps nativeTheme as is, so 'updated' does not fire.
     const off = onSettingsChanged(update)
     win.on('closed', () => (nativeTheme.off('updated', update), off()))
   }
