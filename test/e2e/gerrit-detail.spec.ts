@@ -55,7 +55,7 @@ test('change detail: header, labels, files with Commit Message first, side-by-si
   expect(await g.app.evaluate(({ clipboard }) => clipboard.readText())).toBe('git fetch origin refs/changes/01/101/2 && git checkout FETCH_HEAD')
 })
 
-test('change description: the selected patch set\'s message body as plain text, trailers as in History; nothing without a body', async () => {
+test('change description: the selected patch set\'s message body as Markdown with its line breaks, HTML as text, trailers as in History; nothing without a body', async () => {
   g = await launchGerrit(mock)
   const { win } = g
   await connectGerrit(win, mock)
@@ -63,10 +63,23 @@ test('change description: the selected patch set\'s message body as plain text, 
   expect(mock.find('GET', '/detail?').at(-1)!.url).toContain('o=ALL_COMMITS')
 
   const desc = win.getByRole('region', { name: 'Change description' })
-  // subject only as the heading; body literal (no Markdown, no HTML), trailers split off
-  expect(await desc.textContent()).toBe('Adds feature X behind a flag.\nKeeps **not bold** and <tag> as typed.')
-  await expect(desc.locator('*')).toHaveCount(0)
+  // subject only as the heading; body as Markdown: one paragraph that keeps its line breaks, HTML-looking text literal, trailers split off
+  expect(await desc.textContent()).toBe(`Adds feature X behind a flag.\nKeeps bold and <tag> as typed.\nSee https://example.com/spec and ${mock.url}/c/p/q/+/90`)
+  await expect(desc.locator('p')).toHaveCount(1)
+  await expect(desc.locator('p')).toHaveCSS('white-space', 'pre-wrap')
+  await expect(desc.locator('strong')).toHaveText('bold')
+  await expect(desc.locator('tag, img, script')).toHaveCount(0)
   await expect(desc).toHaveAttribute('tabindex', '0')
+  // a link on the configured Gerrit opens through main; any other is copied, never opened
+  await g.app.evaluate(({ shell }) => {
+    shell.openExternal = async (u: string) => void ((globalThis as { __opened?: string }).__opened = u)
+  })
+  await desc.getByRole('link', { name: 'https://example.com/spec' }).click()
+  await expect(desc.getByRole('status')).toHaveText('Copied')
+  await expect.poll(() => g!.app.evaluate(({ clipboard }) => clipboard.readText())).toBe('https://example.com/spec')
+  expect(await g.app.evaluate(() => (globalThis as { __opened?: string }).__opened)).toBeUndefined()
+  await desc.getByRole('link', { name: `${mock.url}/c/p/q/+/90` }).click()
+  await expect.poll(() => g!.app.evaluate(() => (globalThis as { __opened?: string }).__opened)).toBe(`${mock.url}/c/p/q/+/90`)
   const trailers = win.getByLabel('Trailers')
   await expect(trailers).toContainText('Change-ID')
   await expect(trailers).toContainText('Reviewed on')
@@ -75,9 +88,6 @@ test('change description: the selected patch set\'s message body as plain text, 
   await trailers.getByRole('button', { name: `Copy ${changeId}` }).click()
   await expect.poll(() => g!.app.evaluate(({ clipboard }) => clipboard.readText())).toBe(changeId)
   // Reviewed-on on the configured Gerrit opens through gerrit:open, as in History
-  await g.app.evaluate(({ shell }) => {
-    shell.openExternal = async (u: string) => void ((globalThis as { __opened?: string }).__opened = u)
-  })
   await trailers.getByRole('button', { name: `Open ${mock.url}/c/p/q/+/101 in browser` }).click()
   await expect.poll(() => g!.app.evaluate(() => (globalThis as { __opened?: string }).__opened)).toBe(`${mock.url}/c/p/q/+/101`)
 

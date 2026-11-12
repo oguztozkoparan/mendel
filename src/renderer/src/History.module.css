@@ -127,8 +127,6 @@
 .message {
   margin: 16px 0 0;
   padding: 0 max(26px, calc(100% - 68ch - 26px)) 0 26px;
-  font: inherit;
-  white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 

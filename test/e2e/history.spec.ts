@@ -7,7 +7,7 @@ import { launchApp, openRepo } from './launch'
 
 test('history lists commits newest first; selecting shows message, files and diff', async () => {
   const fx = createRepoFixture()
-  fx.commitFile('a.txt', 'hello\n', 'Add a\n\nWhy a exists')
+  fx.commitFile('a.txt', 'hello\n', 'Add a\n\nWhy a exists\n\n- one `code`\n- two')
   const sha = fx.commitFile('b.txt', 'bee\n', 'Add b')
   const app = await launchApp(fx.env)
   const { win } = app
@@ -28,6 +28,10 @@ test('history lists commits newest first; selecting shows message, files and dif
     await list.getByRole('row', { name: /Add a/ }).click()
     await expect(detail.getByRole('heading', { name: 'Add a' })).toBeVisible()
     await expect(detail).toContainText('Why a exists')
+    // the message body is Markdown
+    const message = detail.getByRole('region', { name: 'Commit message' })
+    await expect(message.getByRole('listitem')).toHaveText(['one code', 'two'])
+    await expect(message.locator('code')).toHaveText('code')
     await expect(detail.getByRole('listbox', { name: 'Changed files' })).toContainText('a.txt')
     await expect(win.getByLabel('Commit diff')).toContainText('hello')
   } finally {
