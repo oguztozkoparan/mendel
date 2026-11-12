@@ -240,7 +240,7 @@ function ChangeRow({ ch, me, hl }: { ch: GerritChange; me: number | null; hl: st
   return (
     <>
       {hl && <Highlight id={hl} />}
-      <span className={s.avatar} title={who(ch.owner)} aria-hidden>
+      <span className={s.avatar} data-tip={who(ch.owner)} aria-hidden>
         {initial(ch.owner)}
       </span>
       <span className={pc.changeText}>

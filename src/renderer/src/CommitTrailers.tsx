@@ -84,7 +84,7 @@ function UrlChip({ repo, url }: { repo: string; url: string }) {
       aria-label={gerrit ? `Open ${url} in browser` : `${copied ? 'Copied' : 'Copy'} ${url}`}
       onPress={() => (gerrit ? void window.mendel['gerrit:open']({ repo, path: u.href }) : copy(url))}
     >
-      <span title={`${url}\n${gerrit ? 'Click to open' : 'Click to copy'}`}>{short}</span>
+      <span data-tip={`${url}\n${gerrit ? 'Click to open' : 'Click to copy'}`}>{short}</span>
       {copied && <span className={s.chipNote}>Copied</span>}
     </Button>
   )

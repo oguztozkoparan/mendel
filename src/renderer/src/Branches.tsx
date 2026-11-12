@@ -221,7 +221,7 @@ export function WorktreeSelector(p: { repo: string; repoName: string; onError(e:
       <DialogTrigger isOpen={open} onOpenChange={(o) => (setOpen(o), o && void worktrees.refetch())}>
         <Button className={`${s.trigger} ${s.narrow}`} aria-label={`Worktree ${label}`}>
           <FolderTree size={14} aria-hidden />
-          <span className={s.triggerText} title={cur?.path}>
+          <span className={s.triggerText} data-tip={cur?.path}>
             <small>Worktree</small>
             {label}
           </span>
@@ -252,13 +252,13 @@ export function WorktreeSelector(p: { repo: string; repoName: string; onError(e:
                                 {w.branch ?? `${w.head?.slice(0, 7) ?? 'No commit'} (detached)`}
                               </span>
                               {/* folder name only, so long paths don't widen the menu; full path on hover */}
-                              <small title={w.path}>
+                              <small data-tip={w.path}>
                                 {w.prunable ? 'Missing: ' : w.main ? 'Main worktree · ' : ''}
                                 {w.path.split(/[\\/]/).pop()}
                               </small>
                             </div>
                             {w.locked !== null && (
-                              <span role="img" aria-label={w.locked ? `Locked: ${w.locked}` : 'Locked'} title={w.locked ? `Locked: ${w.locked}` : 'Locked'}>
+                              <span role="img" aria-label={w.locked ? `Locked: ${w.locked}` : 'Locked'} data-tip={w.locked ? `Locked: ${w.locked}` : 'Locked'}>
                                 <Lock size={14} aria-hidden />
                               </span>
                             )}

@@ -21,6 +21,20 @@ const overflow = (win: Page) =>
       .map((el) => `${el.tagName}.${el.className} "${(el.textContent ?? '').slice(0, 30)}" ${el.scrollWidth}/${el.clientWidth} right=${Math.round(el.getBoundingClientRect().right)}`)
   })
 
+/** Hovers `loc`: its tooltip shows `text` fully inside the window; `null`: no tooltip shows (after the open delay). */
+const tooltip = async (win: Page, loc: ReturnType<Page['locator']>, text: string | RegExp | null) => {
+  await win.mouse.move(0, 0)
+  await loc.hover()
+  const tip = win.getByRole('tooltip')
+  if (text === null) {
+    await win.waitForTimeout(1000)
+    await expect(tip).toHaveCount(0)
+    return
+  }
+  await expect(tip).toHaveText(text)
+  await expect(tip).toBeInViewport({ ratio: 1 })
+}
+
 /** Each sidebar tab's label: text box (from a Range over its text node) and its tab box. */
 const tabLabels = (win: Page) =>
   win.evaluate(() =>
@@ -58,6 +72,41 @@ test('no horizontal overflow or clipped buttons at the minimum window width', as
     await app.app.evaluate(({ BrowserWindow }, w) => BrowserWindow.getAllWindows()[0]!.setSize(w, 700), min[0]!)
     await win.getByRole('button', { name: 'Settings' }).click()
     expect(await overflow(win), 'Settings').toEqual([])
+  } finally {
+    await app.close()
+    fx.cleanup()
+  }
+})
+
+test('tooltips stay inside the minimum window: icon button at the right edge, truncated text; fitting text shows none', async () => {
+  const fx = createRepoFixture()
+  const long = 'some/deeply/nested/folder/with-a-rather-long-file-name-that-cannot-fit-the-changes-list.txt'
+  fx.commitFile(long, 'one\n', 'add file')
+  writeFileSync(path.join(fx.work, long), 'one\ntwo\n')
+  writeFileSync(path.join(fx.work, 'b.txt'), 'b\n')
+  const app = await launchApp(fx.env)
+  const { win } = app
+  try {
+    const min = await app.app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.getMinimumSize())
+    await app.app.evaluate(({ BrowserWindow }, [w, h]) => BrowserWindow.getAllWindows()[0]!.setSize(w, h), min as [number, number])
+    await expect.poll(() => win.evaluate(() => window.innerWidth)).toBeLessThanOrEqual(min[0]!)
+    await openRepo(app, fx.work)
+    // icon-only button: its name in the tooltip, not repeated as its description
+    const settings = win.getByRole('button', { name: 'Settings' })
+    await tooltip(win, settings, 'Settings')
+    await expect(settings).toHaveAccessibleDescription('')
+    expect(await overflow(win), 'icon button tooltip').toEqual([])
+    await tooltip(win, win.getByRole('row', { name: /with-a-rather-long-file-name/ }).getByText(long), long)
+    expect(await overflow(win), 'truncated text tooltip').toEqual([])
+    await tooltip(win, win.getByRole('row', { name: /b\.txt/ }).getByText('b.txt', { exact: true }), null)
+    // keyboard focus shows it too; Escape hides it
+    await win.mouse.move(0, 0)
+    await settings.focus()
+    await win.keyboard.press('Shift+Tab')
+    await win.keyboard.press('Tab')
+    await expect(win.getByRole('tooltip')).toHaveText('Settings')
+    await win.keyboard.press('Escape')
+    await expect(win.getByRole('tooltip')).toHaveCount(0)
   } finally {
     await app.close()
     fx.cleanup()
@@ -130,6 +179,8 @@ test('Settings → Git providers fits the minimum window with a long Gerrit host
     await card.getByRole('button', { name: 'Sign in…' }).click()
     await expect(card).toContainText(`Signed in as ${github.login}`)
     expect(await overflow(win), 'Git providers').toEqual([])
+    // a truncated host inside the dialog: its tooltip shows above the dialog, inside the window
+    await tooltip(win, settings.getByRole('region', { name: 'Gerrit' }).getByText(host, { exact: true }), host)
     const box = (await settings.boundingBox())!
     const size = await win.evaluate(() => [window.innerWidth, window.innerHeight])
     expect(box.x >= 0 && box.y >= 0 && box.x + box.width <= size[0]! && box.y + box.height <= size[1]!, 'Settings inside the window').toBe(true)
@@ -166,9 +217,11 @@ test('GitHub Pull requests list and detail fit the minimum window with very long
     for (const b of [create, win.getByRole('button', { name: 'More on GitHub' }), win.getByRole('button', { name: 'Refresh pull requests' })]) {
       await expect(b).toBeInViewport({ ratio: 1 })
     }
-    await expect(create.getByTitle('Create pull request from main')).toBeVisible()
-    const project = win.getByTitle('an-organization-with-a-long-name/a-repository-name-that-goes-on-and-on-and-on', { exact: true })
+    await tooltip(win, create, 'Create pull request from main')
+    const project = win.getByText('an-organization-with-a-long-name/a-repository-name-that-goes-on-and-on-and-on', { exact: true })
     expect(await project.evaluate((el) => getComputedStyle(el).textOverflow === 'ellipsis' && el.scrollWidth > el.clientWidth), 'project ends in an ellipsis').toBe(true)
+    await tooltip(win, project, 'an-organization-with-a-long-name/a-repository-name-that-goes-on-and-on-and-on')
+    await tooltip(win, win.getByRole('button', { name: 'Refresh pull requests' }), 'Refresh pull requests')
     expect(await overflow(win), 'Pull requests sidebar').toEqual([])
     const row = win.getByRole('option', { name: new RegExp(title) })
     await row.click()
@@ -181,11 +234,13 @@ test('GitHub Pull requests list and detail fit the minimum window with very long
     const ellipsis = (loc: ReturnType<Page['locator']>) => loc.evaluate((el) => getComputedStyle(el).textOverflow === 'ellipsis' && el.scrollWidth > el.clientWidth)
     const rowTitle = row.getByText(title)
     expect(await ellipsis(rowTitle), 'row title ends in an ellipsis').toBe(true)
-    await expect(rowTitle).toHaveAttribute('title', title)
+    await tooltip(win, rowTitle, title)
+    // explicit text (data-tip): the draft badge reads as a separate word, not "Draft#12345"
+    await tooltip(win, row.getByText(/#12345 · a-github-login/), /^Draft · #12345 · a-github-login-that-is-very-long-indeed-and-goes-on · /)
     const branches = win.getByLabel('Branches')
     expect(await ellipsis(branches), 'branches end in an ellipsis').toBe(true)
     // mockPull heads are o/r: from this repo that is a fork, shown as owner/repo:branch
-    await expect(branches).toHaveAttribute('title', `o/r:${head} → ${base}`)
+    await tooltip(win, branches, `o/r:${head} → ${base}`)
     mock.pullsMode = 'notFound'
     await win.getByRole('button', { name: 'Refresh pull requests' }).click()
     await expect(win.getByRole('region', { name: 'GitHub App cannot see the repository' })).toBeVisible()
@@ -215,11 +270,12 @@ test('GitHub signed-in card fits the minimum window with a 39-character login an
       mock.login = login
       await win.getByRole('button', { name: 'Sign in…' }).click()
       const card = win.getByRole('region', { name: 'GitHub account' })
-      const line = card.getByTitle(`Signed in as ${login}`)
-      await expect(line).toHaveText(`Signed in as ${login}`)
+      const line = card.getByText(`Signed in as ${login}`, { exact: true })
+      await expect(line).toBeVisible()
       expect(await overflow(win), login).toEqual([])
-      // 39 characters fit at the minimum width; the longer one must end in an ellipsis
+      // 39 characters fit at the minimum width (no tooltip); the longer one must end in an ellipsis, full text in the tooltip
       if (login.length > 39) expect(await line.evaluate((el) => getComputedStyle(el).textOverflow === 'ellipsis' && el.scrollWidth > el.clientWidth), 'login ends in an ellipsis').toBe(true)
+      await tooltip(win, line, login.length > 39 ? `Signed in as ${login}` : null)
       await expect(card.getByRole('button', { name: 'Sign out' })).toBeInViewport({ ratio: 1 })
       await card.getByRole('button', { name: 'Sign out' }).click()
     }

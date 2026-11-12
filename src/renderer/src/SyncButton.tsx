@@ -101,7 +101,7 @@ export function SyncButton(p: { repo: string; onError(e: unknown, retry?: () => 
           aria-label={primary?.label ?? label}
           onPress={() => (primary ? primary.run() : op && run(op))}
         >
-          <span className={s.triggerText} title={st?.remote ? undefined : 'This repository has no remote'}>
+          <span className={s.triggerText} data-tip={st?.remote ? undefined : 'This repository has no remote'}>
             {primary?.label ?? label}
             <small>{st?.lastFetched ? `Fetched ${ago(st.lastFetched)}` : st?.remote ? 'Never fetched' : ''}</small>
           </span>

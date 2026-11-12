@@ -62,7 +62,7 @@ export function PullRequests({ repo, state }: { repo: string; state: ProviderSta
   else if (pulls.error?.message === GITHUB_NOT_VISIBLE)
     main = (
       <div className={`${a.card} ${s.signin}`} role="region" aria-label="GitHub App cannot see the repository">
-        <p className={`${s.login} ${s.strong}`} title={`GitHub App cannot see ${project}`}>
+        <p className={`${s.login} ${s.strong}`}>
           GitHub App cannot see {project}
         </p>
         <p>Install the GitHub App on this repository (or ask its owner to), then refresh.</p>
@@ -82,7 +82,7 @@ export function PullRequests({ repo, state }: { repo: string; state: ProviderSta
   else
     main = (
       <div className={`${a.card} ${s.signin}`} role="region" aria-label="GitHub account">
-        <p className={`${s.login} ${s.strong}`} title={`Signed in as ${login}`}>
+        <p className={`${s.login} ${s.strong}`}>
           Signed in as {login}
         </p>
         {!persisted && <p>No OS keychain available: you stay signed in for this session only.</p>}
@@ -95,7 +95,7 @@ export function PullRequests({ repo, state }: { repo: string; state: ProviderSta
       <aside className={a.side}>
         {signedIn && (
           <div className={pc.sideHeader}>
-            <span className={pc.grow} title={project}>
+            <span className={pc.grow}>
               {project}
             </span>
             <Button className="ghost" aria-label="Refresh pull requests" onPress={() => void pulls.refetch()}>
@@ -105,7 +105,7 @@ export function PullRequests({ repo, state }: { repo: string; state: ProviderSta
         )}
         {signedIn && canCreate && (
           <Button className={s.more} onPress={() => (setCreateError(null), void window.mendel['github:createPull']({ repo }).catch((e: Error) => setCreateError(e.message)))}>
-            <span title={`Create pull request from ${current!.name}`}>Create pull request</span>
+            <span data-tip={`Create pull request from ${current!.name}`}>Create pull request</span>
           </Button>
         )}
         {signedIn && canCreate && createError && (
@@ -128,10 +128,10 @@ export function PullRequests({ repo, state }: { repo: string; state: ProviderSta
                   <>
                     {isSelected && <Highlight id="sel-pulls" />}
                     <span className={pc.changeText}>
-                      <span className={pc.subject} title={p.title}>
+                      <span className={pc.subject}>
                         {p.title}
                       </span>
-                      <span className={pc.meta} title={`${p.draft ? 'Draft · ' : ''}#${p.number} · ${p.user.login} · ${ago(Date.parse(p.updated_at))}`}>
+                      <span className={pc.meta} data-tip={`${p.draft ? 'Draft · ' : ''}#${p.number} · ${p.user.login} · ${ago(Date.parse(p.updated_at))}`}>
                         {p.draft && <span className={s.draft}>Draft</span>}#{p.number} · {p.user.login} · {ago(Date.parse(p.updated_at))}
                       </span>
                     </span>
@@ -189,10 +189,10 @@ function PullDetail({ repo, project, pr }: { repo: string; project: string; pr: 
     <div className={`${pc.detail} ${s.pull}`}>
       <header className={pc.detailHeader}>
         <h2>{pr.title}</h2>
-        <div className={pc.meta} title={`${pr.draft ? 'Draft · ' : ''}#${pr.number} · ${pr.user.login} · updated ${ago(Date.parse(pr.updated_at))}`}>
+        <div className={pc.meta} data-tip={`${pr.draft ? 'Draft · ' : ''}#${pr.number} · ${pr.user.login} · updated ${ago(Date.parse(pr.updated_at))}`}>
           {pr.draft && <span className={s.draft}>Draft</span>}#{pr.number} · {pr.user.login} · updated {ago(Date.parse(pr.updated_at))}
         </div>
-        <div className={pc.meta} title={`${head} → ${pr.base.ref}`} aria-label="Branches">
+        <div className={pc.meta} aria-label="Branches">
           {head} → {pr.base.ref}
         </div>
         <div className={pc.toolbarRow}>
@@ -202,12 +202,12 @@ function PullDetail({ repo, project, pr }: { repo: string; project: string; pr: 
           </Button>
           {/* visible for keyboard users (a disabled button takes no focus); screen readers get it as the button's description */}
           {fork && (
-            <span id={reason} className={pc.meta} title={FORK} aria-hidden>
+            <span id={reason} className={pc.meta} aria-hidden>
               {FORK}
             </span>
           )}
           {notice && (
-            <span role={notice.error ? 'alert' : 'status'} className={notice.error ? a.error : pc.meta} title={notice.text}>
+            <span role={notice.error ? 'alert' : 'status'} className={notice.error ? a.error : pc.meta}>
               {notice.text}
             </span>
           )}

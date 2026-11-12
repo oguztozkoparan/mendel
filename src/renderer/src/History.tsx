@@ -112,12 +112,10 @@ export function HistoryView(p: { repo: string; decorate?: (c: CommitSummary) => 
           </select>
           {/* Current branch, unfiltered, HEAD unpushed: there is something to edit. */}
           {!ref && !filtered && commits[0]?.unpushed && (
-            // Icon-only so the branch name keeps its width; the span carries the native tooltip (RAC Button takes no title).
-            <span title="Edit unpushed commits…" className={s.editUnpushed}>
-              <Button className="ghost" aria-label="Edit unpushed commits…" onPress={() => setRebasing(true)}>
-                <ListTodo size={14} aria-hidden />
-              </Button>
-            </span>
+            // Icon-only so the branch name keeps its width.
+            <Button className="ghost" aria-label="Edit unpushed commits…" onPress={() => setRebasing(true)}>
+              <ListTodo size={14} aria-hidden />
+            </Button>
           )}
         </div>
         <div className={s.filters}>
@@ -309,7 +307,7 @@ function CommitView(p: { repo: string; sha: string; pick?: 'cherry-pick' | 'reve
       <h2 className={s.title}>{summary}</h2>
       {/* concept .who: one muted line; full SHA, emails and absolute dates live in the tooltips */}
       <p className={s.who}>
-        <span title={`Author: ${d.author}, ${date(d.authorDate)}${d.committer !== d.author ? `\nCommitter: ${d.committer}, ${date(d.committerDate)}` : ''}`}>
+        <span data-tip={`Author: ${d.author}, ${date(d.authorDate)}${d.committer !== d.author ? `\nCommitter: ${d.committer}, ${date(d.committerDate)}` : ''}`}>
           {name(d.author)} committed {ago(d.authorDate)}
         </span>
         {' · '}
@@ -318,13 +316,13 @@ function CommitView(p: { repo: string; sha: string; pick?: 'cherry-pick' | 'reve
           aria-label={`${copied ? 'Copied' : 'Copy'} SHA ${d.sha}`}
           onPress={() => void window.mendel['app:copy']({ text: d.sha }).then(() => setCopied(true))}
         >
-          <code title={`${d.sha}\n${date(d.committerDate)}\nClick to copy`}>{d.sha.slice(0, 7)}</code>
+          <code data-tip={`${d.sha}\n${date(d.committerDate)}\nClick to copy`}>{d.sha.slice(0, 7)}</code>
           {copied && <span aria-hidden> copied</span>}
         </Button>
         {d.parents.length > 0 && (
           <>
             {' · '}
-            {d.parents.length > 1 ? 'parents' : 'parent'} <code title={d.parents.join('\n')}>{d.parents.map((x) => x.slice(0, 7)).join(' ')}</code>
+            {d.parents.length > 1 ? 'parents' : 'parent'} <code data-tip={d.parents.join('\n')}>{d.parents.map((x) => x.slice(0, 7)).join(' ')}</code>
           </>
         )}
       </p>

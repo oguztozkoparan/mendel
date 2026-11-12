@@ -182,7 +182,7 @@ export function ChangesView(p: {
                   <>
                     {isSelected && <Highlight id="sel-files" />}
                     <Box label="Staged" selected={fullyStaged(f)} indeterminate={!!f.staged && !!f.unstaged} onChange={(v) => setStaged([f], v)} />
-                    <span className={s.path} title={f.origPath ? `${f.origPath} → ${f.path}` : f.path}>
+                    <span className={s.path} data-tip={f.origPath ? `${f.origPath} → ${f.path}` : undefined}>
                       {f.path}
                     </span>
                     <span className={s.letter} data-status={statusLetter(f)} aria-label={`status ${statusLetter(f)}`}>

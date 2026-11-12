@@ -41,6 +41,10 @@ function Choice<T extends string | number>(p: { label: string; value: T; options
   )
 }
 
+/** Soft themes are token overrides on top of their base scheme (global.css); the others clear them. */
+export const applyTheme = (theme: Settings['theme']) =>
+  theme.startsWith('soft-') ? (document.documentElement.dataset.theme = theme) : delete document.documentElement.dataset.theme
+
 /** Resolves when the OS-level color scheme flips after a theme change, or after 200ms when it does not change. */
 const schemeChange = () =>
   new Promise<void>((done) => {
@@ -77,7 +81,19 @@ export function SettingsDialog(p: { repo?: string; section?: string; onClose(): 
             ))}
           </TabList>
           <TabPanel id="General" className={s.panel}>
-            <Choice label="Theme" value={st.theme} options={[['system', 'System'], ['light', 'Light'], ['dark', 'Dark']]} onChange={(theme) => withTransition(() => Promise.all([schemeChange(), set({ theme })]))} />
+            <Choice
+              label="Theme"
+              value={st.theme}
+              options={[['system', 'System'], ['light', 'Light'], ['dark', 'Dark'], ['soft-dark', 'Soft dark'], ['soft-light', 'Soft light']]}
+              onChange={(theme) =>
+                withTransition(() => {
+                  applyTheme(theme)
+                  // Dark <-> Soft dark (or Light <-> Soft light) keeps the OS scheme: nothing to wait for.
+                  const same = theme !== 'system' && theme.endsWith('dark') === matchMedia('(prefers-color-scheme: dark)').matches
+                  return Promise.all([same || schemeChange(), set({ theme })])
+                })
+              }
+            />
             <Row label="Accent">
               <Segmented
                 label="Accent"
@@ -288,7 +304,7 @@ function RepoSection({ repo }: { repo?: string }) {
       {repo && st && (
         <>
           <Row label="Provider">
-            <span className={a.path} title={current}>
+            <span className={a.path}>
               {current}
             </span>
           </Row>
@@ -314,7 +330,7 @@ function GerritSection({ repo }: { repo?: string }) {
     <div className={s.providerHead}>
       <strong id="provider-gerrit">Gerrit</strong>
       {gerrit && <span className={s.live} aria-hidden />}
-      <span className={s.providerHost} title={host}>
+      <span className={s.providerHost}>
         {host}
       </span>
     </div>
@@ -364,13 +380,13 @@ function GithubSection({ repo }: { repo?: string }) {
       <div className={s.providerHead}>
         <strong id="provider-github">GitHub</strong>
         {github && <span className={s.live} aria-hidden />}
-        <span className={s.providerHost} title={host}>
+        <span className={s.providerHost}>
           {host}
         </span>
       </div>
       {account.isSuccess && (
         <Row label="Account">
-          <span className={a.path} title={status}>
+          <span className={a.path}>
             {status}
           </span>
           {login ? (

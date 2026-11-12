@@ -313,7 +313,8 @@ test('Create pull request opens the compare page of the upstream branch; absent 
     const opened = () => app.evaluate(() => (globalThis as { __opened?: string }).__opened)
     await signIn(win)
     const create = win.getByRole('button', { name: 'Create pull request' })
-    await expect(create.getByTitle('Create pull request from feat/a#b')).toBeVisible()
+    await create.hover()
+    await expect(win.getByRole('tooltip')).toHaveText('Create pull request from feat/a#b')
     await create.click()
     await expect.poll(opened).toBe('https://github.com/o/r/compare/feat%2Fa%23b?expand=1')
 

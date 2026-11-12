@@ -5,6 +5,7 @@ import { createRoot } from 'react-dom/client'
 import { App } from './App'
 import './global.css'
 import { installPress } from './motion'
+import { Tooltips } from './Tooltips'
 
 void window.mendel['app:info']().then((info) => {
   document.documentElement.dataset.platform = info.platform
@@ -30,6 +31,7 @@ createRoot(document.getElementById('root')!).render(
     <QueryClientProvider client={queryClient}>
       <MotionConfig reducedMotion="user">
         <App />
+        <Tooltips />
       </MotionConfig>
     </QueryClientProvider>
   </StrictMode>

@@ -195,7 +195,7 @@ export type OpInProgress = 'merge' | 'rebase' | 'cherry-pick' | 'revert' | null
 /** User preferences (PLAN.md §6), persisted in userData/settings.json. Each field is validated on load and on change. */
 const prefs = z
   .object({
-    theme: z.enum(['system', 'light', 'dark']),
+    theme: z.enum(['system', 'light', 'dark', 'soft-dark', 'soft-light']),
     accent: z.enum(['cyan', 'cobalt', 'violet', 'fuchsia', 'graphite']),
     reopenLastRepo: z.boolean(),
     confirmDiscard: z.boolean(),
