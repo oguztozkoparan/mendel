@@ -8,6 +8,7 @@ import { z } from 'zod'
 import { SHA_PREFIX, TRAILER_KEY } from './historyQuery'
 import { GERRIT_OPS, MAX_TERM, MAX_TERMS, MAX_TEXT } from './gerritQuery'
 import { draftSchema, HASHTAG, PUSH_OPTION_VALUE, type GerritChange, type GerritCommit, type GerritSent, type GerritChangeLists, type GerritComment, type GerritConnected, type GerritDiff, type GerritFiles, type GerritRelated, type GerritSearchPage } from './gerrit'
+import { gitConfigWriteSchema, gitProfileNameSchema, type GitConfigValues, type GitProfile, type RepoGitConfig } from './gitConfig'
 import type { GithubDeviceCode, GithubPulls, GithubSignedIn } from './github'
 
 const res = <Res>() => <Req extends z.ZodType>(req: Req) => ({ req, res: null as unknown as Res })
@@ -486,11 +487,26 @@ export const invoke = {
   'settings:tools': res<{ editors: ExternalTool[]; terminals: ExternalTool[] }>()(z.undefined()),
   /** Native file picker for a custom editor/terminal executable; resolves with all settings (unchanged if cancelled). */
   'settings:pickTool': res<Settings>()(z.object({ kind: z.enum(['editor', 'terminal']) }).strict()),
-  /** Global git identity used for commits (`git config --global user.name/email`). */
-  'settings:gitIdentity': res<{ name: string; email: string }>()(z.undefined()),
-  'settings:setGitIdentity': res<void>()(
-    z.object({ name: z.string().trim().min(1).max(200).regex(/^[^\0-\x1f]*$/), email: z.string().trim().min(1).max(200).regex(/^[^\0-\x1f\s<>]*$/) }).strict()
-  ),
+  /** Global git identity and signing config (`git config --global`, allow-listed keys of shared/gitConfig.ts). */
+  'settings:gitIdentity': res<GitConfigValues>()(z.undefined()),
+  /** '' unsets a key, an absent field is left untouched (the Welcome form sends only name and email). */
+  'settings:setGitIdentity': res<void>()(gitConfigWriteSchema),
+  /** Open the global git config file in the external editor; rejects while no global file exists. */
+  'settings:openGitConfig': res<void>()(z.undefined()),
+  /** Git config profiles (userData/git-profiles/) with their allow-listed values. */
+  'settings:gitProfiles': res<GitProfile[]>()(z.undefined()),
+  /** Rejects a name already used (ignoring case). */
+  'settings:createGitProfile': res<void>()(z.object({ name: gitProfileNameSchema, values: gitConfigWriteSchema }).strict()),
+  /** Rename and set fields ('' unsets, absent = untouched). */
+  'settings:updateGitProfile': res<void>()(z.object({ id: z.uuid(), name: gitProfileNameSchema, values: gitConfigWriteSchema }).strict()),
+  /** Delete after a native confirm; false = cancelled. */
+  'settings:deleteGitProfile': res<boolean>()(z.object({ id: z.uuid() }).strict()),
+  /** The open repository's assigned profile and effective identity/signing values with their sources. */
+  'settings:repoGitConfig': res<RepoGitConfig>()(inRepo),
+  /** Assign a profile to the repository (null: unassign); main resolves the path from the repo id. */
+  'settings:assignGitProfile': res<void>()(z.object({ repo: repoId, profileId: z.uuid().nullable() }).strict()),
+  /** Set the repository's own values (`git config --local`; '' unsets, absent = untouched); main resolves the path. */
+  'settings:setRepoGitConfig': res<void>()(z.object({ repo: repoId, values: gitConfigWriteSchema }).strict()),
   'settings:openLogs': res<void>()(z.undefined()),
   /** Detect the repo's provider (cached per host; probes unknown hosts, 3 s timeout). */
   'provider:get': res<ProviderState>()(inRepo),
