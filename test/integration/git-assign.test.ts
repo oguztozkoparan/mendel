@@ -41,7 +41,9 @@ describe('git profile assignment', () => {
     sh(['init', '-q', r])
     return r
   }
-  const gitDir = (r: string) => realpathSync.native(path.join(r, '.git')).replace(/\\/g, '/')
+  /** The repository's git dir as the index stores it (native), and as the include pattern has it (forward slashes). */
+  const nativeGitDir = (r: string) => realpathSync.native(path.join(r, '.git'))
+  const gitDir = (r: string) => nativeGitDir(r).replace(/\\/g, '/')
   const includes = () => {
     try {
       return sh(['config', '--global', '--get-all', 'include.path']).split('\n')
@@ -77,8 +79,10 @@ describe('git profile assignment', () => {
     await assignProfile(dir, 'ra', a, work.id, env)
     expect(generated()).toEqual(sections(a, work.id))
     expect(includes()).toEqual([user, assignmentsFile(dir)])
+    const raw = profileFile(dir, work.id).replaceAll('\\', '\\\\')
     expect(readFileSync(assignmentsFile(dir), 'utf8')).toBe(
-      `[includeIf "${COND}${gitDir(a)}"]\n\tpath = ${profileFile(dir, work.id)}\n[includeIf "${COND}${gitDir(a)}/worktrees/"]\n\tpath = ${profileFile(dir, work.id)}\n`
+      // git escapes the backslashes of a Windows path in the file
+      `[includeIf "${COND}${gitDir(a)}"]\n\tpath = ${raw}\n[includeIf "${COND}${gitDir(a)}/worktrees/"]\n\tpath = ${raw}\n`
     )
 
     await assignProfile(dir, 'rb', b, work.id, env)
@@ -127,7 +131,7 @@ describe('git profile assignment', () => {
 
     // Re-assign from the worktree: one assignment per repository, replaced.
     await assignProfile(dir, 'rwt', wt, home.id, env)
-    expect(index().assignments).toEqual([{ gitDir: gitDir(a), repoId: 'rwt', profileId: home.id }])
+    expect(index().assignments).toEqual([{ gitDir: nativeGitDir(a), repoId: 'rwt', profileId: home.id }])
     expect([email(a), email(wt), sh(['config', 'user.name'], a)]).toEqual(['h@example.com', 'h@example.com', 'Test User'])
     expect((await repoGitConfig(dir, 'ra', a, env)).fields.name).toEqual({ value: 'Test User', source: 'global', project: null, inProfile: false })
 
@@ -172,6 +176,7 @@ describe('git profile assignment', () => {
     await assignProfile(dir, 'ra', a, work.id, env)
     await assignProfile(dir, 'rg', gone, work.id, env)
     const goneDir = gitDir(gone)
+    const goneNative = nativeGitDir(gone)
     rmSync(gone, { recursive: true })
     const moved = path.join(tmp, 'moved')
     renameSync(a, moved)
@@ -179,8 +184,8 @@ describe('git profile assignment', () => {
     expect((await repoGitConfig(dir, 'ra', moved, env)).profile).toEqual({ id: work.id, name: 'Work' })
     expect(email(moved)).toBe('w@example.com')
     expect(index().assignments).toEqual([
-      { gitDir: gitDir(moved), repoId: 'ra', profileId: work.id },
-      { gitDir: goneDir, repoId: 'rg', profileId: work.id }
+      { gitDir: nativeGitDir(moved), repoId: 'ra', profileId: work.id },
+      { gitDir: goneNative, repoId: 'rg', profileId: work.id }
     ])
     expect(generated()).toEqual([...sections(moved, work.id), `includeif.${COND}${goneDir}.path=${profileFile(dir, work.id)}`, `includeif.${COND}${goneDir}/worktrees/.path=${profileFile(dir, work.id)}`])
   }, 30_000)
@@ -213,8 +218,8 @@ describe('git profile assignment', () => {
       expect(email(b)).toBe('w@example.com')
       expect(email(c)).toBe('test@example.com')
       expect(index().assignments).toEqual([
-        { gitDir: gitDir(moved), repoId: 'ra', profileId: work.id },
-        { gitDir: gitDir(b), repoId: 'rb', profileId: work.id }
+        { gitDir: nativeGitDir(moved), repoId: 'ra', profileId: work.id },
+        { gitDir: nativeGitDir(b), repoId: 'rb', profileId: work.id }
       ])
       expect(generated()).toEqual([...sections(moved, work.id), ...sections(b, work.id)])
 
