@@ -333,7 +333,7 @@ github.com only; main in `src/main/providers/github/` (`detect.ts`, `client.ts`)
 
 | Section | Contents |
 |---|---|
-| General | Theme: System / Light / Dark / Soft dark / Soft light · Default clone folder · External editor (auto-detected list + custom command) · Terminal (auto-detected + custom) · Reopen last repo on start · Confirm before discard (on) |
+| General | Theme: System / Light / Dark / Vesper / Lauds · Default clone folder · External editor (auto-detected list + custom command) · Terminal (auto-detected + custom) · Reopen last repo on start · Confirm before discard (on) |
 | Git | Detected git path + version (read-only) · Global `user.name` / `user.email` (edit) · Auto-fetch interval (off / 5 / 15 / 30 min, default 15) · Default pull strategy for repos without provider (merge / rebase) |
 | Commit | Summary soft limit (default 72) · Show 72-col ruler in description · Spellcheck on/off |
 | Providers → This repository | Detected provider of the open repo · "Repository provider…" (override, below) |
@@ -374,7 +374,7 @@ Native expectations:
 - **Menus**: platform-native menu bar (macOS app menu with About, Check for Updates, Settings, Hide, Quit; File, Edit, View, Repository, Branch, Window, Help). Items enable/disable with state.
 - **Dialogs**: native folder picker; native message boxes for destructive confirms (discard, delete branch, abandon, submit).
 - **Notifications**: OS notification only when the window is unfocused and a long op finishes (clone, push/send for review, pull) or an update is ready.
-- **Theme**: follow OS light/dark live (`System` default); user override in settings: Light, Dark, or Soft dark / Soft light (the dark theme slightly lighter, the light theme slightly dimmer and warmer).
+- **Theme**: follow OS light/dark live (`System` default); user override in settings: Light, Dark, Vesper (dusk: an indigo slate, lighter than Dark) or Lauds (dawn: straw paper, dimmer and warmer than Light, with darker inks).
 - **Window**: restore size/position/maximized per display; single instance (second launch focuses existing window and opens its path argument, `mendel <dir>`); minimum size 720×600.
 - **Other**: drag a folder onto the window to open it; external links open in default browser; correct app icon per OS; macOS universal behavior (window close ≠ quit).
 
@@ -448,7 +448,7 @@ Test setup: e2e fixtures create temp repos + a local bare remote; a **mock Gerri
 - Rebase onto upstream: clean case rebases; conflict case shows banner.
 
 **Settings / native**
-- Theme System follows OS change; Dark override persists after restart; Soft dark / Soft light apply at once and persist after restart.
+- Theme System follows OS change; Dark override persists after restart; Vesper / Lauds apply at once and persist after restart.
 - Window size/position persist across restart; second launch focuses first instance.
 - Every shortcut in section 7 triggers its action (menu accelerator test).
 

@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { AnimatePresence } from 'motion/react'
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { Button, Checkbox, Dialog, Heading, Input, Label, Radio, RadioGroup, Tab, TabList, TabPanel, Tabs, TextField } from 'react-aria-components'
-import type { Settings, UpdateState } from '../../shared/ipc'
+import { themeScheme, type Settings, type UpdateState } from '../../shared/ipc'
 import a from './App.module.css'
 import c from './Changes.module.css'
 import { GerritConnectDialog } from './providers/gerrit/GerritConnectDialog'
@@ -41,9 +41,9 @@ function Choice<T extends string | number>(p: { label: string; value: T; options
   )
 }
 
-/** Soft themes are token overrides on top of their base scheme (global.css); the others clear them. */
+/** Vesper and Lauds are token overrides on top of their base scheme (global.css); the others clear them. */
 export const applyTheme = (theme: Settings['theme']) =>
-  theme.startsWith('soft-') ? (document.documentElement.dataset.theme = theme) : delete document.documentElement.dataset.theme
+  themeScheme(theme) !== theme ? (document.documentElement.dataset.theme = theme) : delete document.documentElement.dataset.theme
 
 /** Resolves when the OS-level color scheme flips after a theme change, or after 200ms when it does not change. */
 const schemeChange = () =>
@@ -84,12 +84,12 @@ export function SettingsDialog(p: { repo?: string; section?: string; onClose(): 
             <Choice
               label="Theme"
               value={st.theme}
-              options={[['system', 'System'], ['light', 'Light'], ['dark', 'Dark'], ['soft-dark', 'Soft dark'], ['soft-light', 'Soft light']]}
+              options={[['system', 'System'], ['light', 'Light'], ['dark', 'Dark'], ['vesper', 'Vesper'], ['lauds', 'Lauds']]}
               onChange={(theme) =>
                 withTransition(() => {
                   applyTheme(theme)
-                  // Dark <-> Soft dark (or Light <-> Soft light) keeps the OS scheme: nothing to wait for.
-                  const same = theme !== 'system' && theme.endsWith('dark') === matchMedia('(prefers-color-scheme: dark)').matches
+                  // Dark <-> Vesper (or Light <-> Lauds) keeps the OS scheme: nothing to wait for.
+                  const same = theme !== 'system' && (themeScheme(theme) === 'dark') === matchMedia('(prefers-color-scheme: dark)').matches
                   return Promise.all([same || schemeChange(), set({ theme })])
                 })
               }

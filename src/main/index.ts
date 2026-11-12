@@ -10,7 +10,7 @@ import { startReviewNotifier } from './review-notify'
 import log from './log'
 import { clearCurrent } from './repos'
 import { getSettings, onSettingsChanged } from './settings'
-import type { Settings } from '../shared/ipc'
+import { themeScheme } from '../shared/ipc'
 import { applyLoginShellPath } from './shell-path'
 import { buildMenu } from './menu'
 import { openCliRepo } from './cli'
@@ -63,10 +63,9 @@ function startApp(): void {
     hardenSession()
     registerIpc()
     if (!getSettings().reopenLastRepo) clearCurrent()
-    // nativeTheme knows only system/light/dark; a soft theme is its base scheme plus token overrides in the renderer.
-    const source = (t: Settings['theme']) => (t === 'soft-dark' ? 'dark' : t === 'soft-light' ? 'light' : t)
-    nativeTheme.themeSource = source(getSettings().theme)
-    onSettingsChanged((s) => (nativeTheme.themeSource = source(s.theme)))
+    // nativeTheme knows only system/light/dark; Vesper and Lauds are their base scheme plus token overrides in the renderer.
+    nativeTheme.themeSource = themeScheme(getSettings().theme)
+    onSettingsChanged((s) => (nativeTheme.themeSource = themeScheme(s.theme)))
     // Windows: Electron (a GUI-subsystem exe) cannot write to the pipe git reads the answer from, so the bridge
     // never works there; git uses its own credential helper (Git Credential Manager) and ssh-agent instead.
     const askpass = process.platform === 'win32' ? null : await startAskpassServer({

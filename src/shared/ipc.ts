@@ -195,7 +195,7 @@ export type OpInProgress = 'merge' | 'rebase' | 'cherry-pick' | 'revert' | null
 /** User preferences (PLAN.md §6), persisted in userData/settings.json. Each field is validated on load and on change. */
 const prefs = z
   .object({
-    theme: z.enum(['system', 'light', 'dark', 'soft-dark', 'soft-light']),
+    theme: z.enum(['system', 'light', 'dark', 'vesper', 'lauds']),
     accent: z.enum(['cyan', 'cobalt', 'violet', 'fuchsia', 'graphite']),
     reopenLastRepo: z.boolean(),
     confirmDiscard: z.boolean(),
@@ -223,6 +223,9 @@ const prefs = z
   })
   .strict()
 export type Settings = z.output<typeof prefs>
+
+/** Vesper (dusk) is a dark theme and Lauds (dawn, straw paper) a light one: their base scheme plus token overrides (global.css). */
+export const themeScheme = (t: Settings['theme']): 'system' | 'light' | 'dark' => (t === 'vesper' ? 'dark' : t === 'lauds' ? 'light' : t)
 export const settingsFields = prefs.shape
 
 /** An installed editor/terminal mendel can launch. */
