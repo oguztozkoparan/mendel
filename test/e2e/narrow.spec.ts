@@ -6,7 +6,7 @@ import { startGerritMock } from '../fixtures/gerrit-mock'
 import { mockPull, richBody, startGithubMock } from '../fixtures/github-mock'
 import { createRepoFixture } from '../fixtures/repo'
 import { connectGerrit, launchGerrit } from './gerrit'
-import { launchApp, openRepo } from './launch'
+import { hoverTip, launchApp, openRepo } from './launch'
 
 /** Elements that overflow sideways: wider content than box (not a horizontal scroller), or poking past the window edge. Content of a pull request body's code blocks and tables scrolls inside them (checked on its own). */
 const overflow = (win: Page) =>
@@ -57,16 +57,14 @@ const lastFileByKeyboard = async (win: Page, list: Loc, last: RegExp, diff: Loc)
 
 /** Hovers `loc`: its tooltip shows `text` fully inside the window; `null`: no tooltip shows (after the open delay). */
 const tooltip = async (win: Page, loc: ReturnType<Page['locator']>, text: string | RegExp | null) => {
-  await win.mouse.move(0, 0)
-  await loc.hover()
-  const tip = win.getByRole('tooltip')
   if (text === null) {
+    await win.mouse.move(0, 0)
+    await loc.hover()
     await win.waitForTimeout(1000)
-    await expect(tip).toHaveCount(0)
+    await expect(win.getByRole('tooltip')).toHaveCount(0)
     return
   }
-  await expect(tip).toHaveText(text)
-  await expect(tip).toBeInViewport({ ratio: 1 })
+  await expect(await hoverTip(win, loc, text)).toBeInViewport({ ratio: 1 })
 }
 
 /** Each sidebar tab's label: text box (from a Range over its text node) and its tab box. */

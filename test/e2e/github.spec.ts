@@ -3,7 +3,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { mockPull, richBody, startGithubMock, type GithubMock } from '../fixtures/github-mock'
 import { createRepoFixture } from '../fixtures/repo'
-import { launchApp, openRepo, type LaunchedApp } from './launch'
+import { hoverTip, launchApp, openRepo, type LaunchedApp } from './launch'
 
 test('github.com remote → GitHub provider row, Pull requests tab and no Reviews tab; still GitHub after a relaunch', async () => {
   const fx = createRepoFixture()
@@ -249,8 +249,7 @@ test('pull request body: GitHub-flavoured Markdown, no raw HTML or images, links
     await expect(body.getByRole('link', { name: 'script link' })).toHaveCount(0)
     await body.getByText('script link', { exact: true }).click() // its own paragraph: plain text, opens nothing
     const external = body.getByRole('link', { name: 'external link' })
-    await external.hover()
-    await expect(win.getByRole('tooltip')).toHaveText('https://example.com/page\nClick to copy')
+    await hoverTip(win, external, 'https://example.com/page\nClick to copy')
     await external.click()
     await expect(body.getByRole('status')).toHaveText('Copied')
     expect(await copied()).toEqual(['https://example.com/page'])
@@ -389,8 +388,7 @@ test('Create pull request opens the compare page of the upstream branch; absent 
     const opened = () => app.evaluate(() => (globalThis as { __opened?: string }).__opened)
     await signIn(win)
     const create = win.getByRole('button', { name: 'Create pull request' })
-    await create.hover()
-    await expect(win.getByRole('tooltip')).toHaveText('Create pull request from feat/a#b')
+    await hoverTip(win, create, 'Create pull request from feat/a#b')
     await create.click()
     await expect.poll(opened).toBe('https://github.com/o/r/compare/feat%2Fa%23b?expand=1')
 
