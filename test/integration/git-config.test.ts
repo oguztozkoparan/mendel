@@ -5,7 +5,7 @@ import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { effectiveConfig, globalConfigFile, readConfig, writeConfig, type ConfigScope } from '../../src/main/git/config'
 import { gitConfigWriteSchema, MAX_CONFIG_NAME, MAX_CONFIG_SIGNING_KEY } from '../../src/shared/gitConfig'
-import { isolatedGitEnv } from '../fixtures/git-env'
+import { globalOrigin, isolatedGitEnv } from '../fixtures/git-env'
 
 const NONE = { name: null, email: null, signingKey: null, gpgSign: null, gpgFormat: null }
 // What isolatedGitEnv writes to the temp global config.
@@ -21,8 +21,7 @@ describe('git config per scope', () => {
     dir = realpathSync.native(mkdtempSync(path.join(tmpdir(), 'mendel-config-')))
     env = isolatedGitEnv(dir)
     // Guard: every --global read/write below must land in the temp dir, never in the machine's ~/.gitconfig.
-    const origin = sh(['config', '--global', '--show-origin', '--get', 'user.name'], dir)
-    const file = realpathSync.native(origin.slice('file:'.length, origin.indexOf('\t')))
+    const file = realpathSync.native(globalOrigin(env, 'user.name', dir))
     if (!file.startsWith(dir + path.sep)) throw new Error(`Global git config is not isolated (${file}); refusing to run`)
     repo = path.join(dir, 'repo')
     sh(['init', '-q', repo], dir)
@@ -195,8 +194,7 @@ describe('globalConfigFile: the file git itself uses for --global', () => {
   /** Where `git config --global` writes, and that globalConfigFile names the same file. */
   const gitWrites = (env: NodeJS.ProcessEnv) => {
     execFileSync('git', ['config', '--global', 'mendel.probe', 'x'], { cwd: dir, env })
-    const origin = execFileSync('git', ['config', '--global', '--show-origin', '--get', 'mendel.probe'], { cwd: dir, env, encoding: 'utf8' })
-    return origin.slice('file:'.length, origin.indexOf('\t'))
+    return globalOrigin(env, 'mendel.probe', dir)
   }
 
   it('none: null (git would create ~/.gitconfig)', () => {

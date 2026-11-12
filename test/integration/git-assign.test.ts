@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { writeConfig } from '../../src/main/git/config'
 import { assignmentsFile, assignProfile, createProfile, deleteProfile, followMovedRepo, listProfiles, parseIndex, profileFile, profileUsage, repoGitConfig } from '../../src/main/gitProfiles'
 import log from '../../src/main/log'
-import { isolatedGitEnv } from '../fixtures/git-env'
+import { globalOrigin, isolatedGitEnv } from '../fixtures/git-env'
 
 const A = '0b7c3c1e-6a4f-4f3e-9f53-1b2a3c4d5e6f'
 const COND = process.platform === 'win32' || process.platform === 'darwin' ? 'gitdir/i:' : 'gitdir:'
@@ -59,8 +59,7 @@ describe('git profile assignment', () => {
     tmp = realpathSync.native(mkdtempSync(path.join(tmpdir(), 'mendel-assign-')))
     env = isolatedGitEnv(tmp)
     // Guard: every --global read/write below must land in the temp dir, never in the machine's ~/.gitconfig.
-    const origin = sh(['config', '--global', '--show-origin', '--get', 'user.name'])
-    globalFile = realpathSync.native(origin.slice('file:'.length, origin.indexOf('\t')))
+    globalFile = realpathSync.native(globalOrigin(env, 'user.name', tmp))
     if (!globalFile.startsWith(tmp + path.sep)) throw new Error(`Global git config is not isolated (${globalFile}); refusing to run`)
     dir = path.join(tmp, 'git-profiles')
   })
@@ -140,7 +139,8 @@ describe('git profile assignment', () => {
   }, 30_000)
 
   it('a repository path with spaces, quotes and glob characters matches only itself', async () => {
-    const odd = repo(process.platform === 'win32' ? "it's [x] *" : `it's "q" [x] *`)
+    // Windows file names cannot hold `"` or `*`: the bracket class is the glob there
+    const odd = repo(process.platform === 'win32' ? "it's [x] y" : `it's "q" [x] *`)
     const near = repo(process.platform === 'win32' ? "it's x y" : `it's "q" x y`) // what [x] * would match unescaped
     const work = await createProfile(dir, 'Work', { email: 'w@example.com' }, env)
     await assignProfile(dir, 'odd', odd, work.id, env)
@@ -254,7 +254,7 @@ describe('git profile assignment', () => {
 
   it('profile files under a symlinked path with a space still read as the profile (include.path string = git origin)', async () => {
     mkdirSync(path.join(tmp, 'real', 'Application Support'), { recursive: true })
-    symlinkSync(path.join(tmp, 'real'), path.join(tmp, 'link'))
+    symlinkSync(path.join(tmp, 'real'), path.join(tmp, 'link'), 'junction') // junction: a directory link Windows allows without privileges; ignored elsewhere
     dir = path.join(tmp, 'link', 'Application Support', 'git-profiles')
     const a = repo('a')
     const work = await createProfile(dir, 'Work', { email: 'w@example.com' }, env)
