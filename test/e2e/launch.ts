@@ -54,8 +54,9 @@ export async function openRepo({ app, win }: Pick<LaunchedApp, 'app' | 'win'>, d
 }
 
 /**
- * Hovers `loc` until the app's tooltip shows `text`. Retried: the test's synthetic pointer competes with the real one
- * (xvfb's cursor on CI, a developer's mouse), whose move or leave rightly closes a tooltip before it is seen.
+ * Hovers `loc` until the app's tooltip shows `text`, fully inside the window. Retried as a whole: the test's synthetic
+ * pointer competes with the real one (xvfb's cursor on CI, a developer's mouse), whose move or leave rightly closes a
+ * tooltip, before it shows or just after.
  */
 export async function hoverTip(win: Page, loc: Locator, text: string | RegExp): Promise<Locator> {
   const tip = win.getByRole('tooltip')
@@ -63,6 +64,7 @@ export async function hoverTip(win: Page, loc: Locator, text: string | RegExp): 
     await win.mouse.move(0, 0)
     await loc.hover()
     await expect(tip).toHaveText(text, { timeout: 2000 })
+    await expect(tip).toBeInViewport({ ratio: 1, timeout: 1000 })
   }).toPass({ timeout: 20_000 })
   return tip
 }

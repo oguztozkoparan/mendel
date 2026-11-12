@@ -64,7 +64,7 @@ const tooltip = async (win: Page, loc: ReturnType<Page['locator']>, text: string
     await expect(win.getByRole('tooltip')).toHaveCount(0)
     return
   }
-  await expect(await hoverTip(win, loc, text)).toBeInViewport({ ratio: 1 })
+  await hoverTip(win, loc, text)
 }
 
 /** Each sidebar tab's label: text box (from a Range over its text node) and its tab box. */
