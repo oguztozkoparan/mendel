@@ -122,13 +122,11 @@
   cursor: text;
 }
 
-/* concept .detail p; the gap above is margin, so text scrolling inside the capped message does not run up against the buttons */
+/* concept .detail p; the gap above is margin, so text scrolling inside the capped message does not run up against the buttons.
+   The box spans the pane (its scrollbar sits at the pane edge); the right padding keeps the text column at 68ch. */
 .message {
-  max-width: 68ch;
   margin: 16px 0 0;
-  padding: 0 26px;
-  font: inherit;
-  white-space: pre-wrap;
+  padding: 0 max(26px, calc(100% - 68ch - 26px)) 0 26px;
   overflow-wrap: anywhere;
 }
 

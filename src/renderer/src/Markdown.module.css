@@ -1,7 +1,12 @@
-/* Rendered Markdown in a pane (a pull request body): headings below the pane's title, wide blocks scroll inside themselves. */
+/* Rendered Markdown in a pane (a pull request body, a commit message): headings below the pane's title, wide blocks scroll inside themselves. */
 .markdown {
   line-height: 1.5;
   overflow-wrap: anywhere;
+}
+
+/* A commit message is hard-wrapped plain text first: its line breaks stay line breaks. */
+.lines p {
+  white-space: pre-wrap;
 }
 
 .markdown > :first-child {

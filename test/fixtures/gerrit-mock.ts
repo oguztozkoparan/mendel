@@ -95,7 +95,7 @@ export function defaultChanges(): MockChange[] {
           ref: 'refs/changes/01/101/2',
           commit: {
             subject: 'Add feature X',
-            message: `Add feature X\n\nAdds feature X behind a flag.\nKeeps **not bold** and <tag> as typed.\n\nChange-Id: I${'0'.repeat(37)}101\nReviewed-on: ${GERRIT_URL}/c/p/q/+/101\nSigned-off-by: Test User <test@example.com>\n`
+            message: `Add feature X\n\nAdds feature X behind a flag.\nKeeps **bold** and <tag> as typed.\nSee https://example.com/spec and ${GERRIT_URL}/c/p/q/+/90\n\nChange-Id: I${'0'.repeat(37)}101\nReviewed-on: ${GERRIT_URL}/c/p/q/+/101\nSigned-off-by: Test User <test@example.com>\n`
           },
           actions: {
             submit: { method: 'POST', label: 'Submit', title: 'Submit patch set 2 into main', enabled: true },
